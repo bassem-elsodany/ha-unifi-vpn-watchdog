@@ -128,3 +128,22 @@ def test_notify_endpoints_need_the_token_and_forward_the_choice(srv):
     assert call(base + "/api/notify/service", "POST", {"service": "notify.b"})[0] == 401
     assert call(base + "/api/notify/service", "POST", {"service": "notify.b"}, token="tok")[0] == 200 and app.chosen == "notify.b"
     assert call(base + "/api/notify/test", "POST", {}, token="tok")[0] == 200
+
+
+def test_settings_endpoints_need_token_and_round_trip(srv):
+    app, base = srv
+    app.get_settings = lambda: {"values": {"interval_seconds": 15}, "meta": {"ready": True}}
+    app.saved_form = None
+
+    def save(form):
+        app.saved_form = form
+        return "interval_seconds: Input should be greater than or equal to 5" if form.get("interval_seconds") == 1 else None
+
+    app.save_settings = save
+    assert call(base + "/api/settings")[0] == 401
+    assert json.loads(call(base + "/api/settings", token="tok")[1])["values"]["interval_seconds"] == 15
+    assert call(base + "/api/settings", "POST", {"values": {"interval_seconds": 30}})[0] == 401
+    assert call(base + "/api/settings", "POST", {"values": {"interval_seconds": 30}}, token="tok")[0] == 200
+    assert app.saved_form == {"interval_seconds": 30}
+    code, body = call(base + "/api/settings", "POST", {"values": {"interval_seconds": 1}}, token="tok")
+    assert code == 400 and "greater than or equal" in json.loads(body)["error"]

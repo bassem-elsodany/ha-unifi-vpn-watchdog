@@ -10,8 +10,11 @@ import tempfile
 import threading
 from pathlib import Path
 
+import yaml
+
 from .clock import Clock
-from .config import Config, ConfigError, NotifyCfg, load_config, parse_config
+from .config import Config, ConfigError, NotifyCfg, load_config, load_raw, parse_config
+from . import settings as settings_mod
 from .ha_api import SERVICE_RE, HaApi
 from .engine import Engine
 from .ha_mqtt import MqttPublisher
@@ -65,7 +68,7 @@ class App:
         cfg = self.cfg
         unifi = UniFiClient(cfg.unifi, cfg.naming_re(), dry_run=cfg.dry_run)
         tester = TunnelTester(cfg.probe, unifi, Prober(cfg.probe), self.clock)
-        notifier = Notifier(cfg.notifications, self.clock, dry_run=cfg.dry_run)
+        notifier = Notifier(cfg.notifications, self.clock, dry_run=cfg.dry_run, alerts=cfg.alerts)
         eng = Engine(cfg, unifi, tester, notifier, self.store, self.clock)
         if self.mqtt:
             eng.listeners.append(self.mqtt.publish)
@@ -83,6 +86,20 @@ class App:
             cfg.notifications.append(NotifyCfg(type="home_assistant", supervisor=True, service=svc))
 
     # ---- used by the web UI
+    def get_settings(self) -> dict:
+        return {"values": settings_mod.extract(self.cfg), "meta": settings_mod.meta(self.engine.last_snapshot()),
+                "dry_run": self.cfg.dry_run}
+
+    def save_settings(self, form: dict) -> str | None:
+        """Apply the settings form to config.yaml (validated; the previous file is kept as .bak)."""
+        try:
+            raw = load_raw(self.config_text())
+            new = settings_mod.apply(raw, form)
+        except (KeyError, ValueError, TypeError, AttributeError, ConfigError) as e:
+            return f"invalid settings: {type(e).__name__}: {e}"
+        header = "# Written by the VPN Watchdog settings form (comments are not kept; secrets stay as ${VAR} references).\n"
+        return self.save_text(header + yaml.safe_dump(new, sort_keys=False, allow_unicode=True))
+
     def current_notify_service(self) -> str | None:
         return next((n.service for n in self.cfg.notifications if n.type == "home_assistant"), None)
 
@@ -164,7 +181,7 @@ class App:
             self._apply_settings(self.cfg)
         except ConfigError as e:
             log.error("config reload rejected, keeping the previous config: %s", e)
-            self.engine.notifier.emit("config_error", "VPN watchdog config rejected", str(e)[:300], level="warning", key="cfg")
+            self.engine.notifier.emit("config_error", "VPN watchdog config rejected", str(e)[:300], level="warning", key="cfg", error=str(e)[:300])
             return
         old = self.engine
         self.engine = self._build()
@@ -196,7 +213,7 @@ class App:
             self.server.start()
         self.engine.notifier.emit("startup", "VPN watchdog started",
                                   f"{len(cfg.groups)} group(s), {'DRY-RUN (no changes)' if cfg.dry_run else 'LIVE'}",
-                                  key="startup")
+                                  key="startup", groups=len(cfg.groups), mode="DRY-RUN" if cfg.dry_run else "LIVE")
         while not self.stop_event.is_set():
             self.reload_if_changed()
             self.engine.tick()

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
+from .alerts import EVENTS, unknown_placeholders
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 
@@ -47,14 +48,14 @@ class NamingCfg(_M):
 
 class BlackholeCfg(_M):
     enabled: bool = True
-    min_tx_bps: int = 2000       # we are sending at least this much ...
-    samples: int = 6             # ... and received exactly nothing for this many polls in a row
+    min_tx_bps: int = Field(2000, ge=0)       # we are sending at least this much ...
+    samples: int = Field(6, ge=1)             # ... and received exactly nothing for this many polls in a row
 
 
 class DetectionCfg(_M):
-    failure_threshold: int = 3          # consecutive bad status polls before the tunnel is declared down
-    probe_failure_threshold: int = 2    # consecutive bad exit-IP probes before the tunnel is declared down
-    probe_interval_seconds: int = 30
+    failure_threshold: int = Field(3, ge=1)          # consecutive bad status polls before the tunnel is declared down
+    probe_failure_threshold: int = Field(2, ge=1)    # consecutive bad exit-IP probes before the tunnel is declared down
+    probe_interval_seconds: int = Field(30, ge=5)
     blackhole: BlackholeCfg = BlackholeCfg()
 
 
@@ -109,15 +110,15 @@ class ProbeCfg(_M):
 
 
 class QuarantineCfg(_M):
-    base_seconds: int = 120
+    base_seconds: int = Field(120, ge=10)
     factor: float = 2
     max_seconds: int = 3600
 
 
 class SwitchingCfg(_M):
-    connect_timeout_seconds: float = 40
-    min_hold_seconds: int = 60                  # minimum time between switches (hard failures bypass it)
-    max_switches_per_hour: int = 6
+    connect_timeout_seconds: float = Field(40, ge=5)
+    min_hold_seconds: int = Field(60, ge=0)                  # minimum time between switches (hard failures bypass it)
+    max_switches_per_hour: int = Field(6, ge=1)
     prefer_different_city: bool = True          # within a country, try other cities before other servers in the same city
     rename_route_to_tunnel: bool = True         # keep the route description equal to the active tunnel name
     quarantine: QuarantineCfg = QuarantineCfg()
@@ -126,14 +127,14 @@ class SwitchingCfg(_M):
 
 class FailbackCfg(_M):
     enabled: bool = True
-    check_interval_seconds: int = 120
-    stable_seconds: int = 300
+    check_interval_seconds: int = Field(120, ge=10)
+    stable_seconds: int = Field(300, ge=0)
 
 
 class StandbyCfg(_M):
-    warm: int = 2                # next N candidates kept enabled (connected) for instant failover
+    warm: int = Field(2, ge=0)                # next N candidates kept enabled (connected) for instant failover
     disable_unused: bool = True  # disable managed tunnels that are neither active nor warm
-    max_enabled: int = 6         # NordVPN allows 10 simultaneous connections per account
+    max_enabled: int = Field(6, ge=1)         # NordVPN allows 10 simultaneous connections per account
 
 
 class LadderStep(_M):
@@ -200,6 +201,12 @@ class MqttCfg(_M):
     base_topic: str = "vpn_watchdog"
 
 
+class AlertCfg(_M):
+    enabled: bool | None = None       # None = the default for that event
+    title: str | None = None
+    message: str | None = None
+
+
 class ServerCfg(_M):
     enabled: bool = True
     host: str = "0.0.0.0"
@@ -222,7 +229,7 @@ class GroupSettings(_M):
 
 class Config(_M):
     dry_run: bool = True                 # SAFE DEFAULT: log what would change, change nothing
-    interval_seconds: int = 15
+    interval_seconds: int = Field(15, ge=5)
     state_file: str = "/data/state.json"
     log: LogCfg = LogCfg()
     unifi: UnifiCfg
@@ -234,8 +241,27 @@ class Config(_M):
     standby: StandbyCfg = StandbyCfg()
     groups: list[GroupCfg]
     notifications: list[NotifyCfg] = Field(default_factory=list)
+    alerts: dict[str, AlertCfg] = Field(default_factory=dict)    # per event: on/off, title, message
     mqtt: MqttCfg = MqttCfg()
     server: ServerCfg = ServerCfg()
+
+    @model_validator(mode="after")
+    def _alerts_complete(self) -> "Config":
+        for name in self.alerts:
+            if name not in EVENTS:
+                raise ValueError(f"unknown alert {name!r}; known: {', '.join(EVENTS)}")
+        full: dict[str, AlertCfg] = {}
+        for name, d in EVENTS.items():
+            a = self.alerts.get(name, AlertCfg())
+            cfg = AlertCfg(enabled=d["enabled"] if a.enabled is None else a.enabled,
+                           title=a.title or d["title"], message=a.message or d["message"])
+            for field in ("title", "message"):
+                bad = unknown_placeholders(getattr(cfg, field))
+                if bad:
+                    raise ValueError(f"alerts.{name}.{field}: unknown placeholder(s) {bad}")
+            full[name] = cfg
+        self.alerts = full
+        return self
 
     @model_validator(mode="after")
     def _unique_groups(self) -> "Config":
@@ -302,6 +328,28 @@ def _restore(value: Any, found: list[re.Match[str]], env: dict[str, str]) -> Any
     if isinstance(value, dict):
         return {k: _restore(v, found, env) for k, v in value.items()}
     return value
+
+
+def load_raw(text: str) -> dict[str, Any]:
+    """YAML -> dict with `${VAR}` references left as literal text (for editors; parse_config resolves them)."""
+    safe, found = _protect(text)
+    try:
+        raw = yaml.safe_load(safe) or {}
+    except yaml.YAMLError as e:
+        raise ConfigError(f"invalid YAML: {e}") from e
+    if not isinstance(raw, dict):
+        raise ConfigError("config root must be a mapping")
+
+    def back(v: Any) -> Any:
+        if isinstance(v, str):
+            return re.sub(r"WDENVREF(\d+)X", lambda m: found[int(m.group(1))].group(0), v)
+        if isinstance(v, list):
+            return [back(x) for x in v]
+        if isinstance(v, dict):
+            return {k: back(x) for k, x in v.items()}
+        return v
+
+    return back(raw)
 
 
 def parse_config(text: str, env: dict[str, str] | None = None) -> Config:

@@ -19,33 +19,56 @@
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, sans-serif; }
-  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--card); }
-  h1 { font-size: 17px; margin: 0; margin-right: auto; }
-  main { padding: 16px; max-width: 1100px; margin: 0 auto; }
-  nav { display: flex; gap: 4px; margin-bottom: 14px; }
+  header { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--card); }
+  h1 { font-size: 17px; margin: 0 12px 0 0; }
+  main { padding: 16px 20px 90px; }                 /* left aligned, full width: no auto margins */
+  nav { display: flex; gap: 4px; margin-bottom: 14px; flex-wrap: wrap; }
   nav button { background: none; border: 0; padding: 8px 14px; border-radius: 8px; color: var(--muted); cursor: pointer; font: inherit; }
   nav button.on { background: var(--accentbg); color: var(--accent); font-weight: 600; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin-bottom: 14px; max-width: 980px; }
+  .card h3 { margin: 0 0 2px; font-size: 15px; }
+  .card > .sub { color: var(--muted); margin: 0 0 12px; }
   .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .grow { flex: 1; }
   .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
   .ok { color: var(--ok); background: var(--okbg); } .warn { color: var(--warn); background: var(--warnbg); }
   .bad { color: var(--bad); background: var(--badbg); } .info { color: var(--accent); background: var(--accentbg); }
-  .muted { color: var(--muted); }
-  .big { font-size: 20px; font-weight: 650; }
-  button.act, select, input[type=password] { font: inherit; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+  .muted { color: var(--muted); } .big { font-size: 19px; font-weight: 650; }
+  button.act, select, input[type=password], input[type=text], input[type=number] { font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+  input[type=number] { width: 90px; } input[type=text].wide { width: 100%; }
   button.act { cursor: pointer; } button.act:hover { border-color: var(--accent); }
   button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
   button:disabled { opacity: .5; cursor: not-allowed; }
   table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
   th { color: var(--muted); font-weight: 600; font-size: 12px; }
   tr.cur td:first-child { box-shadow: inset 3px 0 var(--accent); }
   textarea { width: 100%; min-height: 55vh; font: 13px/1.5 ui-monospace, Menlo, monospace; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); }
-  .banner { padding: 10px 14px; border-radius: 10px; margin-bottom: 14px; }
-  .ev { padding: 8px 0; border-bottom: 1px solid var(--line); }
-  .hide { display: none; }
+  .banner { padding: 10px 14px; border-radius: 10px; margin-bottom: 14px; max-width: 980px; }
+  .ev { padding: 8px 0; border-bottom: 1px solid var(--line); max-width: 980px; }
+  .hide { display: none !important; }
   pre.err { white-space: pre-wrap; color: var(--bad); margin: 8px 0 0; }
+
+  /* settings form */
+  .frow { display: grid; grid-template-columns: minmax(200px, 300px) 1fr; gap: 6px 18px; padding: 10px 0; border-top: 1px solid var(--line); align-items: start; }
+  .frow:first-of-type { border-top: 0; }
+  .flabel { font-weight: 600; } .help { color: var(--muted); font-weight: 400; font-size: 12.5px; margin-top: 2px; }
+  .summary { background: var(--accentbg); color: var(--accent); border-radius: 8px; padding: 8px 12px; margin-top: 8px; font-size: 13px; }
+  @media (max-width: 700px) { .frow { grid-template-columns: 1fr; } }
+  .sw { position: relative; display: inline-block; width: 42px; height: 24px; }
+  .sw input { opacity: 0; width: 0; height: 0; }
+  .sw span { position: absolute; inset: 0; background: var(--line); border-radius: 24px; cursor: pointer; transition: .15s; }
+  .sw span:before { content: ""; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .15s; }
+  .sw input:checked + span { background: var(--accent); } .sw input:checked + span:before { transform: translateX(18px); }
+  .net { display: inline-flex; align-items: center; gap: 6px; margin: 0 14px 6px 0; }
+  .step { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px dashed var(--line); }
+  .step select { max-width: 340px; }
+  .step .n { width: 22px; color: var(--muted); font-weight: 600; }
+  .chip { display: inline-block; background: var(--accentbg); color: var(--accent); border-radius: 6px; padding: 1px 7px; margin: 2px 4px 2px 0; font: 12px ui-monospace, Menlo, monospace; }
+  .alert { padding: 10px 0; border-top: 1px solid var(--line); }
+  .alert .head { display: flex; gap: 10px; align-items: center; margin-bottom: 6px; }
+  .alert .grid { display: grid; grid-template-columns: 70px 1fr; gap: 6px 10px; align-items: center; }
+  .savebar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--line); padding: 10px 20px; display: flex; gap: 10px; align-items: center; z-index: 5; }
 </style>
 </head>
 <body>
@@ -54,44 +77,38 @@
   <span id="mode" class="pill"></span>
   <button class="act" id="modeBtn"></button>
   <span class="muted" id="tick"></span>
+  <span class="grow"></span>
   <button class="act" id="checkNow">Check now</button>
   <button class="act" id="pauseAll">Pause all</button>
   <button class="act" id="resumeAll">Resume all</button>
 </header>
 <main>
   <div id="authbar" class="banner warn hide">
-    Read-only. Enter the control token to start / stop / switch / edit config:
+    Read-only. Enter the control token to change anything:
     <input type="password" id="token" placeholder="control token"> <button class="act" id="saveToken">Use</button>
   </div>
   <div id="errbar" class="banner bad hide"></div>
   <nav>
     <button data-tab="status" class="on">Status</button>
     <button data-tab="events">Events</button>
-    <button data-tab="config">Config</button>
+    <button data-tab="settings">Settings</button>
+    <button data-tab="advanced">Advanced (YAML)</button>
   </nav>
 
   <section id="tab-status"><div id="groups"></div>
-    <div class="card"><b>Tunnels</b>
-      <table><thead><tr><th>Tunnel<th>Enabled<th>Status<th>rx / tx<th>Quarantine<th>Last failure</tr></thead><tbody id="tunnels"></tbody></table>
+    <div class="card"><h3>Tunnels</h3>
+      <table><thead><tr><th>Tunnel<th>Enabled<th>Status<th>rx / tx<th>Cooling down<th>Last failure</tr></thead><tbody id="tunnels"></tbody></table>
     </div>
   </section>
 
   <section id="tab-events" class="hide"><div class="card" id="events"></div></section>
 
-  <section id="tab-config" class="hide">
-    <div class="card" id="notifyCard">
-      <b>Notifications</b>
-      <p class="muted" id="notifyHint">Pick the Home Assistant service that should receive alerts (failover, leak, no healthy tunnel).</p>
-      <div class="row">
-        <select id="notifySel"></select>
-        <button class="act" id="notifySave">Use this</button>
-        <button class="act" id="notifyTest">Send test</button>
-        <span id="notifyMsg"></span>
-      </div>
-    </div>
+  <section id="tab-settings" class="hide"><div id="settings"><div class="card muted">Loading settings...</div></div></section>
+
+  <section id="tab-advanced" class="hide">
     <div class="card">
-      <p class="muted">Edit the YAML, validate, then save. The watchdog reloads it within one cycle; an invalid file is never applied.
-      Secrets stay as <code>${VAR}</code> references and are not shown here. A backup of the previous file is kept as <code>config.yaml.bak</code>.</p>
+      <h3>Advanced: edit the YAML file directly</h3>
+      <p class="sub">Everything in Settings is also here, plus rules the form does not cover (custom server patterns, per-group overrides). It is validated before saving, a backup is kept as <code>config.yaml.bak</code>, and secrets stay as <code>${VAR}</code> references.</p>
       <textarea id="yaml" spellcheck="false"></textarea>
       <div class="row" style="margin-top:10px">
         <button class="act" id="reloadCfg">Reload from server</button>
@@ -104,12 +121,23 @@
   </section>
 </main>
 
+<div class="savebar hide" id="savebar">
+  <b>Unsaved changes</b><span class="muted">Applied within one check cycle after you save. Invalid values are rejected.</span>
+  <span class="grow"></span><span id="saveMsg"></span>
+  <button class="act" id="discard">Discard</button><button class="act primary" id="saveSettings">Save &amp; apply</button>
+</div>
+
 <script>
 const $ = (s) => document.querySelector(s);
-let status = null, token = null, cfgLoaded = false;
+let status = null, token = null, V = null, M = null, orig = "", notify = null;
 try { token = localStorage.getItem("wd_token"); } catch (e) {}
+// Open the page as  http://host:8080/#token=XXXX  once; the token is stored and removed from the address bar.
+if (location.hash.startsWith("#token=")) {
+  token = decodeURIComponent(location.hash.slice(7)); try { localStorage.setItem("wd_token", token); } catch (e) {}
+  history.replaceState(null, "", location.pathname + location.search);
+}
 
-// Relative URLs so the page also works behind Home Assistant ingress (/api/hassio_ingress/<id>/).
+// Relative URLs so the page also works behind Home Assistant ingress.
 async function api(path, method = "GET", body) {
   const headers = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = "Bearer " + token;
@@ -117,11 +145,13 @@ async function api(path, method = "GET", body) {
   let data = {}; try { data = await r.json(); } catch (e) {}
   return { ok: r.ok, status: r.status, data };
 }
-
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const ago = (ts) => { if (!ts) return "never"; const s = Math.max(0, Math.round(Date.now() / 1000 - ts)); return s < 90 ? s + "s ago" : Math.round(s / 60) + "m ago"; };
 const bps = (n) => n == null ? "-" : n > 1e6 ? (n / 1e6).toFixed(1) + " Mbps" : n > 1e3 ? (n / 1e3).toFixed(0) + " kbps" : n + " bps";
+const get = (o, p) => p.split(".").reduce((a, k) => (a == null ? a : a[k]), o);
+const set = (o, p, v) => { const ks = p.split("."); const last = ks.pop(); ks.reduce((a, k) => a[k], o)[last] = v; };
 
+/* ------------------------------------------------------------------ status */
 async function refresh() {
   const { ok, data } = await api("status");
   if (!ok) return;
@@ -133,8 +163,8 @@ async function refresh() {
   $("#mode").textContent = data.dry_run ? "DRY-RUN: nothing is changed" : "LIVE";
   $("#mode").className = "pill " + (data.dry_run ? "warn" : "ok");
   $("#modeBtn").textContent = data.dry_run ? "Go live" : "Switch to dry-run";
-  $("#tick").textContent = "last cycle " + ago(data.last_tick);
-  ["modeBtn", "checkNow", "pauseAll", "resumeAll", "saveCfg", "validate", "notifySave", "notifyTest"].forEach((id) => ($("#" + id).disabled = !can));
+  $("#tick").textContent = "last check " + ago(data.last_tick);
+  ["modeBtn", "checkNow", "pauseAll", "resumeAll", "saveCfg", "validate", "saveSettings"].forEach((id) => ($("#" + id).disabled = !can));
   renderGroups(data, can); renderTunnels(data); renderEvents(data);
 }
 
@@ -142,25 +172,24 @@ function renderGroups(d, can) {
   const root = $("#groups");
   const keep = {}; root.querySelectorAll("select[data-g]").forEach((s) => (keep[s.dataset.g] = s.value));
   root.innerHTML = Object.entries(d.groups).map(([name, g]) => {
-    const health = g.exhausted ? ["bad", "NO HEALTHY TUNNEL"] : g.paused ? ["info", "PAUSED"] : g.healthy ? ["ok", "HEALTHY"] : ["warn", "DEGRADED"];
+    const health = g.exhausted ? ["bad", "NO WORKING TUNNEL"] : g.paused ? ["info", "PAUSED"] : g.healthy ? ["ok", "HEALTHY"] : ["warn", "DEGRADED"];
     const jobs = [];
-    if (g.jobs.next_probe_in != null) jobs.push("next exit-IP probe in " + g.jobs.next_probe_in + "s");
-    if (g.jobs.next_failback_check_in != null) jobs.push("next failback check in " + g.jobs.next_failback_check_in + "s");
-    if (g.jobs.failback_target) jobs.push("failback candidate " + esc(g.jobs.failback_target) + (g.jobs.failback_stable_for != null ? " (stable " + g.jobs.failback_stable_for + "s)" : ""));
+    if (g.jobs.next_probe_in != null) jobs.push("next exit-IP test in " + g.jobs.next_probe_in + "s");
+    if (g.jobs.next_failback_check_in != null) jobs.push("next check of preferred tunnel in " + g.jobs.next_failback_check_in + "s");
+    if (g.jobs.failback_target) jobs.push("moving back to " + esc(g.jobs.failback_target) + (g.jobs.failback_stable_for != null ? " (stable " + g.jobs.failback_stable_for + "s)" : ""));
     const opts = g.ladder.map((n) => `<option ${keep[name] === n ? "selected" : ""}>${esc(n)}</option>`).join("");
-    const probe = g.last_probe ? `${g.last_probe.ok ? "ok" : "FAILED"}: ${esc(g.last_probe.ip || "")} ${esc(g.last_probe.country || "")} ${esc(g.last_probe.reason && !g.last_probe.ok ? g.last_probe.reason : "")}` : "no probe yet";
+    const probe = g.last_probe ? `${g.last_probe.ok ? "ok" : "FAILED"}: ${esc(g.last_probe.ip || "")} ${esc(g.last_probe.country || "")} ${esc(g.last_probe.reason && !g.last_probe.ok ? g.last_probe.reason : "")}` : "not tested yet";
     return `<div class="card">
-      <div class="row"><span class="big">${esc(name)}</span><span class="pill ${health[0]}">${health[1]}</span>
-        <span class="grow"></span>
-        <button class="act" ${can ? "" : "disabled"} onclick="act('groups/${encodeURIComponent(name)}/${g.paused ? "resume" : "pause"}')">${g.paused ? "Start (resume)" : "Stop (pause)"}</button></div>
-      <p>Active: <b>${esc(g.active || "none")}</b> <span class="muted">${esc(g.country || "")} ${esc(g.city || "")}</span></p>
-      <p class="muted">${esc(g.decision)}<br>status failures ${g.status_failures}, probe failures ${g.probe_failures}, switches last hour ${g.switches_last_hour}<br>last probe: ${probe}</p>
+      <div class="row"><span class="big">${esc(name)}</span><span class="pill ${health[0]}">${health[1]}</span><span class="grow"></span>
+        <button class="act" ${can ? "" : "disabled"} onclick="act('groups/${encodeURIComponent(name)}/${g.paused ? "resume" : "pause"}')">${g.paused ? "Start automatic failover" : "Stop automatic failover"}</button></div>
+      <p>Active tunnel: <b>${esc(g.active || "none")}</b> <span class="muted">${esc(g.country || "")} ${esc(g.city || "")}</span></p>
+      <p class="muted">${esc(g.decision)}<br>failed checks ${g.status_failures}, failed exit-IP tests ${g.probe_failures}, switches in the last hour ${g.switches_last_hour}<br>last exit-IP test: ${probe}</p>
       <p class="muted">${jobs.join(" &middot; ") || "no scheduled jobs"}</p>
       <div class="row"><select data-g="${esc(name)}">${opts}</select>
-        <button class="act" ${can ? "" : "disabled"} onclick="tunnelAct('${esc(name)}','test')">Test</button>
-        <button class="act primary" ${can ? "" : "disabled"} onclick="tunnelAct('${esc(name)}','switch')">Switch now</button></div>
+        <button class="act" ${can ? "" : "disabled"} onclick="tunnelAct('${esc(name)}','test')">Test it</button>
+        <button class="act primary" ${can ? "" : "disabled"} onclick="tunnelAct('${esc(name)}','switch')">Switch to it now</button></div>
     </div>`;
-  }).join("") || '<div class="card muted">No groups yet.</div>';
+  }).join("") || '<div class="card muted">No groups yet. Add one in Settings.</div>';
 }
 
 function renderTunnels(d) {
@@ -175,7 +204,7 @@ function renderTunnels(d) {
 
 function renderEvents(d) {
   const cls = { info: "info", warning: "warn", critical: "bad" };
-  $("#events").innerHTML = (d.events || []).map((e) => `<div class="ev"><span class="pill ${cls[e.level] || "info"}">${esc(e.event)}</span> ${esc(e.message)} <span class="muted">${ago(e.ts)}</span></div>`).join("") || '<span class="muted">No events yet.</span>';
+  $("#events").innerHTML = (d.events || []).map((e) => `<div class="ev"><span class="pill ${cls[e.level] || "info"}">${esc(e.event)}</span> ${esc(e.message)} <span class="muted">${ago(e.ts)}</span></div>`).join("") || '<span class="muted">Nothing has happened yet.</span>';
 }
 
 async function act(path, body) { const r = await api(path, "POST", body); if (!r.ok) alert(r.data.error || "failed"); refresh(); }
@@ -185,6 +214,173 @@ function tunnelAct(group, kind) {
   act(`groups/${encodeURIComponent(group)}/${kind}`, { tunnel: t });
 }
 
+/* ------------------------------------------------------------------ settings form */
+const row = (label, help, ctl) => `<div class="frow"><div class="flabel">${label}${help ? `<div class="help">${help}</div>` : ""}</div><div>${ctl}</div></div>`;
+const numIn = (p, unit, min) => `<input type="number" min="${min}" data-path="${p}" data-t="num" value="${esc(get(V, p))}"> <span class="muted">${unit}</span>`;
+const tog = (p) => `<label class="sw"><input type="checkbox" data-path="${p}" data-t="bool" ${get(V, p) ? "checked" : ""}><span></span></label>`;
+const sel = (p, opts, t = "str") => `<select data-path="${p}" data-t="${t}">${opts.map(([v, l]) => `<option value="${esc(v)}" ${String(get(V, p)) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
+const txt = (p, ph, cls = "") => `<input type="text" class="${cls}" data-path="${p}" data-t="str" placeholder="${esc(ph || "")}" value="${esc(get(V, p))}">`;
+
+async function loadSettings() {
+  const r = await api("settings");
+  if (!r.ok) { $("#settings").innerHTML = '<div class="card muted">Enter the control token (banner above) to view and change settings.</div>'; return; }
+  V = r.data.values; M = r.data.meta; orig = JSON.stringify(V);
+  const n = await api("ha/notify-services"); notify = n.ok ? n.data : null;
+  renderSettings(); markDirty();
+}
+
+function renderSettings() {
+  const modes = [["none", "Status checks only (no exit-IP test)"], ["canary", "Canary client (container with its own MAC)"], ["remote", "Remote probe agent (use with the Home Assistant add-on)"], ["direct", "Direct from this host"]];
+  $("#settings").innerHTML = `
+  <div class="card"><h3>How often it checks</h3><p class="sub">The watchdog wakes up on this schedule, reads every tunnel, and decides.</p>
+    ${row("Check every", "How often all tunnels are checked.", numIn("interval_seconds", "seconds", 5))}
+    ${row("Declare a tunnel down after", "Failed checks in a row. Prevents reacting to a single hiccup.", numIn("detection.failure_threshold", "failed checks", 1))}
+    ${row("Exit-IP test every", "Fetches the public IP through the tunnel to prove traffic really flows. Needs a probe (see Exit-IP test below).", numIn("detection.probe_interval_seconds", "seconds", 5))}
+    ${row("Exit-IP test failures before down", "", numIn("detection.probe_failure_threshold", "failed tests", 1))}
+    ${row("Detect a silent tunnel", "Tunnel says connected but receives nothing while sending.", tog("detection.blackhole_enabled"))}
+    <div class="summary" id="sum-detect"></div></div>
+
+  <div class="card"><h3>When it switches</h3><p class="sub">Limits that stop it flapping between servers.</p>
+    ${row("Wait between switches", "Minimum time after a switch. A tunnel that is fully down ignores this.", numIn("switching.min_hold_seconds", "seconds", 0))}
+    ${row("Maximum switches per hour", "After this it stops switching and alerts you.", numIn("switching.max_switches_per_hour", "switches", 1))}
+    ${row("Wait for a new tunnel to connect", "", numIn("switching.connect_timeout_seconds", "seconds", 5))}
+    ${row("Try another city first", "Within a country, other cities come before more servers in the same city.", tog("switching.prefer_different_city"))}
+    ${row("If nothing works", "What to do when every candidate has failed.", sel("switching.on_exhausted", [["keep", "Stay on the current tunnel and alert me"], ["kill_switch", "Block the traffic so nothing leaks, and alert me"]]))}
+    <div class="summary" id="sum-switch"></div></div>
+
+  <div class="card"><h3>Going back</h3><p class="sub">Return to your preferred server once it recovers.</p>
+    ${row("Go back to the preferred server", "", tog("failback.enabled"))}
+    ${row("Test the preferred server every", "", numIn("failback.check_interval_seconds", "seconds", 10))}
+    ${row("It must stay healthy for", "Only then traffic moves back.", numIn("failback.stable_seconds", "seconds", 0))}</div>
+
+  <div class="card"><h3>Ready spares</h3><p class="sub">Keeping the next servers connected makes a switch instant.</p>
+    ${row("Spare tunnels kept connected", "NordVPN allows 10 connections per account.", numIn("standby.warm", "tunnels", 0))}
+    ${row("Disconnect tunnels not needed", "", tog("standby.disable_unused"))}
+    ${row("Never connect more than", "", numIn("standby.max_enabled", "tunnels", 1))}</div>
+
+  <div class="card"><h3>Exit-IP test</h3><p class="sub">Without it the watchdog only sees whether a tunnel says "connected".</p>
+    ${row("How to test", "Canary/remote use a device with its own MAC address that is steered through each tunnel under test.", sel("probe.mode", modes))}
+    <div id="p-canary">${row("Canary device MAC address", "The MAC of the container that is routed through the tunnel being tested.", txt("probe.canary_mac", "02:42:0a:00:3c:c8"))}</div>
+    <div id="p-remote">${row("Probe agent address", "Where the probe agent listens, e.g. http://10.0.60.200:8081", txt("probe.remote_url", "http://10.0.60.200:8081", "wide"))}</div>
+    <div id="p-country">${row("Check the country too", "Turn off if your IP-location services disagree about VPN addresses.", tog("probe.check_country"))}</div></div>
+
+  <div id="groupsForm"></div>
+
+  <div class="card"><h3>Notifications</h3><p class="sub">Who gets told, and what they are told.</p>
+    <div id="notifyBox"></div></div>`;
+  renderGroupsForm(); renderNotify(); updateSummary();
+}
+
+function stepRow(g, gi, st, si) {
+  const last = g.ladder.length - 1;
+  const btns = `<button class="act" data-act="up" data-gi="${gi}" data-si="${si}" ${si === 0 ? "disabled" : ""}>&uarr;</button>
+    <button class="act" data-act="down" data-gi="${gi}" data-si="${si}" ${si === last ? "disabled" : ""}>&darr;</button>
+    <button class="act" data-act="del" data-gi="${gi}" data-si="${si}">Remove</button>`;
+  if (!st.country) return `<div class="step"><span class="n">${si + 1}.</span><span class="grow">Custom rule <span class="chip">${esc((st.tunnels || []).join(", "))}</span> <span class="muted">(edit in Advanced)</span></span>${btns}</div>`;
+  const c = (M.countries || []).find((x) => x.iso === st.country);
+  const copts = (M.countries || []).map((x) => `<option value="${x.iso}" ${x.iso === st.country ? "selected" : ""}>${esc(x.name)} (${x.count} servers)</option>`).join("") + (c ? "" : `<option value="${esc(st.country)}" selected>${esc(st.country)}</option>`);
+  const names = c ? c.tunnels : [];
+  const pref = (st.prefer || [])[0] || "";
+  const prefix = pref.endsWith("*") ? pref.slice(0, -1) : null;
+  const cur = names.find((n) => n === pref) || (prefix ? names.find((n) => n.startsWith(prefix)) : "") || "";
+  const popts = [`<option value="">Any, automatic order</option>`].concat(names.map((n) => `<option value="${esc(n)}" ${n === cur ? "selected" : ""}>${esc(n)}</option>`)).join("");
+  return `<div class="step"><span class="n">${si + 1}.</span>
+    <select data-gi="${gi}" data-si="${si}" data-f="country">${copts}</select>
+    <span class="muted">preferred server</span><select data-gi="${gi}" data-si="${si}" data-f="prefer">${popts}</select>
+    <span class="grow"></span>${btns}</div>`;
+}
+
+function renderGroupsForm() {
+  $("#groupsForm").innerHTML = V.groups.map((g, gi) => {
+    const nets = (M.networks || []).map((n) => `<label class="net"><input type="checkbox" data-gi="${gi}" data-net="${esc(n)}" ${g.networks.includes(n) ? "checked" : ""}> ${esc(n)}</label>`).join("");
+    const extra = g.networks.filter((n) => !(M.networks || []).includes(n)).map((n) => `<label class="net"><input type="checkbox" data-gi="${gi}" data-net="${esc(n)}" checked> ${esc(n)} <span class="muted">(not found)</span></label>`).join("");
+    const used = new Set(g.ladder.map((s) => s.country));
+    const addopts = (M.countries || []).filter((c) => !used.has(c.iso)).map((c) => `<option value="${c.iso}">${esc(c.name)} (${c.count} servers)</option>`).join("");
+    return `<div class="card"><h3>Group: ${esc(g.name)}</h3><p class="sub">Which networks use the VPN, and which servers to use, in order.</p>
+      ${row("Networks that use this VPN", "Their internet traffic goes through the active tunnel.", (nets + extra) || '<span class="muted">Waiting for the first UniFi check...</span>')}
+      ${row("If the tunnel dies", "", sel(`groups.${gi}.kill_switch`, [["null", "Leave the UniFi setting as it is"], ["true", "Block traffic (no leak) until a new tunnel is ready"], ["false", "Let traffic use the normal internet connection"]], "tri"))}
+      ${row("Server order", "Top is preferred. When it fails, the next one is used; when all servers of a country fail it moves to the next country.",
+        g.ladder.map((st, si) => stepRow(g, gi, st, si)).join("") +
+        `<div class="row" style="margin-top:8px"><select id="add-${gi}"><option value="">Add a country...</option>${addopts}</select><button class="act" data-act="add" data-gi="${gi}">Add</button></div>`)}</div>`;
+  }).join("");
+}
+
+function renderNotify() {
+  const info = M.alert_info || { events: {}, placeholders: {} };
+  let svc = '<p class="muted">Not connected to Home Assistant (this works inside the add-on).</p>';
+  if (notify && notify.available) {
+    const opts = notify.services.slice();
+    if (notify.current && !opts.some((o) => o.service === notify.current)) opts.unshift({ service: notify.current, label: notify.current + " (current)" });
+    svc = row("Send alerts to", "Pick a phone or the Home Assistant sidebar.", `<div class="row"><select id="notifySel">${opts.map((o) => `<option value="${esc(o.service)}" ${o.service === notify.current ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select>
+      <button class="act" id="notifySave">Use this</button><button class="act" id="notifyTest">Send test</button><span id="notifyMsg"></span></div>`);
+  }
+  const ph = Object.entries(info.placeholders).map(([k, v]) => `<span class="chip" title="${esc(v)}">{${k}}</span>`).join("");
+  const alerts = Object.entries(V.alerts || {}).map(([name, a]) => `<div class="alert">
+      <div class="head"><label class="sw"><input type="checkbox" data-path="alerts.${name}.enabled" data-t="bool" ${a.enabled ? "checked" : ""}><span></span></label>
+        <b>${esc(name)}</b> <span class="pill ${(info.events[name] || {}).level === "critical" ? "bad" : (info.events[name] || {}).level === "warning" ? "warn" : "info"}">${esc((info.events[name] || {}).level || "")}</span></div>
+      <div class="muted" style="margin-bottom:6px">Sent when: ${esc((info.events[name] || {}).when || "")}</div>
+      <div class="grid"><span class="muted">Title</span>${txt(`alerts.${name}.title`, "", "wide")}<span class="muted">Message</span>${txt(`alerts.${name}.message`, "", "wide")}</div></div>`).join("");
+  $("#notifyBox").innerHTML = svc + `<div style="margin-top:12px"><b>Alerts</b><p class="muted" style="margin:2px 0 6px">Turn each alert on or off and edit its wording. Placeholders (hover for meaning): ${ph}</p>${alerts}</div>`;
+}
+
+function updateSummary() {
+  if (!V) return;
+  const iv = Number(V.interval_seconds) || 0, ft = Number(V.detection.failure_threshold) || 0;
+  $("#sum-detect").textContent = `A tunnel that stops being connected is declared down after ${ft} failed checks x ${iv}s = about ${ft * iv} seconds. Then it switches within a few seconds.`;
+  $("#sum-switch").textContent = `At most ${V.switching.max_switches_per_hour} switches per hour, at least ${V.switching.min_hold_seconds}s apart (unless the tunnel is completely down).`;
+  const m = V.probe.mode;
+  $("#p-canary").classList.toggle("hide", !(m === "canary" || m === "remote"));
+  $("#p-remote").classList.toggle("hide", m !== "remote");
+  $("#p-country").classList.toggle("hide", m === "none");
+}
+
+function markDirty() {
+  const d = V && JSON.stringify(V) !== orig;
+  $("#savebar").classList.toggle("hide", !d);
+}
+
+/* one delegated handler for every settings control */
+$("#settings").addEventListener("input", (e) => handleField(e.target));
+$("#settings").addEventListener("change", (e) => handleField(e.target));
+function handleField(t) {
+  if (t.dataset.path) {
+    const k = t.dataset.t; let v;
+    if (k === "bool") v = t.checked; else if (k === "num") { v = t.value === "" ? "" : Number(t.value); }
+    else if (k === "tri") v = t.value === "null" ? null : t.value === "true"; else v = t.value;
+    set(V, t.dataset.path, v);
+  } else if (t.dataset.net !== undefined) {
+    const g = V.groups[+t.dataset.gi]; g.networks = g.networks.filter((n) => n !== t.dataset.net); if (t.checked) g.networks.push(t.dataset.net);
+  } else if (t.dataset.f) {
+    const st = V.groups[+t.dataset.gi].ladder[+t.dataset.si];
+    if (t.dataset.f === "country") { st.country = t.value; st.prefer = []; renderGroupsForm(); }
+    else st.prefer = t.value ? [t.value] : [];
+  } else return;
+  updateSummary(); markDirty();
+}
+$("#settings").addEventListener("click", async (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.id === "notifySave") { const r = await api("notify/service", "POST", { service: $("#notifySel").value }); $("#notifyMsg").innerHTML = r.ok ? '<span class="pill ok">saved</span>' : '<span class="pill bad">' + esc(r.data.error || "failed") + "</span>"; return; }
+  if (b.id === "notifyTest") { const r = await api("notify/test", "POST", { service: $("#notifySel").value }); $("#notifyMsg").innerHTML = r.ok ? '<span class="pill ok">sent: check your phone</span>' : '<span class="pill bad">' + esc(r.data.error || "failed") + "</span>"; return; }
+  if (!b.dataset.act) return;
+  const g = V.groups[+b.dataset.gi], si = +b.dataset.si, L = g.ladder;
+  if (b.dataset.act === "up" && si > 0) [L[si - 1], L[si]] = [L[si], L[si - 1]];
+  if (b.dataset.act === "down" && si < L.length - 1) [L[si + 1], L[si]] = [L[si], L[si + 1]];
+  if (b.dataset.act === "del") L.splice(si, 1);
+  if (b.dataset.act === "add") { const v = $("#add-" + b.dataset.gi).value; if (!v) return; L.push({ country: v, tunnels: [], prefer: [], exclude: [] }); }
+  renderGroupsForm(); markDirty();
+});
+
+let saveTimer = null;
+$("#saveSettings").onclick = async () => {
+  clearTimeout(saveTimer);
+  $("#saveMsg").textContent = "Saving...";
+  const r = await api("settings", "POST", { values: V });
+  if (r.ok) { await loadSettings(); $("#saveMsg").innerHTML = '<span class="pill ok">Saved and applied</span>'; $("#savebar").classList.remove("hide"); saveTimer = setTimeout(() => { $("#saveMsg").textContent = ""; markDirty(); }, 4000); }
+  else $("#saveMsg").innerHTML = '<span class="pill bad">' + esc(r.data.error || "failed").replace(/\n/g, "<br>") + "</span>";
+};
+$("#discard").onclick = () => { V = JSON.parse(orig); renderSettings(); markDirty(); $("#saveMsg").textContent = ""; };
+
+/* ------------------------------------------------------------------ header, tabs, advanced */
 $("#checkNow").onclick = () => act("check-now");
 $("#pauseAll").onclick = () => act("groups/*/pause");
 $("#resumeAll").onclick = () => act("groups/*/resume");
@@ -196,39 +392,19 @@ $("#modeBtn").onclick = async () => {
 };
 $("#saveToken").onclick = () => { token = $("#token").value.trim(); try { localStorage.setItem("wd_token", token); } catch (e) {} refresh(); };
 
+let cfgLoaded = false;
 document.querySelectorAll("nav button").forEach((b) => (b.onclick = () => {
   document.querySelectorAll("nav button").forEach((x) => x.classList.toggle("on", x === b));
-  ["status", "events", "config"].forEach((t) => $("#tab-" + t).classList.toggle("hide", t !== b.dataset.tab));
-  if (b.dataset.tab === "config") { if (!cfgLoaded) loadCfg(); loadNotify(); }
+  ["status", "events", "settings", "advanced"].forEach((t) => $("#tab-" + t).classList.toggle("hide", t !== b.dataset.tab));
+  if (b.dataset.tab === "settings" && !V) loadSettings();
+  if (b.dataset.tab === "advanced" && !cfgLoaded) loadCfg();
+  if (b.dataset.tab !== "settings") $("#savebar").classList.add("hide"); else markDirty();
 }));
-
 async function loadCfg() {
   const r = await api("config");
   if (r.ok) { $("#yaml").value = r.data.yaml; cfgLoaded = true; $("#cfgerr").textContent = ""; $("#cfgmsg").textContent = ""; }
-  else $("#cfgerr").textContent = "Enter the control token to view or edit the config.";
+  else $("#cfgerr").textContent = "Enter the control token to view or edit the file.";
 }
-async function loadNotify() {
-  const r = await api("ha/notify-services");
-  const sel = $("#notifySel");
-  if (!r.ok) { $("#notifyHint").textContent = "Enter the control token to choose a notification service."; return; }
-  const d = r.data;
-  if (!d.available) {
-    $("#notifyHint").textContent = "Not connected to Home Assistant (available inside the add-on, or when a home_assistant notifier with url + token is configured).";
-    sel.innerHTML = ""; return;
-  }
-  if (d.error) $("#notifyHint").textContent = "Could not list services: " + d.error;
-  const opts = d.services.slice();
-  if (d.current && !opts.some((o) => o.service === d.current)) opts.unshift({ service: d.current, label: d.current + " (current)" });
-  sel.innerHTML = opts.map((o) => `<option value="${esc(o.service)}" ${o.service === d.current ? "selected" : ""}>${esc(o.label)}</option>`).join("");
-}
-$("#notifySave").onclick = async () => {
-  const r = await api("notify/service", "POST", { service: $("#notifySel").value });
-  $("#notifyMsg").innerHTML = r.ok ? '<span class="pill ok">saved</span>' : '<span class="pill bad">' + esc(r.data.error || "failed") + "</span>";
-};
-$("#notifyTest").onclick = async () => {
-  const r = await api("notify/test", "POST", { service: $("#notifySel").value });
-  $("#notifyMsg").innerHTML = r.ok ? '<span class="pill ok">sent: check your phone</span>' : '<span class="pill bad">' + esc(r.data.error || "failed") + "</span>";
-};
 $("#reloadCfg").onclick = loadCfg;
 $("#validate").onclick = async () => {
   const r = await api("config/validate", "POST", { yaml: $("#yaml").value });
@@ -237,6 +413,7 @@ $("#validate").onclick = async () => {
 $("#saveCfg").onclick = async () => {
   const r = await api("config", "POST", { yaml: $("#yaml").value });
   $("#cfgerr").textContent = r.data.error || ""; $("#cfgmsg").innerHTML = r.ok ? '<span class="pill ok">saved, applying</span>' : "";
+  if (r.ok) V = null;
   setTimeout(refresh, 1500);
 };
 

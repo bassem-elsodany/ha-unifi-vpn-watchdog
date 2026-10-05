@@ -45,6 +45,7 @@ class Engine:
         self.clock = clock
         self.wake = threading.Event()
         self.last_tick: float | None = None
+        self._snap: Snapshot | None = None
         self.last_error: str | None = None
         self._commands: queue.Queue[tuple] = queue.Queue()
         self._samples: dict[str, deque[tuple[int, int]]] = {}
@@ -58,6 +59,9 @@ class Engine:
     def submit(self, *command: Any) -> None:
         self._commands.put(command)
         self.wake.set()
+
+    def last_snapshot(self) -> Snapshot | None:
+        return self._snap
 
     def status(self) -> dict[str, Any]:
         with self._lock:
@@ -75,6 +79,7 @@ class Engine:
             self._publish(None)
             return
         self.last_error = None
+        self._snap = snap
         self._drain_commands(snap)
         for g in self.cfg.groups:
             try:
@@ -127,7 +132,8 @@ class Engine:
         if health.ok:
             if gs.exhausted:
                 gs.exhausted = False
-                self.notifier.emit("recovered", f"VPN {g.name} recovered", f"{cur.name if cur else '?'} is healthy again", key=g.name)
+                self.notifier.emit("recovered", f"VPN {g.name} recovered", f"{cur.name if cur else '?'} is healthy again", key=g.name,
+                                   group=g.name, tunnel=cur.name if cur else "")
             ts = self.store.tunnel(cur_id) if cur_id else None
             if ts:
                 ts.last_ok_ts = now
@@ -186,7 +192,8 @@ class Engine:
                     gs.probe_failures += 1
                     if res.leak:
                         gs.probe_failures = max(gs.probe_failures, st.detection.probe_failure_threshold)
-                        self.notifier.emit("leak", f"VPN LEAK on {g.name}", f"exit IP equals the WAN IP through {cur.name}", level="critical", key=g.name)
+                        self.notifier.emit("leak", f"VPN LEAK on {g.name}", f"exit IP equals the WAN IP through {cur.name}", level="critical", key=g.name,
+                                       group=g.name, tunnel=cur.name)
         if gs.probe_failures:
             last = (gs.last_probe or {}).get("reason", "probe failed")
             return Health(False, False, [f"probe: {last}"])
@@ -219,7 +226,7 @@ class Engine:
             gs.exhausted = True
             self.notifier.emit("exhausted", f"VPN {g.name}: no healthy tunnel",
                                f"{cur.name if cur else 'current'} is down and {tried} candidate(s) failed or are quarantined",
-                               level="critical", key=g.name)
+                               level="critical", key=g.name, group=g.name, tunnel=cur.name if cur else "", tried=tried)
         if st.switching.on_exhausted == "kill_switch" and route is not None:
             self.unifi.set_route(route, kill_switch=True)
         gs.last_decision = f"exhausted: {why}"
@@ -278,8 +285,11 @@ class Engine:
         gs.exhausted = False
         gs.last_decision = f"switched to {cand.name}: {reason}"
         self.store.touch()
+        old = self._snap.tunnels.get(prev or "") if self._snap else None
         self.notifier.emit(event, f"VPN {g.name} -> {cand.name}", reason, key=f"{g.name}:{cand.name}",
-                           group=g.name, tunnel=cand.name, previous=prev)
+                           group=g.name, tunnel=cand.name, previous=old.name if old else (prev or ""),
+                           country=cand.iso or "", city=(cand.city or "").title(),
+                           previous_country=old.iso if old and old.iso else "", reason=reason)
 
     def _provision(self, g: GroupCfg, st: GroupSettings, gs: GroupState, ladder: list[Tunnel], snap: Snapshot) -> None:
         for cand in ladder:
@@ -373,7 +383,8 @@ class Engine:
             gs.last_decision = f"switch blocked: {reason}"
             if now - self._blocked_notified.get(g.name, -1e12) > 600:
                 self._blocked_notified[g.name] = now
-                self.notifier.emit("blocked", f"VPN {g.name}: switch blocked", reason, level="warning", key=g.name)
+                self.notifier.emit("blocked", f"VPN {g.name}: switch blocked", reason, level="warning", key=g.name,
+                                   group=g.name, reason=reason)
             return False
         return True
 

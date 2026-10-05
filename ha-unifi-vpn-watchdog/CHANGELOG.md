@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.0
+- Settings are now a form (Settings tab), not YAML: check interval, thresholds, switch limits, failback, spare tunnels,
+  exit-IP test, per-group networks and an orderable country/server list, with live explanations ("down after about 45 s").
+  Values are validated before saving; the previous file is kept as `config.yaml.bak`. The YAML editor remains under Advanced.
+- Alerts: every alert (switch, failback, exhausted, leak, recovered, blocked, startup, config_error) can be turned on or off
+  and its title and message edited with {placeholders}. The Settings tab says when each one is sent.
+- The page is left-aligned and full width.
+- Fix: saving settings failed for configs that used `${VAR}` inside inline `{...}` YAML.
+
 ## 0.1.4
 - Fix: the MQTT fields (`mqtt_host`, `mqtt_port`, `mqtt_username`, `mqtt_password`) did not appear in the
   Configuration tab because optional options without defaults are hidden by Home Assistant. They now have defaults.

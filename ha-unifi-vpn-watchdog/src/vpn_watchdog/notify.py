@@ -8,17 +8,19 @@ from typing import Any
 
 import httpx
 
+from .alerts import EVENTS, render
 from .clock import Clock
-from .config import NotifyCfg
+from .config import AlertCfg, NotifyCfg
 
 log = logging.getLogger("vpn_watchdog.notify")
 
-EVENTS = ("startup", "switch", "failback", "exhausted", "recovered", "leak", "blocked", "config_error", "error")
 
 
 class Notifier:
-    def __init__(self, cfgs: list[NotifyCfg], clock: Clock, dry_run: bool = False, transport: httpx.BaseTransport | None = None):
+    def __init__(self, cfgs: list[NotifyCfg], clock: Clock, dry_run: bool = False, transport: httpx.BaseTransport | None = None,
+                 alerts: dict[str, AlertCfg] | None = None):
         self.cfgs = cfgs
+        self.alerts = alerts or {}
         self.clock = clock
         self.dry_run = dry_run
         self._last: dict[tuple, float] = {}
@@ -29,12 +31,20 @@ class Notifier:
         """History only (no push notification)."""
         self.history.appendleft({"ts": self.clock.now(), "event": event, "level": level, "message": message})
 
-    def emit(self, event: str, title: str, message: str, level: str = "info", key: str | None = None, **fields: Any) -> None:
+    def emit(self, event: str, title: str = "", message: str = "", level: str | None = None, key: str | None = None,
+             **fields: Any) -> None:
+        a = self.alerts.get(event)
+        if a is not None:                       # user-editable templates win over the code's fallback wording
+            title, message = render(a.title, fields), render(a.message, fields)
+        level = level or EVENTS.get(event, {}).get("level", "info")
+        enabled = True if a is None else bool(a.enabled)
         if self.dry_run:
             title = f"[DRY-RUN] {title}"
         self.history.appendleft({"ts": self.clock.now(), "event": event, "level": level, "message": f"{title}: {message}"})
         log.log({"info": logging.INFO, "warning": logging.WARNING, "critical": logging.ERROR}.get(level, logging.INFO), "%s: %s", event, message)
         now = self.clock.now()
+        if not enabled:                          # still in the history tab, never pushed
+            return
         for i, cfg in enumerate(self.cfgs):
             if "*" not in cfg.events and event not in cfg.events:
                 continue

@@ -69,7 +69,7 @@ The project folder **is** the add-on (`config.yaml`, `Dockerfile`, `DOCS.md`).
 
 | HA feature | How |
 |---|---|
-| Config UI | sidebar panel → *Config* tab (validated YAML editor, backup kept); secrets via the add-on Configuration tab |
+| Settings UI | sidebar panel → *Settings* tab (form: intervals, thresholds, fallback order, alerts) and *Advanced* (YAML); secrets via the add-on Configuration tab |
 | Status / jobs / start-stop | sidebar panel (ingress, authenticated by your HA login) |
 | Notifications | `home_assistant` notifier with `supervisor: true`, plus ntfy / Telegram / webhook |
 | Entities | MQTT discovery: *Active tunnel, Exit country, Last decision, Healthy, Failover paused (switch), Force tunnel (select)* per group |
@@ -90,6 +90,22 @@ by its own Docker host; reach it from another LAN machine.
 
 Geo-IP databases disagree on VPN address ranges (one reported a Rome server as Brazil). Keep several endpoints; set
 `probe.check_country: false` if you only want "works and is not a leak".
+
+## Alerts
+
+Each alert has an on/off switch, a title and a message with `{placeholders}` (`{group} {tunnel} {previous} {country} {city}
+{reason} {tried} ...`), editable in *Settings → Notifications* or under `alerts:` in the YAML:
+
+| alert | sent when | default |
+|---|---|---|
+| `switch` | a tunnel failed and traffic moved to another server/city/country | on |
+| `failback` | the preferred tunnel recovered and traffic moved back | on |
+| `exhausted` | the active tunnel is down and every candidate failed (critical) | on |
+| `leak` | the exit-IP test saw your real WAN address (critical) | on |
+| `recovered` | a tunnel is healthy again after `exhausted` | on |
+| `blocked` | a switch was needed but held back by the anti-flapping limits | on |
+| `startup` | the watchdog (re)started | off |
+| `config_error` | a saved configuration was rejected | on |
 
 ## Configuration
 
