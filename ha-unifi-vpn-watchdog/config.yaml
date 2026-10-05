@@ -1,0 +1,30 @@
+name: HA UniFi VPN Watchdog
+version: "0.1.0"
+slug: ha_unifi_vpn_watchdog
+description: Health-checks UniFi WireGuard VPN clients and fails policy routes over between servers, cities and countries.
+url: https://github.com/bassem-elsodany/ha-unifi-vpn-watchdog
+arch: [aarch64, amd64]
+init: false
+startup: application
+boot: auto
+ingress: true
+ingress_port: 8080
+panel_icon: mdi:vpn
+panel_title: VPN Watchdog
+homeassistant_api: true
+hassio_api: true
+services:
+  - mqtt:want
+map:
+  - addon_config:rw
+options:
+  unifi_url: "https://10.0.1.1"
+  unifi_api_key: ""
+  log_level: INFO
+  notify_service: ""
+schema:
+  unifi_url: str
+  unifi_api_key: password
+  log_level: list(DEBUG|INFO|WARNING|ERROR)
+  notify_service: str?
+  control_token: password?

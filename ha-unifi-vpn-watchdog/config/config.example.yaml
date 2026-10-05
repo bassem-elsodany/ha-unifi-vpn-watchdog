@@ -1,0 +1,84 @@
+# ha-unifi-vpn-watchdog configuration. Copy to config.yaml. ${VAR} and ${VAR:-default} are read from the environment.
+# The file is hot-reloaded: save it and the watchdog applies it within one cycle (invalid files are rejected).
+
+dry_run: true              # SAFE DEFAULT. Logs and alerts what it WOULD do; changes nothing. Set false to go live.
+interval_seconds: 15
+state_file: /data/state.json
+log: {level: INFO, format: text}      # format: json for log shippers
+
+unifi:
+  url: https://10.0.1.1
+  api_key: ${UNIFI_API_KEY}
+  site: default
+  verify_tls: false
+
+# Tunnel names must follow this pattern so country/city/server/IP can be derived (default shown):
+naming:
+  pattern: '^(?P<iso>[A-Za-z]{2})__(?P<city>.+?)__(?P<id>\d+)__(?P<ip>\d{1,3}(?:\.\d{1,3}){3})$'
+
+detection:
+  failure_threshold: 3            # bad polls in a row (x interval_seconds) before a tunnel is declared down
+  probe_failure_threshold: 2      # bad exit-IP probes in a row
+  probe_interval_seconds: 30
+  blackhole: {enabled: true, min_tx_bps: 2000, samples: 6}   # CONNECTED but receiving nothing
+
+probe:
+  mode: none                      # none | canary | remote | direct  (see README: "Probe modes")
+  require: 1                      # endpoints that must agree
+  timeout_seconds: 8
+  # canary / remote: a client with its OWN MAC (macvlan container). The watchdog points it at any tunnel to
+  # test it before production traffic is moved there.
+  canary: {mac: "02:42:0a:00:3c:c8", settle_seconds: 6}
+  # remote_url: http://10.0.60.200:8081      # probe.mode=remote: where `ha-unifi-vpn-watchdog agent` listens
+  # remote_token: ${AGENT_TOKEN}
+  country_aliases: {GB: [UK]}
+
+switching:
+  connect_timeout_seconds: 40
+  min_hold_seconds: 60            # hard failures (tunnel not CONNECTED) bypass this
+  max_switches_per_hour: 6
+  prefer_different_city: true     # same country, other city first
+  rename_route_to_tunnel: true    # route description always equals the active tunnel name
+  quarantine: {base_seconds: 120, factor: 2, max_seconds: 3600}
+  on_exhausted: keep              # keep | kill_switch (block traffic instead of leaking when nothing works)
+
+failback:
+  enabled: true
+  check_interval_seconds: 120
+  stable_seconds: 300             # preferred tunnel must test healthy this long before switching back
+
+standby:
+  warm: 2                         # next N candidates are kept enabled so failover is instant
+  disable_unused: true
+  max_enabled: 6                  # NordVPN allows 10 concurrent connections per account
+
+groups:
+  - name: iot-and-vpn
+    networks: [vlan20-iot, vlan50-vpn]     # names or ids; the managed route is found automatically
+    kill_switch: false                      # true = block (no leak) when the tunnel dies, until failover completes
+    ladder:                                  # tried top to bottom
+      - {country: IT, prefer: ["IT__ROME__418__*"]}
+      - {country: DE}
+      - {country: FR}
+      - {country: GB}
+    # overrides:                             # any detection/switching/failback/standby key, per group
+    #   detection: {failure_threshold: 2}
+
+notifications: []
+  # - {type: home_assistant, supervisor: true, service: notify.mobile_app_myphone}   # inside an HA add-on
+  # - {type: home_assistant, url: http://10.0.10.100:8123, token: ${HA_TOKEN}, service: notify.notify}
+  # - {type: ntfy, url: https://ntfy.sh, topic: my-vpn-alerts}
+  # - {type: telegram, token: ${TELEGRAM_BOT_TOKEN}, chat_id: ${TELEGRAM_CHAT_ID}}
+  # - {type: webhook, url: https://example.invalid/hook, events: [switch, exhausted, leak]}
+
+mqtt:                            # Home Assistant entities (sensors, pause switch, force-tunnel select)
+  enabled: false
+  # supervisor: true             # inside an HA add-on: broker credentials come from the Mosquitto add-on
+  # host: 10.0.10.100
+  # username: ${MQTT_USER}
+  # password: ${MQTT_PASSWORD}
+
+server:
+  enabled: true
+  port: 8080
+  control_token: ${WATCHDOG_CONTROL_TOKEN:-}   # empty = control endpoints disabled (read-only status)

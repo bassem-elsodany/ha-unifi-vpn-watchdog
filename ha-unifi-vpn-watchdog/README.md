@@ -1,0 +1,130 @@
+# HA UniFi VPN Watchdog
+
+Health-checks the WireGuard VPN clients on a UniFi gateway and moves a policy route to another **server, city, or
+country** when the active tunnel stops carrying traffic. Runs as a Docker container or a Home Assistant add-on, has a
+web UI (status, jobs, start/stop, config editor), and is configured by one hot-reloaded YAML file.
+
+```
+            ┌────────────────────────── ha-unifi-vpn-watchdog ──────────────────────────┐
+ UniFi API  │  snapshot ─► health ─► decision ─► prepare+test ─► commit ─► alert │
+ (read)  ──►│  tunnels     status     down?      enable tunnel   PUT route   HA/ntfy │──► UniFi API (write)
+            │  routes      blackhole  ladder     wait CONNECTED  (one call)  MQTT    │
+            │  WAN IP      exit-IP    quarantine canary exit-IP                      │
+            └───────────────┬───────────────────────────┬───────────────────────────┘
+                        web UI / API                canary client + probe agent
+```
+
+## How failover works
+
+1. **Detect.** Each cycle (default 15 s) it reads tunnel status, then checks three things, because a tunnel can say
+   `CONNECTED` while passing nothing:
+   status is `CONNECTED` · receive rate is not stuck at 0 while sending (black hole) · an **exit-IP probe** through
+   the tunnel returns a working IP that is not your WAN IP (leak) and, optionally, is in the expected country.
+2. **Decide.** A tunnel is *down* after `failure_threshold` bad polls (or `probe_failure_threshold` bad probes).
+3. **Pick.** Candidates come from the group's **ladder**, in order: the next server in the same country (other cities
+   first), then the next country, and so on. Quarantined tunnels are skipped.
+4. **Test before switching.** The candidate is enabled, must reach `CONNECTED`, and (with a canary) must pass the
+   exit-IP probe. A candidate that fails is quarantined with exponential backoff and the next one is tried.
+5. **Commit.** One `PUT` changes the managed route's tunnel. There is never a moment with no route, so nothing leaks to
+   the WAN between tunnels. The route is renamed to the tunnel name (`rename_route_to_tunnel`).
+6. **Guard rails.** `min_hold_seconds` and `max_switches_per_hour` prevent flapping; hard failures bypass the hold,
+   not the hourly cap. If nothing works it alerts once and optionally engages the kill switch (`on_exhausted`).
+7. **Fail back.** When a higher-priority tunnel has tested healthy for `stable_seconds`, traffic moves back to it.
+8. **Standby.** The next `standby.warm` candidates stay enabled so failover is instant; unused tunnels are disabled
+   (NordVPN allows 10 concurrent connections per account).
+
+Safe by default: **`dry_run: true`** logs and alerts what it *would* do and changes nothing. Press **Go live** in the
+UI (or set `dry_run: false`) when the decisions look right.
+
+## Quick start (Docker)
+
+```bash
+cp .env.example .env                          # UNIFI_API_KEY, WATCHDOG_CONTROL_TOKEN
+cp config/config.example.yaml config/config.yaml   # edit networks + ladder
+docker compose -f docker/docker-compose.yml up -d
+open http://<host>:8080                        # UI; enter the control token to edit/start/stop
+```
+
+Multi-arch for a Raspberry Pi: `docker buildx build --platform linux/arm64,linux/amd64 -f docker/Dockerfile -t ha-unifi-vpn-watchdog .`
+
+Local checks, no container needed:
+
+```bash
+pip install -e '.[dev]'
+ha-unifi-vpn-watchdog validate -c config/config.yaml --env-file .env     # config sanity
+ha-unifi-vpn-watchdog discover -c config/config.yaml --env-file .env     # tunnels, routes, resolved ladders
+ha-unifi-vpn-watchdog once     -c config/config.yaml --env-file .env     # one cycle (honours dry_run)
+pytest
+```
+
+## Home Assistant
+
+The project folder **is** the add-on (`config.yaml`, `Dockerfile`, `DOCS.md`).
+
+1. Copy the folder to `/addons/ha_unifi_vpn_watchdog` on the HA host (Samba or SSH add-on), then *Settings → Add-ons → Add-on
+   Store → ⋮ → Check for updates* and install **HA UniFi VPN Watchdog** from *Local add-ons*. (Requires HA OS or Supervised;
+   on a Container install run the Docker image next to HA and use the MQTT + REST pieces below.)
+2. **Configuration** tab: `unifi_api_key`, optionally `notify_service` (e.g. `notify.mobile_app_myphone`).
+3. Start. A `config.yaml` is created in the add-on config folder in **dry-run**. Open **VPN Watchdog** in the sidebar.
+
+| HA feature | How |
+|---|---|
+| Config UI | sidebar panel → *Config* tab (validated YAML editor, backup kept); secrets via the add-on Configuration tab |
+| Status / jobs / start-stop | sidebar panel (ingress, authenticated by your HA login) |
+| Notifications | `home_assistant` notifier with `supervisor: true`, plus ntfy / Telegram / webhook |
+| Entities | MQTT discovery: *Active tunnel, Exit country, Last decision, Healthy, Failover paused (switch), Force tunnel (select)* per group |
+| Logs | add-on *Log* tab |
+
+## Probe modes (`probe.mode`)
+
+| mode | what it does | use when |
+|---|---|---|
+| `none` | status + black-hole checks only | quick start |
+| `canary` | a client with its **own MAC** (macvlan container) is routed through whichever tunnel is under test; the watchdog probes from that container | Docker on a host that can run a macvlan network |
+| `remote` | same, but the probe is run by `ha-unifi-vpn-watchdog agent` on the canary host | **Home Assistant add-on** (an add-on cannot have its own MAC) |
+| `direct` | probe from the watchdog's own egress | the watchdog itself sits behind the group's route |
+
+Canary/remote: give the container a fixed MAC, set `probe.canary.mac` to it, and the watchdog creates and steers a
+`WATCHDOG_CANARY` route for that client. See `docker/docker-compose.canary.yml`. A macvlan container cannot be reached
+by its own Docker host; reach it from another LAN machine.
+
+Geo-IP databases disagree on VPN address ranges (one reported a Rome server as Brazil). Keep several endpoints; set
+`probe.check_country: false` if you only want "works and is not a leak".
+
+## Configuration
+
+See [config/config.example.yaml](config/config.example.yaml); every key is documented there. Highlights:
+
+- **Ladder** (`groups[].ladder`): steps tried top to bottom; a step is a `country` (ISO code parsed from the tunnel
+  name), `tunnels` (glob patterns), `prefer`, `exclude`.
+- **Naming**: tunnels are named `ISO__CITY__ID__IP` (e.g. `IT__ROME__418__187.14.84.144`); `naming.pattern` is a regex,
+  so other schemes work.
+- **Per-group overrides** for any `detection`, `switching`, `failback`, `standby` key.
+- **Hot reload**: edit the file (or use the UI), it is applied next cycle; an invalid file is rejected and the old
+  config keeps running. Typos are errors (unknown keys are rejected). `${VAR}` / `${VAR:-default}` read the environment.
+
+## API (same server as the UI)
+
+Read without auth: `GET /healthz`, `/api/status`, `/metrics` (Prometheus). Control needs `Authorization: Bearer <control_token>`
+(or HA ingress): `POST /api/groups/{name|*}/pause|resume`, `/api/groups/{name}/switch|test {"tunnel": "..."}`,
+`/api/check-now`, `/api/mode {"dry_run": bool}`, `GET|POST /api/config`, `POST /api/config/validate`.
+With no `control_token` set the server is read-only.
+
+## Things learned the hard way (all handled in code)
+
+- Disabling a tunnel does **not** disable its policy route; with two enabled routes covering a network the first in
+  UniFi's list wins and the other is silently ignored. The watchdog edits one route's tunnel instead of toggling routes,
+  and warns about overlapping routes.
+- UniFi rejects overlapping client subnets (`SubnetOverlapped`), so each tunnel needs a unique `10.5.x.2/24`.
+- Servers showing 0 % load never connected in testing; pick servers with some load and let the quarantine skip duds.
+- Use `traffic-flows` (UniFi) as independent proof of where traffic exits; the watchdog never trusts a single signal.
+
+## Layout
+
+```
+src/vpn_watchdog/   config · unifi · probe · ladder · engine · state · notify · server+ui · ha_mqtt · agent · cli
+tests/              56 tests (fake UniFi + fake probe drive the engine; HTTP mocked for the clients)
+docker/             Dockerfile · docker-compose.yml · docker-compose.canary.yml
+config/             config.example.yaml
+config.yaml, Dockerfile, DOCS.md   Home Assistant add-on manifest/build/docs
+```

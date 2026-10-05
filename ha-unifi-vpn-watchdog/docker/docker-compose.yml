@@ -1,0 +1,17 @@
+# docker compose -f docker/docker-compose.yml up -d
+services:
+  ha-unifi-vpn-watchdog:
+    build: {context: .., dockerfile: docker/Dockerfile}
+    image: ha-unifi-vpn-watchdog:latest
+    container_name: ha-unifi-vpn-watchdog
+    restart: unless-stopped
+    env_file: ../.env              # UNIFI_API_KEY, WATCHDOG_CONTROL_TOKEN, ...
+    volumes:
+      - ../config:/config:rw       # config.yaml (the web UI edits it); hot-reloaded
+      - ha-unifi-vpn-watchdog-data:/data    # state.json: quarantines and switch history survive restarts
+    ports: ["8080:8080"]           # web UI, /metrics, /healthz
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+volumes:
+  ha-unifi-vpn-watchdog-data:

@@ -1,0 +1,35 @@
+# Generated on first start of the Home Assistant add-on. Edit it from the add-on's "Config" tab (sidebar panel)
+# or from /addon_configs/<slug>/config.yaml. Starts in DRY-RUN: nothing is changed until you press "Go live".
+dry_run: true
+interval_seconds: 15
+state_file: /data/state.json
+log: {level: "${LOG_LEVEL:-INFO}", format: text}
+
+unifi:
+  url: ${UNIFI_URL:-https://10.0.1.1}
+  api_key: ${UNIFI_API_KEY}
+  verify_tls: false
+
+detection: {failure_threshold: 3, probe_failure_threshold: 2, probe_interval_seconds: 30}
+
+probe:
+  mode: none            # set to `remote` once a probe agent runs on a host with its own MAC (see DOCS.md)
+  # canary: {mac: "02:42:0a:00:3c:c8"}
+  # remote_url: http://10.0.60.200:8081
+
+groups:
+  - name: iot-and-vpn
+    networks: [vlan20-iot, vlan50-vpn]
+    kill_switch: false
+    ladder:
+      - {country: IT}
+      - {country: DE}
+      - {country: FR}
+      - {country: GB}
+
+notifications:
+  - {type: home_assistant, supervisor: true, service: "${NOTIFY_SERVICE:-persistent_notification.create}"}
+
+mqtt: {enabled: true, supervisor: true}
+
+server: {enabled: true, port: 8080, host: 0.0.0.0, trust_ingress: true, control_token: "${WATCHDOG_CONTROL_TOKEN:-}"}

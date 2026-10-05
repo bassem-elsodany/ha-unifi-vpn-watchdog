@@ -1,0 +1,28 @@
+# HA UniFi VPN Watchdog
+
+Monitors your UniFi WireGuard VPN clients and moves the policy route to another server, city or country when a
+tunnel stops carrying traffic.
+
+## First start
+1. **Configuration tab:** set `unifi_api_key` (UniFi > Settings > Integrations > API key) and, if needed, `unifi_url`.
+2. Start the add-on. It creates `config.yaml` in the add-on config folder and starts in **dry-run**: it logs and
+   alerts what it *would* do but changes nothing.
+3. Open **VPN Watchdog** in the sidebar: status, events, start/stop per group, force switch, config editor.
+4. When the decisions look right, press **Go live**.
+
+## Home Assistant integration
+- **Sidebar panel** (ingress): no extra login, controls are protected by your HA session.
+- **Entities** (MQTT discovery, needs the Mosquitto add-on): active tunnel, exit country, healthy, last decision,
+  "Failover paused" switch and "Force tunnel" select, grouped under a "VPN <group>" device.
+- **Notifications:** set `notify_service` to e.g. `notify.mobile_app_myphone`; the default creates a persistent notification.
+- **Logs:** the add-on **Log** tab.
+
+## Probe agent (recommended)
+A tunnel can report CONNECTED while passing nothing. For a real exit-IP test the watchdog points a *canary* client
+at each tunnel and asks it for its public IP. An add-on has no MAC address of its own, so run the small agent on
+a host that does (for example a macvlan container) and set `probe.mode: remote` in the config:
+
+    docker run -d --network canary_net --mac-address 02:42:0a:00:3c:c8 --ip 10.0.60.200 \
+      ha-unifi-vpn-watchdog agent --config /config/config.yaml
+
+See the project README for the full compose file.

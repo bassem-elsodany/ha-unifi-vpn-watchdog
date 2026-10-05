@@ -1,0 +1,6 @@
+# This folder holds several local tools; only the Home Assistant add-on repository is published.
+/*
+!/.gitignore
+!/repository.yaml
+!/README.md
+!/ha-unifi-vpn-watchdog/

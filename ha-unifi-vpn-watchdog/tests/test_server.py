@@ -1,0 +1,101 @@
+import json
+import time
+import urllib.error
+import urllib.request
+
+import pytest
+
+from vpn_watchdog.config import ServerCfg
+from vpn_watchdog.server import StatusServer, render_metrics
+
+
+class StubEngine:
+    def __init__(self):
+        self.last_tick = time.time()
+        self.last_error = None
+        self.submitted = []
+        self.wake = type("W", (), {"set": lambda s: None})()
+
+    def status(self):
+        return {"dry_run": True, "last_tick": self.last_tick, "groups": {"g": {"healthy": True, "switches_last_hour": 0, "active": "IT__A", "country": "IT"}},
+                "tunnels": {"IT__A": {"status": "CONNECTED", "quarantined_for": 0}}, "events": []}
+
+    def submit(self, *c):
+        self.submitted.append(c)
+
+
+class StubApp:
+    def __init__(self):
+        self.engine = StubEngine()
+        self.saved = None
+
+    def config_text(self): return "dry_run: true\n"
+    def validate_text(self, t): return None if "bad" not in t else "unifi: field required"
+    def save_text(self, t):
+        err = self.validate_text(t)
+        self.saved = None if err else t
+        return err
+    def set_dry_run(self, v): return None
+
+
+@pytest.fixture
+def srv():
+    app = StubApp()
+    s = StatusServer(ServerCfg(host="127.0.0.1", port=0, control_token="tok"), app, stale_after=60)
+    s.start()
+    yield app, f"http://127.0.0.1:{s.port}"
+    s.stop()
+
+
+def call(url, method="GET", body=None, token=None):
+    req = urllib.request.Request(url, method=method, data=json.dumps(body).encode() if body is not None else None,
+                                 headers={"Authorization": f"Bearer {token}"} if token else {})
+    try:
+        with urllib.request.urlopen(req, timeout=3) as r:
+            return r.status, r.read().decode()
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode()
+
+
+def test_health_status_metrics_and_ui_are_readable_without_token(srv):
+    app, base = srv
+    assert call(base + "/healthz")[0] == 200
+    code, body = call(base + "/api/status")
+    assert code == 200 and json.loads(body)["can_control"] is False
+    assert 'vpn_watchdog_group_healthy{group="g"} 1' in call(base + "/metrics")[1]
+    code, html = call(base + "/")
+    assert code == 200 and "VPN Watchdog" in html
+    app.engine.last_tick = time.time() - 3600
+    assert call(base + "/healthz")[0] == 503
+
+
+def test_control_needs_the_token(srv):
+    app, base = srv
+    assert call(base + "/api/groups/g/pause", "POST", {})[0] == 401
+    assert call(base + "/api/groups/g/pause", "POST", {}, token="wrong")[0] == 401
+    assert call(base + "/api/config")[0] == 401
+    assert call(base + "/api/groups/g/pause", "POST", {}, token="tok")[0] == 202
+    assert call(base + "/api/groups/g/switch", "POST", {"tunnel": "IT__B"}, token="tok")[0] == 202
+    assert app.engine.submitted == [("pause", "g"), ("switch", "g", "IT__B")]
+
+
+def test_config_validate_and_save_flow(srv):
+    app, base = srv
+    assert json.loads(call(base + "/api/config", token="tok")[1])["yaml"] == "dry_run: true\n"
+    assert json.loads(call(base + "/api/config/validate", "POST", {"yaml": "bad"}, token="tok")[1])["error"]
+    assert call(base + "/api/config", "POST", {"yaml": "bad"}, token="tok")[0] == 400 and app.saved is None
+    assert call(base + "/api/config", "POST", {"yaml": "ok: 1"}, token="tok")[0] == 200 and app.saved == "ok: 1"
+
+
+def test_no_token_configured_means_read_only():
+    app = StubApp()
+    s = StatusServer(ServerCfg(host="127.0.0.1", port=0), app, stale_after=60)
+    s.start()
+    try:
+        assert call(f"http://127.0.0.1:{s.port}/api/groups/g/pause", "POST", {}, token="")[0] == 401
+    finally:
+        s.stop()
+
+
+def test_render_metrics_labels():
+    assert 'tunnel="IT__A"' in render_metrics(StubEngine().status())
