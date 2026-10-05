@@ -15,7 +15,9 @@ CONFIG = Path(os.environ.get("WATCHDOG_CONFIG", "/config/config.yaml"))
 def main() -> int:
     opts = json.loads(OPTIONS.read_text()) if OPTIONS.exists() else {}
     mapping = {"unifi_url": "UNIFI_URL", "unifi_api_key": "UNIFI_API_KEY", "log_level": "LOG_LEVEL",
-               "notify_service": "NOTIFY_SERVICE", "control_token": "WATCHDOG_CONTROL_TOKEN"}
+               "notify_service": "NOTIFY_SERVICE", "control_token": "WATCHDOG_CONTROL_TOKEN",
+               "mqtt_host": "MQTT_HOST", "mqtt_port": "MQTT_PORT", "mqtt_username": "MQTT_USERNAME",
+               "mqtt_password": "MQTT_PASSWORD"}
     for key, env in mapping.items():
         if opts.get(key):
             os.environ[env] = str(opts[key])

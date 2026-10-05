@@ -85,6 +85,10 @@ class StatusServer:
                     if not self._can_control():
                         return self._send(401, {"error": "unauthorized"})
                     self._send(200, {"yaml": outer.app.config_text()})
+                elif path == "/api/ha/notify-services":
+                    if not self._can_control():
+                        return self._send(401, {"error": "unauthorized"})
+                    self._send(200, outer.app.ha_notify_services())
                 elif path == "/":
                     self._send(200, _index_html(), "text/html; charset=utf-8")
                 else:
@@ -113,6 +117,12 @@ class StatusServer:
                 elif parts == ["config"]:
                     err = outer.app.save_text(body.get("yaml", ""))
                     return self._send(400 if err else 200, {"error": err, "saved": not err})
+                elif parts == ["notify", "service"]:
+                    err = outer.app.set_notify_service(body.get("service", ""))
+                    return self._send(400 if err else 200, {"error": err})
+                elif parts == ["notify", "test"]:
+                    err = outer.app.test_notify(body.get("service"))
+                    return self._send(502 if err else 200, {"error": err})
                 elif parts == ["mode"] and isinstance(body.get("dry_run"), bool):
                     err = outer.app.set_dry_run(body["dry_run"])
                     return self._send(400 if err else 200, {"error": err})

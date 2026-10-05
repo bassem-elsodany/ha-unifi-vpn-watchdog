@@ -12,9 +12,12 @@ tunnel stops carrying traffic.
 
 ## Home Assistant integration
 - **Sidebar panel** (ingress): no extra login, controls are protected by your HA session.
-- **Entities** (MQTT discovery, needs the Mosquitto add-on): active tunnel, exit country, healthy, last decision,
+- **Entities** (MQTT discovery). With the Mosquitto add-on nothing needs configuring. With an external broker (the one HA's MQTT
+  integration uses) fill `mqtt_host`, `mqtt_port`, `mqtt_username`, `mqtt_password` in the Configuration tab. For the Mosquitto add-on use host
+  `core-mosquitto`, port `1883` and a Home Assistant user (create a dedicated one under Settings → People → Users). Entities: active tunnel, exit country, healthy, last decision,
   "Failover paused" switch and "Force tunnel" select, grouped under a "VPN <group>" device.
-- **Notifications:** set `notify_service` to e.g. `notify.mobile_app_myphone`; the default creates a persistent notification.
+- **Notifications:** panel → *Config* tab → *Notifications*: choose from the notify services Home Assistant reports (phones,
+  persistent notification, ...), press *Use this*, then *Send test*. The default is a persistent notification.
 - **Logs:** the add-on **Log** tab.
 
 ## Probe agent (recommended)

@@ -50,6 +50,7 @@ class StateStore:
         self.path = Path(path) if path else None
         self.tunnels: dict[str, TunnelState] = {}
         self.groups: dict[str, GroupState] = {}
+        self.settings: dict[str, Any] = {}      # choices made in the web UI (e.g. notify_service)
         self._dirty = False
         self._load()
 
@@ -69,6 +70,7 @@ class StateStore:
             data = json.loads(self.path.read_text())
             self.tunnels = {k: _load_into(TunnelState, v) for k, v in data.get("tunnels", {}).items()}
             self.groups = {k: _load_into(GroupState, v) for k, v in data.get("groups", {}).items()}
+            self.settings = dict(data.get("settings", {}))
         except (OSError, ValueError, TypeError) as e:
             log.warning("ignoring unreadable state file %s: %s", self.path, e)
 
@@ -78,6 +80,7 @@ class StateStore:
         payload = {
             "tunnels": {k: asdict(v) for k, v in self.tunnels.items()},
             "groups": {k: asdict(v) for k, v in self.groups.items()},
+            "settings": self.settings,
         }
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)

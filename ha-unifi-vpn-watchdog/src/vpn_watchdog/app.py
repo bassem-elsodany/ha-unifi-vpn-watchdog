@@ -11,7 +11,8 @@ import threading
 from pathlib import Path
 
 from .clock import Clock
-from .config import Config, ConfigError, load_config, parse_config
+from .config import Config, ConfigError, NotifyCfg, load_config, parse_config
+from .ha_api import SERVICE_RE, HaApi
 from .engine import Engine
 from .ha_mqtt import MqttPublisher
 from .notify import Notifier
@@ -47,6 +48,7 @@ class App:
         self.clock = Clock()
         self.cfg = self._load()
         self.store = StateStore(self.cfg.state_file)
+        self._apply_settings(self.cfg)
         self.stop_event = threading.Event()
         self.server: StatusServer | None = None
         self.mqtt: MqttPublisher | None = None
@@ -69,7 +71,53 @@ class App:
             eng.listeners.append(self.mqtt.publish)
         return eng
 
+    def _apply_settings(self, cfg: Config) -> None:
+        """Choices made in the UI overlay the file (stored in the state volume, not in config.yaml)."""
+        svc = self.store.settings.get("notify_service")
+        if not svc:
+            return
+        hits = [n for n in cfg.notifications if n.type == "home_assistant"]
+        for n in hits:
+            n.service = svc
+        if not hits and os.environ.get("SUPERVISOR_TOKEN"):
+            cfg.notifications.append(NotifyCfg(type="home_assistant", supervisor=True, service=svc))
+
     # ---- used by the web UI
+    def current_notify_service(self) -> str | None:
+        return next((n.service for n in self.cfg.notifications if n.type == "home_assistant"), None)
+
+    def ha_notify_services(self) -> dict:
+        api = HaApi.from_config(self.cfg)
+        out = {"available": api is not None, "current": self.current_notify_service(), "services": [], "error": None}
+        if api is None:
+            return out
+        try:
+            out["services"] = api.notify_services()
+        except Exception as e:  # noqa: BLE001
+            out["error"] = f"{type(e).__name__}: {e}"
+        return out
+
+    def set_notify_service(self, service: str) -> str | None:
+        if not SERVICE_RE.match(service or ""):
+            return "invalid service name"
+        self.store.settings["notify_service"] = service
+        self.store.touch()
+        self.store.save()
+        self._mtime = 0                      # reload at the start of the next cycle
+        self.engine.wake.set()
+        return None
+
+    def test_notify(self, service: str | None = None) -> str | None:
+        api = HaApi.from_config(self.cfg)
+        svc = service or self.current_notify_service()
+        if api is None or not svc:
+            return "not connected to Home Assistant or no service selected"
+        try:
+            api.call(svc, "VPN Watchdog test", "If you can read this, notifications work.")
+        except Exception as e:  # noqa: BLE001
+            return f"{type(e).__name__}: {e}"
+        return None
+
     def config_text(self) -> str:
         return self.path.read_text()
 
@@ -113,6 +161,7 @@ class App:
         self._mtime = m
         try:
             self.cfg = self._load()
+            self._apply_settings(self.cfg)
         except ConfigError as e:
             log.error("config reload rejected, keeping the previous config: %s", e)
             self.engine.notifier.emit("config_error", "VPN watchdog config rejected", str(e)[:300], level="warning", key="cfg")
@@ -129,8 +178,9 @@ class App:
             self.engine.listeners.append(self.mqtt.publish)
         except Exception as e:  # noqa: BLE001
             self.mqtt = None
-            hint = ("the Supervisor has no MQTT service: install and start the Mosquitto broker add-on, or set "
-                    "mqtt.supervisor: false with mqtt.host / username / password for an external broker"
+            hint = ("restart the Mosquitto broker add-on (it re-registers with the Supervisor), then restart this add-on; or "
+                    "fill mqtt_host (core-mosquitto for the Mosquitto add-on), mqtt_username and mqtt_password in the "
+                    "Configuration tab"
                     if self.cfg.mqtt.supervisor else "check mqtt.host / port / username / password")
             log.warning("MQTT entities disabled (%s: %s). %s. Failover is unaffected.", type(e).__name__, e, hint)
 

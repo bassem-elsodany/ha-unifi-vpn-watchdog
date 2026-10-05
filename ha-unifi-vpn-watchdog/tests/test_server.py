@@ -36,6 +36,9 @@ class StubApp:
         self.saved = None if err else t
         return err
     def set_dry_run(self, v): return None
+    def ha_notify_services(self): return {"available": True, "current": "notify.a", "services": [{"service": "notify.a", "label": "A"}], "error": None}
+    def set_notify_service(self, s): self.chosen = s; return None
+    def test_notify(self, s=None): return None
 
 
 @pytest.fixture
@@ -116,3 +119,12 @@ def test_mqtt_failure_is_not_fatal(tmp_path, monkeypatch):
     a = app_mod.App(str(cfg), env={})
     a._start_mqtt()                      # must not raise
     assert a.mqtt is None
+
+
+def test_notify_endpoints_need_the_token_and_forward_the_choice(srv):
+    app, base = srv
+    assert call(base + "/api/ha/notify-services")[0] == 401
+    assert json.loads(call(base + "/api/ha/notify-services", token="tok")[1])["services"][0]["service"] == "notify.a"
+    assert call(base + "/api/notify/service", "POST", {"service": "notify.b"})[0] == 401
+    assert call(base + "/api/notify/service", "POST", {"service": "notify.b"}, token="tok")[0] == 200 and app.chosen == "notify.b"
+    assert call(base + "/api/notify/test", "POST", {}, token="tok")[0] == 200

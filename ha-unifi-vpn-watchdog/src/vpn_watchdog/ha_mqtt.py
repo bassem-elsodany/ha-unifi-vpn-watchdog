@@ -19,9 +19,13 @@ def _slug(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", s.lower()).strip("_")
 
 
-def supervisor_mqtt() -> dict[str, Any]:
-    r = httpx.get("http://supervisor/services/mqtt", headers={"Authorization": f"Bearer {os.environ.get('SUPERVISOR_TOKEN', '')}"}, timeout=8)
-    r.raise_for_status()
+def supervisor_mqtt(transport: httpx.BaseTransport | None = None) -> dict[str, Any]:
+    """Broker details the Supervisor hands to add-ons that declare `services: mqtt:want` (Mosquitto add-on)."""
+    with httpx.Client(timeout=8, transport=transport, headers={"Authorization": f"Bearer {os.environ.get('SUPERVISOR_TOKEN', '')}"}) as c:
+        r = c.get("http://supervisor/services/mqtt")
+    if r.status_code >= 400:
+        # The body says why (service not available, access denied, ...); httpx's own message hides it.
+        raise RuntimeError(f"Supervisor answered HTTP {r.status_code} for /services/mqtt: {r.text[:200].strip()}")
     return r.json()["data"]
 
 
@@ -33,8 +37,20 @@ class MqttPublisher:
         self._last: dict[str, str] = {}
         host, port, user, pw = cfg.host, cfg.port, cfg.username, cfg.password
         if cfg.supervisor:
-            d = supervisor_mqtt()
-            host, port, user, pw = d["host"], d["port"], d.get("username"), d.get("password")
+            try:
+                d = supervisor_mqtt()
+                host, port, user, pw = d["host"], d["port"], d.get("username"), d.get("password")
+            except Exception as e:  # noqa: BLE001 - e.g. 400: no Mosquitto add-on registered with the Supervisor
+                if os.environ.get("MQTT_HOST"):      # broker given in the add-on Configuration tab
+                    host = os.environ["MQTT_HOST"]
+                    port = int(os.environ.get("MQTT_PORT") or 1883)
+                    user = os.environ.get("MQTT_USERNAME") or None
+                    pw = os.environ.get("MQTT_PASSWORD") or None
+                    log.info("Supervisor offers no MQTT service (%s); using broker %s:%s from the add-on options", type(e).__name__, host, port)
+                elif cfg.host != "127.0.0.1":        # broker given in config.yaml
+                    log.info("Supervisor offers no MQTT service (%s); using mqtt.host %s from config.yaml", type(e).__name__, host)
+                else:
+                    raise
         self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="ha-unifi-vpn-watchdog")
         if user:
             self.client.username_pw_set(user, pw)

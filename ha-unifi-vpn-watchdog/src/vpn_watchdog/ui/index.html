@@ -79,6 +79,16 @@
   <section id="tab-events" class="hide"><div class="card" id="events"></div></section>
 
   <section id="tab-config" class="hide">
+    <div class="card" id="notifyCard">
+      <b>Notifications</b>
+      <p class="muted" id="notifyHint">Pick the Home Assistant service that should receive alerts (failover, leak, no healthy tunnel).</p>
+      <div class="row">
+        <select id="notifySel"></select>
+        <button class="act" id="notifySave">Use this</button>
+        <button class="act" id="notifyTest">Send test</button>
+        <span id="notifyMsg"></span>
+      </div>
+    </div>
     <div class="card">
       <p class="muted">Edit the YAML, validate, then save. The watchdog reloads it within one cycle; an invalid file is never applied.
       Secrets stay as <code>${VAR}</code> references and are not shown here. A backup of the previous file is kept as <code>config.yaml.bak</code>.</p>
@@ -124,7 +134,7 @@ async function refresh() {
   $("#mode").className = "pill " + (data.dry_run ? "warn" : "ok");
   $("#modeBtn").textContent = data.dry_run ? "Go live" : "Switch to dry-run";
   $("#tick").textContent = "last cycle " + ago(data.last_tick);
-  ["modeBtn", "checkNow", "pauseAll", "resumeAll", "saveCfg", "validate"].forEach((id) => ($("#" + id).disabled = !can));
+  ["modeBtn", "checkNow", "pauseAll", "resumeAll", "saveCfg", "validate", "notifySave", "notifyTest"].forEach((id) => ($("#" + id).disabled = !can));
   renderGroups(data, can); renderTunnels(data); renderEvents(data);
 }
 
@@ -189,7 +199,7 @@ $("#saveToken").onclick = () => { token = $("#token").value.trim(); try { localS
 document.querySelectorAll("nav button").forEach((b) => (b.onclick = () => {
   document.querySelectorAll("nav button").forEach((x) => x.classList.toggle("on", x === b));
   ["status", "events", "config"].forEach((t) => $("#tab-" + t).classList.toggle("hide", t !== b.dataset.tab));
-  if (b.dataset.tab === "config" && !cfgLoaded) loadCfg();
+  if (b.dataset.tab === "config") { if (!cfgLoaded) loadCfg(); loadNotify(); }
 }));
 
 async function loadCfg() {
@@ -197,6 +207,28 @@ async function loadCfg() {
   if (r.ok) { $("#yaml").value = r.data.yaml; cfgLoaded = true; $("#cfgerr").textContent = ""; $("#cfgmsg").textContent = ""; }
   else $("#cfgerr").textContent = "Enter the control token to view or edit the config.";
 }
+async function loadNotify() {
+  const r = await api("ha/notify-services");
+  const sel = $("#notifySel");
+  if (!r.ok) { $("#notifyHint").textContent = "Enter the control token to choose a notification service."; return; }
+  const d = r.data;
+  if (!d.available) {
+    $("#notifyHint").textContent = "Not connected to Home Assistant (available inside the add-on, or when a home_assistant notifier with url + token is configured).";
+    sel.innerHTML = ""; return;
+  }
+  if (d.error) $("#notifyHint").textContent = "Could not list services: " + d.error;
+  const opts = d.services.slice();
+  if (d.current && !opts.some((o) => o.service === d.current)) opts.unshift({ service: d.current, label: d.current + " (current)" });
+  sel.innerHTML = opts.map((o) => `<option value="${esc(o.service)}" ${o.service === d.current ? "selected" : ""}>${esc(o.label)}</option>`).join("");
+}
+$("#notifySave").onclick = async () => {
+  const r = await api("notify/service", "POST", { service: $("#notifySel").value });
+  $("#notifyMsg").innerHTML = r.ok ? '<span class="pill ok">saved</span>' : '<span class="pill bad">' + esc(r.data.error || "failed") + "</span>";
+};
+$("#notifyTest").onclick = async () => {
+  const r = await api("notify/test", "POST", { service: $("#notifySel").value });
+  $("#notifyMsg").innerHTML = r.ok ? '<span class="pill ok">sent: check your phone</span>' : '<span class="pill bad">' + esc(r.data.error || "failed") + "</span>";
+};
 $("#reloadCfg").onclick = loadCfg;
 $("#validate").onclick = async () => {
   const r = await api("config/validate", "POST", { yaml: $("#yaml").value });
