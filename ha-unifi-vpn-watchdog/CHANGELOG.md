@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.4
+- Fix: the MQTT fields (`mqtt_host`, `mqtt_port`, `mqtt_username`, `mqtt_password`) did not appear in the
+  Configuration tab because optional options without defaults are hidden by Home Assistant. They now have defaults.
+
 ## 0.1.3
 - MQTT: the log now shows the Supervisor's actual reason when it offers no broker, with a fix hint.
 - Notifications: the panel's Config tab lists the notify services found in Home Assistant (each phone's
