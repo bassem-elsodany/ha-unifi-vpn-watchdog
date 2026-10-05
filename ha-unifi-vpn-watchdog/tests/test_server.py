@@ -99,3 +99,20 @@ def test_no_token_configured_means_read_only():
 
 def test_render_metrics_labels():
     assert 'tunnel="IT__A"' in render_metrics(StubEngine().status())
+
+
+def test_mqtt_failure_is_not_fatal(tmp_path, monkeypatch):
+    """Regression: Supervisor answered 400 for /services/mqtt and the whole add-on crashed."""
+    from vpn_watchdog import app as app_mod
+
+    cfg = tmp_path / "c.yaml"
+    cfg.write_text("unifi: {api_key: k}\nstate_file: " + str(tmp_path / "s.json") + "\nmqtt: {enabled: true, supervisor: true}\n"
+                   "groups:\n  - {name: g, networks: [n], ladder: [{country: IT}]}\n")
+
+    def boom(*a, **k):
+        raise RuntimeError("Client error '400 Bad Request' for url 'http://supervisor/services/mqtt'")
+
+    monkeypatch.setattr(app_mod, "MqttPublisher", boom)
+    a = app_mod.App(str(cfg), env={})
+    a._start_mqtt()                      # must not raise
+    assert a.mqtt is None

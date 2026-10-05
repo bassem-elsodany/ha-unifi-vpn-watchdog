@@ -35,7 +35,8 @@ def setup_logging(level: str, fmt: str) -> None:
     root = logging.getLogger()
     root.handlers[:] = [h]
     root.setLevel(level.upper())
-    logging.getLogger("httpx").setLevel(logging.WARNING)
+    for noisy in ("httpx", "httpcore", "paho"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
 
 
 class App:
@@ -121,14 +122,25 @@ class App:
         old.unifi.close()
         log.info("config reloaded")
 
+    def _start_mqtt(self) -> None:
+        """MQTT only adds Home Assistant entities; failover must keep working without it."""
+        try:
+            self.mqtt = MqttPublisher(self.cfg.mqtt, lambda: self.engine)
+            self.engine.listeners.append(self.mqtt.publish)
+        except Exception as e:  # noqa: BLE001
+            self.mqtt = None
+            hint = ("the Supervisor has no MQTT service: install and start the Mosquitto broker add-on, or set "
+                    "mqtt.supervisor: false with mqtt.host / username / password for an external broker"
+                    if self.cfg.mqtt.supervisor else "check mqtt.host / port / username / password")
+            log.warning("MQTT entities disabled (%s: %s). %s. Failover is unaffected.", type(e).__name__, e, hint)
+
     def run(self) -> None:
         for sig in (signal.SIGINT, signal.SIGTERM):
             signal.signal(sig, lambda *_: (self.stop_event.set(), self.engine.wake.set()))
         signal.signal(signal.SIGHUP, lambda *_: setattr(self, "_mtime", 0))
         cfg = self.cfg
         if cfg.mqtt.enabled:
-            self.mqtt = MqttPublisher(cfg.mqtt, lambda: self.engine)
-            self.engine.listeners.append(self.mqtt.publish)
+            self._start_mqtt()
         if cfg.server.enabled:
             self.server = StatusServer(cfg.server, self, stale_after=max(60, cfg.interval_seconds * 6))
             self.server.start()

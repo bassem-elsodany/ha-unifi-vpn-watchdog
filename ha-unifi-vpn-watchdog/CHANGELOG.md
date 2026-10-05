@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+- Fix: the add-on crashed on start when the Supervisor offered no MQTT service. MQTT failures are now logged as a
+  warning and the watchdog keeps running without the HA entities.
+- Quieter logs: HTTP library debug output is no longer shown at DEBUG level.
+
 ## 0.1.0
 - First release: UniFi WireGuard client health checks, ladder-based failover (same country other city, then next country),
   quarantine with back-off, failback, warm standby, dry-run by default.

@@ -30,6 +30,9 @@ groups:
 notifications:
   - {type: home_assistant, supervisor: true, service: "${NOTIFY_SERVICE:-persistent_notification.create}"}
 
+# HA entities (sensors, pause switch, force-tunnel select). Needs an MQTT broker. If you use the Mosquitto add-on keep
+# supervisor: true; for an external broker use `supervisor: false, host: ..., username: ..., password: ...`.
+# A missing broker only disables the entities, never the failover.
 mqtt: {enabled: true, supervisor: true}
 
 server: {enabled: true, port: 8080, host: 0.0.0.0, trust_ingress: true, control_token: "${WATCHDOG_CONTROL_TOKEN:-}"}
