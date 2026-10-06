@@ -18,14 +18,9 @@ detection:
   blackhole: {enabled: true, min_tx_bps: 2000, samples: 6}   # CONNECTED but receiving nothing
 
 probe:
-  mode: none                      # none | canary | remote | direct  (see README: "Probe modes")
+  mode: none                      # none | direct  (see README: "Probe modes")
   require: 1                      # endpoints that must agree
   timeout_seconds: 8
-  # canary / remote: a client with its OWN MAC (macvlan container). The watchdog points it at any tunnel to
-  # test it before production traffic is moved there.
-  canary: {mac: "02:42:0a:00:3c:c8", settle_seconds: 6}
-  # remote_url: http://10.0.60.200:8081      # probe.mode=remote: where `ha-unifi-vpn-watchdog agent` listens
-  # remote_token: ${AGENT_TOKEN}
   country_aliases: {GB: [UK]}
 
 switching:
@@ -33,7 +28,6 @@ switching:
   min_hold_seconds: 60            # hard failures (tunnel not CONNECTED) bypass this
   max_switches_per_hour: 6
   quarantine: {base_seconds: 120, factor: 2, max_seconds: 3600}
-  on_exhausted: keep              # keep | kill_switch (block traffic instead of leaking when nothing works)
 
 failback:
   enabled: true
@@ -43,8 +37,6 @@ failback:
 
 groups:
   - name: iot-and-vpn
-    networks: [vlan20-iot, vlan50-vpn]     # names or ids; the managed route is found automatically
-    kill_switch: false                      # true = block (no leak) when the tunnel dies, until failover completes
     order:                                   # fallback sequence: #1 is used first, then #2, #3 ... (exact tunnel names, any names)
       - Home-Primary
       - Home-Backup

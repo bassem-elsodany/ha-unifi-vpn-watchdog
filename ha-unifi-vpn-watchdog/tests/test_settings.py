@@ -27,7 +27,7 @@ def cfg_of(raw_text):
 def test_extract_reads_effective_values_including_defaults():
     v = settings.extract(cfg_of(RAW))
     assert v["interval_seconds"] == 15 and v["detection"]["failure_threshold"] == 3
-    assert v["switching"]["on_exhausted"] == "keep" and v["failback"]["enabled"] is True
+    assert "on_exhausted" not in v["switching"] and v["failback"]["enabled"] is True
     assert "prefer_different_city" not in v["switching"]
     assert v["groups"][0]["order"] == [{"tunnel": "Home-Primary", "id": None, "expect_country": ""},
                                        {"tunnel": "Office Berlin", "id": None, "expect_country": "DE"},
@@ -40,12 +40,11 @@ def test_apply_changes_values_and_preserves_what_the_form_does_not_own():
     form["interval_seconds"] = 30
     form["detection"]["failure_threshold"] = 5
     form["failback"]["enabled"] = False
-    form["groups"][0]["kill_switch"] = True
     new = settings.apply(raw, form)
     assert new["interval_seconds"] == 30 and new["detection"]["failure_threshold"] == 5 and new["failback"]["enabled"] is False
     g = new["groups"][0]
     assert g["overrides"] == {"detection": {"failure_threshold": 9}}                                  # preserved
-    assert g["kill_switch"] is True
+    assert "kill_switch" not in g and "networks" not in g                                             # routing is UniFi's business
     assert new["unifi"]["api_key"] == "${UNIFI_API_KEY}"                                              # secret stays a reference
     assert g["order"] == ["Home-Primary", {"tunnel": "Office Berlin", "expect_country": "DE"}, "Last resort"]
     cfg_of(yaml.safe_dump(new))
@@ -79,22 +78,16 @@ def test_bad_values_are_rejected_by_validation_not_silently_saved():
     form["interval_seconds"] = "abc"
     with pytest.raises(ValueError):
         settings.apply(raw, form)
-    form["interval_seconds"] = 15
-    form["switching"]["on_exhausted"] = "explode"
-    with pytest.raises(ValueError):
-        settings.apply(raw, form)
 
 
-def test_probe_fields_and_clearing_them():
+def test_probe_fields():
     raw = load_raw(RAW)
     form = settings.extract(cfg_of(RAW))
-    form["probe"] = {"mode": "remote", "check_country": False, "canary_mac": "02:42:0a:00:3c:c8", "remote_url": "http://10.0.60.200:8081"}
-    new = settings.apply(raw, form)
-    c = cfg_of(yaml.safe_dump(new))
-    assert c.probe.mode == "remote" and c.probe.canary.mac and c.probe.check_country is False
-    form["probe"] = {"mode": "none", "canary_mac": "", "remote_url": ""}
-    c2 = cfg_of(yaml.safe_dump(settings.apply(new, form)))
-    assert c2.probe.mode == "none" and c2.probe.remote_url is None and c2.probe.canary.mac is None
+    form["probe"] = {"mode": "direct", "check_country": False}
+    c = cfg_of(yaml.safe_dump(settings.apply(raw, form)))
+    assert c.probe.mode == "direct" and c.probe.check_country is False
+    form["probe"] = {"mode": "none"}
+    assert cfg_of(yaml.safe_dump(settings.apply(raw, form))).probe.mode == "none"
 
 
 def test_meta_lists_networks_and_tunnels_without_any_interpretation():
@@ -102,7 +95,7 @@ def test_meta_lists_networks_and_tunnels_without_any_interpretation():
     snap = Snapshot({"id-a": t("Home 1"), "id-b": t("Home 2"), "id-c": t("zeta")}, {}, [],
                     {"id-a": "Home 1", "id-b": "Home 2", "id-c": "zeta", "n1": "vlan20-iot", "n2": "Internet 1", "n3": "One-Click VPN"})
     m = settings.meta(snap)
-    assert m["networks"] == [{"id": "n1", "name": "vlan20-iot"}]
+    assert "networks" not in m
     assert [x["name"] for x in m["tunnels"]] == ["Home 1", "Home 2", "zeta"]
     assert "countries" not in m
     assert settings.meta(None)["ready"] is False
@@ -145,16 +138,15 @@ def test_groups_are_created_renamed_and_deleted_from_the_form():
     assert cfg_of(yaml.safe_dump(settings.apply(raw, form))).groups == []
 
 
-def test_a_group_needs_a_name_and_networks_and_unique_names():
+def test_a_group_needs_a_name_and_unique_names():
     raw = load_raw(RAW)
     form = settings.extract(cfg_of(RAW))
-    form["groups"].append({"name": "Empty", "_orig": None, "networks": [], "kill_switch": None, "order": []})
-    with pytest.raises(ConfigError, match="at least one network"):
-        cfg_of(yaml.safe_dump(settings.apply(raw, form)))
-    form["groups"][1] = {"name": "g1", "_orig": None, "networks": ["x"], "kill_switch": None, "order": []}
+    form["groups"].append({"name": "Empty", "_orig": None, "order": []})
+    cfg_of(yaml.safe_dump(settings.apply(raw, form)))                          # a group with no clients yet is fine: it only waits
+    form["groups"][1] = {"name": "g1", "_orig": None, "order": []}
     with pytest.raises(ConfigError, match="unique"):
         cfg_of(yaml.safe_dump(settings.apply(raw, form)))
-    form["groups"][1] = {"name": "   ", "_orig": None, "networks": ["x"], "kill_switch": None, "order": []}
+    form["groups"][1] = {"name": "   ", "_orig": None, "order": []}
     with pytest.raises(ConfigError, match="needs a name"):
         cfg_of(yaml.safe_dump(settings.apply(raw, form)))
 

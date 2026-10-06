@@ -1,4 +1,4 @@
-"""Command line: run | once | discover | validate | check | agent."""
+"""Command line: run | once | discover | validate | check."""
 from __future__ import annotations
 
 import argparse
@@ -22,11 +22,9 @@ def _env(args) -> dict[str, str]:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="ha-unifi-vpn-watchdog", description=__doc__)
-    ap.add_argument("command", choices=["run", "once", "discover", "validate", "check", "agent"])
+    ap.add_argument("command", choices=["run", "once", "discover", "validate", "check"])
     ap.add_argument("--config", "-c", default=os.environ.get("WATCHDOG_CONFIG", "/config/config.yaml"))
     ap.add_argument("--env-file", help="KEY=VALUE file for local runs (Docker passes the environment itself)")
-    ap.add_argument("--port", type=int, default=8081, help="agent listen port")
-    ap.add_argument("--token", default=os.environ.get("AGENT_TOKEN"), help="agent bearer token")
     args = ap.parse_args(argv)
     env = _env(args)
 
@@ -34,12 +32,6 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "validate":
             cfg = load_config(args.config, env)
             print(f"OK: {len(cfg.groups)} group(s), probe.mode={cfg.probe.mode}")
-            return 0
-        if args.command == "agent":
-            cfg = load_config(args.config, env)
-            setup_logging(cfg.log.level, cfg.log.format)
-            from .agent import serve
-            serve(cfg.probe, "0.0.0.0", args.port, args.token)
             return 0
         if args.command == "run":
             return _run_forever(args, env)

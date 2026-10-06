@@ -87,69 +87,27 @@ class Prober:
 
 
 class TunnelTester:
-    """Single entry point the engine uses to ask 'does traffic really flow through this tunnel?'."""
+    """Single entry point the engine uses to ask 'does traffic really flow through this tunnel?'.
 
-    def __init__(self, cfg: ProbeCfg, unifi: UniFiClient, prober: Prober, clock: Clock, kill_switch_canary: bool = True):
+    The only active mode is `direct`: the probe runs from this host's own egress, so it only says something when this host is routed
+    through the VPN. Steering a separate test device through each tunnel would mean changing a routing policy, which the watchdog never does."""
+
+    def __init__(self, cfg: ProbeCfg, unifi: UniFiClient, prober: Prober, clock: Clock):
         self.cfg = cfg
         self.unifi = unifi
         self.prober = prober
         self.clock = clock
-        self._kill_switch_canary = kill_switch_canary
 
     @property
     def enabled(self) -> bool:
-        return self.cfg.mode != "none"
+        return self.cfg.mode == "direct"
 
     @property
     def can_pretest(self) -> bool:
-        return self.cfg.mode in ("canary", "remote")
+        return False
 
     def test(self, tunnel: Tunnel, snap: Snapshot, *, pre: bool, expect: str | None = None) -> ProbeResult | None:
         """Returns None when this tunnel cannot be tested in the current mode."""
-        mode = self.cfg.mode
-        iso = expect
-        if mode == "none":
+        if self.cfg.mode != "direct" or pre:
             return None
-        if mode == "direct":
-            return None if pre else self.prober.probe(iso, snap.wan_ip)
-        # canary / remote: point the canary client at the tunnel first
-        err = self._point_canary(tunnel, snap)
-        if err:
-            return ProbeResult(False, err)
-        self.clock.sleep(self.cfg.canary.settle_seconds)
-        if mode == "remote":
-            return self._remote_probe(iso, snap.wan_ip)
-        return self.prober.probe(iso, snap.wan_ip)
-
-    def _remote_probe(self, iso: str | None, wan_ip: str | None) -> ProbeResult:
-        headers = {"Authorization": f"Bearer {self.cfg.remote_token}"} if self.cfg.remote_token else {}
-        try:
-            r = self.prober._http.get(
-                f"{self.cfg.remote_url.rstrip('/')}/probe",
-                params={"expect": iso or "", "wan_ip": wan_ip or ""},
-                headers=headers,
-                timeout=self.cfg.timeout_seconds * (len(self.cfg.endpoints) + 1),
-            )
-            r.raise_for_status()
-            d = r.json()
-            return ProbeResult(bool(d.get("ok")), d.get("reason", ""), d.get("ip"), d.get("country"), bool(d.get("leak")))
-        except (httpx.HTTPError, ValueError) as e:
-            return ProbeResult(False, f"probe agent unreachable: {type(e).__name__}")
-
-    def _point_canary(self, tunnel: Tunnel, snap: Snapshot) -> str | None:
-        mac = (self.cfg.canary.mac or "").lower()
-        desc = self.cfg.canary.route_description
-        route = next((r for r in snap.routes if r.description == desc and mac in r.target_macs), None)
-        if route is None:
-            route = next((r for r in snap.routes if mac in r.target_macs and r.id and not r.target_networks), None)
-        try:
-            if route is None:
-                self.unifi.create_route(desc, tunnel.id, target_macs=[mac], kill_switch=self._kill_switch_canary)
-            elif route.network_id != tunnel.id or not route.enabled:
-                self.unifi.set_route(route, network_id=tunnel.id, enabled=True, kill_switch=self._kill_switch_canary)
-            else:
-                return None
-        except Exception as e:  # noqa: BLE001 - surfaced to the engine as a failed test
-            return f"canary route update failed: {e}"
-        # Let the controller apply the route before probing.
-        return None
+        return self.prober.probe(expect, snap.wan_ip)

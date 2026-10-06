@@ -25,11 +25,11 @@ def rename_tunnel(un, old, new):
 
 def test_names_only_config_gets_ids_on_the_first_reading(make_engine):
     eng, un, *_ = make_engine()
-    assert all(i.id is None for i in eng.cfg.groups[0].order) and all(n.id is None for n in eng.cfg.groups[0].networks)
+    assert all(i.id is None for i in eng.cfg.groups[0].order)
     eng.tick()
     g = eng.cfg.groups[0]
     assert [i.id for i in g.order] == [tid(n) for n in ("Home-Primary", "Home-Backup", "Cousin vpn 2", "office/berlin", "office/frankfurt", "zzz-last-resort")]
-    assert [n.id for n in g.networks] == ["net-iot", "net-vpn"] and eng.refs_changed
+    assert eng.refs_changed
 
 
 def test_renaming_a_vpn_client_in_unifi_keeps_its_place_in_the_order_and_its_settings(make_engine):
@@ -45,7 +45,7 @@ def test_renaming_a_vpn_client_in_unifi_keeps_its_place_in_the_order_and_its_set
     # and failover still goes to it as #2
     un.dead.add(tid("Home-Primary"))
     run(eng, clock, 6)
-    assert un.active_route().network_id == tid("Home-Backup")        # the policy of that very client (policy names are UniFi's own)
+    assert eng.store.group("g1").current_id == tid("Home-Backup")    # the client that was renamed, found by its id
 
 
 def test_a_country_typed_for_a_position_survives_a_rename(make_engine):
@@ -79,7 +79,7 @@ def test_a_deleted_client_stays_in_the_config_as_missing_and_is_skipped(make_eng
     assert "Home-Backup" not in [t.name for t in resolve_order(eng.cfg.groups[0], list(snap.tunnels.values()))]
 
 
-def test_renaming_a_vlan_in_unifi_keeps_the_group_working(make_engine):
+def test_renaming_a_vlan_in_unifi_shows_up_on_the_status_page(make_engine):
     eng, un, tester, notes, clock = make_engine()
     run(eng, clock, 1)
     orig = un.snapshot
@@ -92,8 +92,7 @@ def test_renaming_a_vlan_in_unifi_keeps_the_group_working(make_engine):
     un.snapshot = snap
     run(eng, clock, 1)
     g = eng.status()["map"]["groups"][0]
-    assert not g.get("unmanaged") and [n["name"] for n in g["networks"]] == ["IoT renamed", "vlan50-vpn"]
-    assert eng.cfg.groups[0].networks[0].name == "IoT renamed"
+    assert not g.get("unmanaged") and sorted(n["name"] for n in g["networks"]) == ["IoT renamed", "vlan50-vpn"]
 
 
 def test_the_config_file_gets_the_ids_written_once(tmp_path):
@@ -101,25 +100,25 @@ def test_the_config_file_gets_the_ids_written_once(tmp_path):
     f.write_text("unifi: {api_key: k}\nstate_file: " + str(tmp_path / "s.json") + "\ngroups:\n  - {name: g, networks: [vlan20-iot], order: [A, B]}\n")
     a = App(str(f), env={})
     from vpn_watchdog.models import Snapshot
-    snap = Snapshot({"ta": Tunnel("ta", "A", True), "tb": Tunnel("tb", "B", True)}, {}, [], {"n1": "vlan20-iot"})
+    snap = Snapshot({"ta": Tunnel("ta", "A", True), "tb": Tunnel("tb", "B", True)}, {}, [], {})
     assert normalize(a.cfg, snap)
     a.engine.cfg = a.cfg
     a.engine.refs_changed = True
     a.persist_refs()
     g = parse_config(f.read_text(), {}).groups[0]
-    assert [(i.id, i.tunnel) for i in g.order] == [("ta", "A"), ("tb", "B")] and (g.networks[0].id, g.networks[0].name) == ("n1", "vlan20-iot")
+    assert [(i.id, i.tunnel) for i in g.order] == [("ta", "A"), ("tb", "B")]
     first = f.read_text()
     a.persist_refs()
     assert f.read_text() == first                           # nothing more to write
 
 
-def test_status_follows_unifi_when_a_vlan_is_routed_elsewhere_than_its_group(make_engine):
-    """The group lists both VLANs, but UniFi sends vlan20 through another client: the page shows what UniFi does."""
-    eng, un, *_ = make_engine()
-    run(eng, clock := eng.clock, 1)
+def test_status_follows_unifi_when_a_vlan_is_routed_through_a_client_outside_the_group(make_engine):
+    """vlan20 goes through a client that is not in the group: it is drawn there, and vlan50 stays with the group's client."""
+    eng, un, *_ = make_engine(order="[Home-Primary, Home-Backup]")
+    un.enabled.add(tid("zzz-last-resort"))
     un.routes.insert(0, dataclasses.replace(un.routes[1], id="split", description="elsewhere", network_id=tid("zzz-last-resort"), enabled=True,
                                             target_networks=frozenset({"net-iot"})))
-    run(eng, clock, 1)
+    run(eng, eng.clock, 2)
     blocks = eng.status()["map"]["groups"]
     by = {b["name"]: b for b in blocks}
     assert by["g1"]["active"] == "Home-Primary" and [n["name"] for n in by["g1"]["networks"]] == ["vlan50-vpn"]
@@ -152,13 +151,13 @@ def test_devices_are_placed_by_vlan_id_not_by_vlan_name(make_engine):
     assert [d["name"] for d in iot["devices"]] == ["plug"]
 
 
-def test_saving_the_settings_form_stores_ids_and_a_second_save_changes_nothing(tmp_path):
+def test_saving_the_settings_form_stores_ids_and_drops_the_old_vlan_list(tmp_path):
     f = tmp_path / "c.yaml"
-    f.write_text("unifi: {api_key: k}\nstate_file: " + str(tmp_path / "s.json") + "\ngroups:\n  - {name: g, networks: [vlan20-iot], order: [A]}\n")
+    f.write_text("unifi: {api_key: k}\nstate_file: " + str(tmp_path / "s.json") + "\ngroups:\n  - {name: g, networks: [vlan20-iot], kill_switch: false, order: [A]}\n")
     a = App(str(f), env={})
-    form = {"groups": [{"name": "g", "_orig": "g", "networks": [{"id": "n1", "name": "vlan20-iot"}], "kill_switch": None,
-                        "order": [{"tunnel": "A", "id": "ta", "expect_country": "de"}, {"tunnel": "B", "id": "tb", "expect_country": ""}]}]}
+    form = {"groups": [{"name": "g", "_orig": "g", "order": [{"tunnel": "A", "id": "ta", "expect_country": "de"}, {"tunnel": "B", "id": "tb", "expect_country": ""}]}]}
     assert a.save_settings(form) is None
+    raw = yaml.safe_load(f.read_text())["groups"][0]
     g = parse_config(f.read_text(), {}).groups[0]
-    assert [(i.id, i.tunnel, i.expect_country) for i in g.order] == [("ta", "A", "DE"), ("tb", "B", None)] and g.networks[0].id == "n1"
-    assert yaml.safe_load(f.read_text())["groups"][0]["networks"] == [{"id": "n1", "name": "vlan20-iot"}]
+    assert [(i.id, i.tunnel, i.expect_country) for i in g.order] == [("ta", "A", "DE"), ("tb", "B", None)]
+    assert "networks" not in raw and "kill_switch" not in raw

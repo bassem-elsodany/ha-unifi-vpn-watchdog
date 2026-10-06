@@ -130,14 +130,13 @@ def test_min_hold_blocks_soft_failures_but_not_hard(make_engine):
     assert active_name(un) != first
 
 
-def test_exhausted_alerts_once_and_can_engage_kill_switch(make_engine):
-    eng, un, _, notes, clock = make_engine(extra_switching=", on_exhausted: kill_switch")
+def test_exhausted_alerts_once_and_stays_on_the_current_client(make_engine):
+    eng, un, _, notes, clock = make_engine()
     for n in ("Home-Primary", "Home-Backup", "Cousin vpn 2",
               "office/berlin", "office/frankfurt", "zzz-last-resort"):
         un.dead.add(tid(n))
     run(eng, clock, 8)
     assert notes.kinds().count("exhausted") == 1
-    assert un.active_route().kill_switch is True
     assert active_name(un) == "Home-Primary"       # nothing better to move to
 
 
@@ -149,16 +148,14 @@ def test_pause_and_manual_switch(make_engine):
     assert active_name(un) == "Home-Primary"      # paused: no automatic action
     eng.submit("resume", "g1")
     eng.submit("switch", "g1", "zzz-last-resort")
-    run(eng, clock, 1)
-    assert active_name(un) == "zzz-last-resort"
+    run(eng, clock, 3)
+    assert eng.store.group("g1").current_id == tid("zzz-last-resort") and tid("zzz-last-resort") in un.enabled
 
 
-def test_external_route_change_is_adopted(make_engine):
+def test_a_change_made_in_unifi_is_adopted(make_engine):
     eng, un, _, _, clock = make_engine()
     run(eng, clock, 2)
-    import dataclasses
-    un.routes = [dataclasses.replace(r, enabled=(r.description == "office/berlin")) for r in un.routes]   # someone flips policies in UniFi
-    un.enabled.add(tid("office/berlin"))
+    un.enabled = {tid("office/berlin")}                    # someone switches Home-Primary off and another client on in UniFi
     run(eng, clock, 2)
     assert eng.store.group("g1").current_id == tid("office/berlin")
 
@@ -234,43 +231,37 @@ def test_empty_order_means_watch_only_and_says_so(make_engine):
     assert "no fallback order set" in eng.status()["groups"]["g1"]["decision"]
 
 
-def test_watch_only_still_tracks_the_active_tunnel_and_reports_health(make_engine):
+def test_a_group_without_a_fallback_order_watches_nothing_and_changes_nothing(make_engine):
     eng, un, _, notes, clock = make_engine(order="[]")
-    run(eng, clock, 2)
-    g = eng.status()["groups"]["g1"]
-    assert g["active"] == "Home-Primary" and g["healthy"] is True and "no fallback order set" in g["decision"]
     un.dead.add(tid("Home-Primary"))
     run(eng, clock, 4)
     g = eng.status()["groups"]["g1"]
-    assert "nothing was switched" in g["decision"] and "exhausted" in notes.kinds() and un.calls == []
+    assert g["active"] is None and "no fallback order set" in g["decision"] and un.calls == [] and "switch" not in notes.kinds()
 
 
-def test_switching_only_turns_each_tunnels_own_policy_on_and_off(make_engine):
-    """Regression: the watchdog re-pointed and renamed ONE policy, so the previous tunnel's policy 'disappeared'."""
+def test_failover_only_switches_vpn_clients_on_and_off_and_never_touches_a_routing_policy(make_engine):
+    """The watchdog's only write to UniFi is a VPN client's switch."""
     eng, un, _, _, clock = make_engine()
-    before = sorted((r.id, r.description, r.network_id) for r in un.routes)
+    before = [(r.id, r.description, r.network_id, r.enabled, r.target_networks) for r in un.routes]
     un.dead.add(tid("Home-Primary"))
-    run(eng, clock, 3)
+    run(eng, clock, 4)
     assert active_name(un) == "Home-Backup"
-    assert sorted((r.id, r.description, r.network_id) for r in un.routes) == before      # same policies, same names, same targets
-    assert len(un.routes) == 6 and not any(c[0] == "create" for c in un.calls)
-    primary = next(r for r in un.routes if r.description == "Home-Primary")
-    assert primary.enabled is False                                                      # still there, just off
+    assert [(r.id, r.description, r.network_id, r.enabled, r.target_networks) for r in un.routes] == before
+    assert un.calls and all(c[0] == "enable" for c in un.calls)
 
 
-def test_make_before_break_new_policy_is_on_before_the_old_one_is_turned_off(make_engine):
+def test_the_new_client_is_switched_on_before_the_old_one_is_switched_off(make_engine):
     eng, un, _, _, clock = make_engine()
     un.dead.add(tid("Home-Primary"))
-    run(eng, clock, 3)
-    seq = [(c[1], c[2]) for c in un.calls if c[0] == "route" and c[2] is not None]
-    assert seq.index(("Home-Backup", True)) < seq.index(("Home-Primary", False))
+    run(eng, clock, 4)
+    seq = [(c[1], c[2]) for c in un.calls if c[0] == "enable"]
+    assert seq.index((tid("Home-Backup"), True)) < seq.index((tid("Home-Primary"), False))
 
 
-def test_a_tunnel_without_a_policy_gets_one_created_named_after_it(make_engine):
-    eng, un, _, notes, clock = make_engine(with_policies=False)
+def test_a_group_with_no_client_switched_on_gets_its_first_working_one_switched_on(make_engine):
+    eng, un, _, notes, clock = make_engine(enabled=set())
     run(eng, clock, 2)
-    assert [c for c in un.calls if c[0] == "create"] == [("create", "Home-Primary (g1)", True)]
-    assert active_name(un) == "Home-Primary (g1)"
+    assert active_name(un) == "Home-Primary" and not any(c[0] != "enable" for c in un.calls)
 
 
 def test_the_standby_section_is_gone_and_rejected_with_a_reason():
@@ -354,6 +345,7 @@ def test_status_map_lists_devices_with_their_own_route(make_engine):
     un.snapshot = snap
     un.routes.insert(0, Route("r-ac", "ac", "net-wan", True, False, frozenset(), frozenset({"bb:bb"}), {}))      # listed above the VLAN policies, so they win
     un.routes.insert(0, Route("r-tv", "tv", tid("zzz-last-resort"), True, False, frozenset(), frozenset({"aa:aa"}), {}))
+    un.enabled.add(tid("zzz-last-resort"))                  # the device's client is switched on, so its policy really applies
     eng.tick()
     m = eng.status()["map"]
     assert [(d["name"], d["kind"], d["tunnel"]) for d in m["own"]] == [("tv-bedroom", "vpn", "zzz-last-resort"), ("ac_energy", "normal", None)]
@@ -417,6 +409,7 @@ def test_status_map_follows_what_unifi_applies_per_vlan_when_policies_were_split
     eng.cfg = eng.cfg.model_copy(update={"groups": []})
     un.routes = [dataclasses.replace(r, target_networks=frozenset({"net-vpn"})) if r.description == "Home-Primary" else r for r in un.routes]
     un.routes = [dataclasses.replace(r, enabled=True, target_networks=frozenset({"net-iot"})) if r.description == "Home-Backup" else r for r in un.routes]
+    un.enabled.add(tid("Home-Backup"))                      # both clients are switched on, each carrying one VLAN
     eng.tick()
     blocks = {b["name"]: b for b in eng.status()["map"]["groups"]}
     assert set(blocks) == {"vlan20-iot", "vlan50-vpn"}

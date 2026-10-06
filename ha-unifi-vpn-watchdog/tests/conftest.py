@@ -35,8 +35,8 @@ class FakeClock:
 
 
 class FakeUniFi:
-    """In-memory UniFi with ONE routing policy per tunnel (like the real setup). `dead` tunnels never connect;
-    `muted` tunnels connect but receive nothing."""
+    """In-memory UniFi with a routing policy per tunnel (like the real setup; the watchdog only reads them).
+    `dead` tunnels never connect; `muted` tunnels connect but receive nothing."""
 
     def __init__(self, active: str = "Home-Primary", enabled: set[str] | None = None, with_policies: bool = True):
         self.dead: set[str] = set()
@@ -53,7 +53,8 @@ class FakeUniFi:
         return Route(rid, name, tid(name), on, kill, frozenset(NETS), frozenset(), {"description": name})
 
     def active_names(self) -> list[str]:
-        return [r.description for r in self.routes if r.enabled and r.network_id and r.network_id.startswith("id-")]
+        """The VPN clients that are switched on (the only thing the watchdog ever changes)."""
+        return [n for n in TUNNELS if tid(n) in self.enabled]
 
     def active_route(self):
         return next((r for r in self.routes if r.enabled), None)
@@ -74,26 +75,6 @@ class FakeUniFi:
     def set_tunnel_enabled(self, i, en):
         self.calls.append(("enable", i, en))
         (self.enabled.add if en else self.enabled.discard)(i)
-
-    def set_route(self, route, *, network_id=None, description=None, kill_switch=None, enabled=None):
-        self.calls.append(("route", route.description, enabled, kill_switch))
-        for k, r in enumerate(self.routes):
-            if r.id == route.id:
-                upd = {}
-                if network_id is not None:
-                    upd["network_id"] = network_id
-                if description is not None:
-                    upd["description"] = description
-                if kill_switch is not None:
-                    upd["kill_switch"] = kill_switch
-                if enabled is not None:
-                    upd["enabled"] = enabled
-                self.routes[k] = dataclasses.replace(r, **upd)
-
-    def create_route(self, description, network_id, target_networks=(), target_macs=(), kill_switch=False, enabled=True):
-        self.calls.append(("create", description, enabled))
-        self.routes.append(Route(f"new-{description}", description, network_id, enabled, kill_switch,
-                                 frozenset(target_networks), frozenset(target_macs), {"description": description}))
 
     def close(self):
         pass

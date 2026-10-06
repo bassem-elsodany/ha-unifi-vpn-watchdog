@@ -32,7 +32,6 @@ def extract(cfg: Config) -> dict[str, Any]:
             "min_hold_seconds": cfg.switching.min_hold_seconds,
             "max_switches_per_hour": cfg.switching.max_switches_per_hour,
             "connect_timeout_seconds": cfg.switching.connect_timeout_seconds,
-            "on_exhausted": cfg.switching.on_exhausted,
         },
         "failback": {
             "enabled": cfg.failback.enabled,
@@ -42,8 +41,6 @@ def extract(cfg: Config) -> dict[str, Any]:
         "probe": {
             "mode": cfg.probe.mode,
             "check_country": cfg.probe.check_country,
-            "canary_mac": cfg.probe.canary.mac or "",
-            "remote_url": cfg.probe.remote_url or "",
         },
         "alerts": {n: {"enabled": a.enabled, "title": a.title, "message": a.message} for n, a in cfg.alerts.items()},
         "jobs": [{"kind": j.kind, "group": j.group, "enabled": j.enabled, "every": j.every, "unit": j.unit, "at": j.at, "go_to": j.go_to}
@@ -52,23 +49,11 @@ def extract(cfg: Config) -> dict[str, Any]:
             {
                 "name": g.name,
                 "_orig": g.name,
-                "networks": [{"id": r.id, "name": r.name} for r in g.networks],
-                "kill_switch": g.kill_switch,
                 "order": [{"tunnel": i.tunnel, "id": i.id, "expect_country": i.expect_country or ""} for i in g.order],
             }
             for g in cfg.groups
         ],
     }
-
-
-def _netref(n: Any) -> dict[str, Any]:
-    """A VLAN of a group as the form sends it ({id, name}; a bare name from an older client is accepted)."""
-    if isinstance(n, dict):
-        out = {"name": str(n.get("name") or "")}
-        if str(n.get("id") or "").strip():
-            out = {"id": str(n["id"]).strip(), **out}
-        return out
-    return {"name": str(n)}
 
 
 def _num(v: Any, kind=int):
@@ -96,10 +81,6 @@ def apply(raw: dict[str, Any], form: dict[str, Any]) -> dict[str, Any]:
             sw[k] = _num(s[k])
     if "connect_timeout_seconds" in s:
         sw["connect_timeout_seconds"] = _num(s["connect_timeout_seconds"], float)
-    if "on_exhausted" in s:
-        if s["on_exhausted"] not in ("keep", "kill_switch"):
-            raise ValueError("on_exhausted must be keep or kill_switch")
-        sw["on_exhausted"] = s["on_exhausted"]
 
     f = form.get("failback", {})
     fb = out.setdefault("failback", {})
@@ -115,19 +96,6 @@ def apply(raw: dict[str, Any], form: dict[str, Any]) -> dict[str, Any]:
         pr["mode"] = p["mode"]
     if "check_country" in p:
         pr["check_country"] = bool(p["check_country"])
-    if "canary_mac" in p:
-        mac = str(p["canary_mac"]).strip()
-        if mac:
-            pr.setdefault("canary", {})["mac"] = mac
-        elif isinstance(pr.get("canary"), dict):
-            pr["canary"].pop("mac", None)
-    if "remote_url" in p:
-        url = str(p["remote_url"]).strip()
-        if url:
-            pr["remote_url"] = url
-        else:
-            pr.pop("remote_url", None)
-
     if "alerts" in form:
         al = out.setdefault("alerts", {})
         for name, a in form["alerts"].items():
@@ -141,11 +109,8 @@ def apply(raw: dict[str, Any], form: dict[str, Any]) -> dict[str, Any]:
         for fg in form["groups"]:
             g = copy.deepcopy(existing.get(fg.get("_orig") or "", {}))      # keeps per-group overrides across a rename
             g["name"] = str(fg["name"]).strip()
-            g["networks"] = [_netref(n) for n in fg.get("networks", [])]
-            if fg.get("kill_switch") is None:
-                g.pop("kill_switch", None)
-            else:
-                g["kill_switch"] = bool(fg["kill_switch"])
+            g.pop("networks", None)                          # which VLANs use a VPN client is UniFi's business, not the group's
+            g.pop("kill_switch", None)
             order = []
             for item in fg.get("order", []):
                 name = str(item.get("tunnel") or "").strip()
@@ -181,17 +146,10 @@ def apply(raw: dict[str, Any], form: dict[str, Any]) -> dict[str, Any]:
 
 def meta(snap: Snapshot | None) -> dict[str, Any]:
     if snap is None:
-        return {"networks": [], "tunnels": [], "ready": False, "alert_info": ALERT_INFO}
-    tunnel_ids = set(snap.tunnels)
-    networks = sorted(
-        ({"id": i, "name": n} for i, n in snap.networks.items()
-         if i not in tunnel_ids and ((snap.network_info.get(i) or {}).get("purpose") in ("corporate", "guest")
-                                     if snap.network_info.get(i) else not n.startswith("Internet") and n != "One-Click VPN")),
-        key=lambda x: x["name"].lower())
+        return {"tunnels": [], "ready": False, "alert_info": ALERT_INFO}
     tunnels = sorted(snap.tunnels.values(), key=lambda t: t.name.lower())
     return {
         "alert_info": ALERT_INFO,
-        "networks": networks,
         "tunnels": [{"id": t.id, "name": t.name, "enabled": t.enabled} for t in tunnels],
         "ready": True,
     }

@@ -114,8 +114,9 @@ class App:
             if g is None:
                 continue
             new = group_raw(g)
-            if rg.get("networks") != new["networks"] or rg.get("order", []) != new["order"]:
-                rg["networks"], rg["order"] = new["networks"], new["order"]
+            if rg.get("order", []) != new["order"] or "networks" in rg:
+                rg["order"] = new["order"]
+                rg.pop("networks", None)                      # older configs listed VLANs here: they are not used any more
                 changed = True
         if changed:
             log.info("config: ids and names of VPN clients and VLANs brought in line with UniFi")
@@ -165,10 +166,14 @@ class App:
     def validate_text(self, text: str) -> str | None:
         """None when valid, otherwise a secret-free error message."""
         try:
-            parse_config(text, self.env)
-            return None
+            cfg = parse_config(text, self.env)
         except ConfigError as e:
             return str(e)
+        dup = cfg.duplicate_clients()
+        if dup:
+            n, a, b = dup[0]
+            return f"The VPN client {n!r} is in two groups ({a!r} and {b!r}). A VPN client can belong to one group only."
+        return None
 
     def save_text(self, text: str) -> str | None:
         err = self.validate_text(text)

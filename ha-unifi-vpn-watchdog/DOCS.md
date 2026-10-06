@@ -1,6 +1,6 @@
 # HA UniFi VPN Watchdog
 
-Monitors your UniFi WireGuard VPN clients and moves the policy route to another tunnel from your fallback order when a
+Monitors your UniFi WireGuard VPN clients and switches on the next VPN client from your fallback order when a
 tunnel stops carrying traffic.
 
 ## First start
@@ -22,12 +22,7 @@ tunnel stops carrying traffic.
   persistent notification, ...), press *Use this*, then *Send test*. The default is a persistent notification.
 - **Logs:** the add-on **Log** tab.
 
-## Probe agent (recommended)
-A tunnel can report CONNECTED while passing nothing. For a real exit-IP test the watchdog points a *canary* client
-at each tunnel and asks it for its public IP. An add-on has no MAC address of its own, so run the small agent on
-a host that does (for example a macvlan container) and set `probe.mode: remote` in the config:
-
-    docker run -d --network canary_net --mac-address 02:42:0a:00:3c:c8 --ip 10.0.60.200 \
-      ha-unifi-vpn-watchdog agent --config /config/config.yaml
-
-See the project README for the full compose file.
+## Before you rely on it
+The watchdog only switches your VPN clients on and off. UniFi's own routing policies send the VLANs and devices through whichever client is up, so
+keep a routing policy **switched on** in UniFi for every VPN client you put in a group (in the priority order you want). A client whose policy is off
+would be switched on but carry nothing.

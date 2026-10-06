@@ -18,9 +18,9 @@ def test_status_lists_routing_policies_per_tunnel(make_engine):
     primary = st["tunnels"]["Home-Primary"]["routes"]
     assert len(primary) == 1
     r = primary[0]
-    assert r["enabled"] and r["managed_by"] == "g1" and r["networks"] == ["vlan20-iot", "vlan50-vpn"] and r["kill_switch"] is False
+    assert r["enabled"] and r["managed_by"] is None and r["networks"] == ["vlan20-iot", "vlan50-vpn"] and r["kill_switch"] is False
     backup = st["tunnels"]["Home-Backup"]["routes"]
-    assert len(backup) == 1 and backup[0]["enabled"] is False and backup[0]["managed_by"] == "g1"   # its own policy, switched off
+    assert len(backup) == 1 and backup[0]["enabled"] is False and backup[0]["managed_by"] is None   # its own policy, switched off
     assert st["groups"]["g1"]["position"] == "#1" and "country" not in st["groups"]["g1"]
 
 

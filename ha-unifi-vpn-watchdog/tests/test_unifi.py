@@ -57,22 +57,8 @@ def test_snapshot_parses_and_never_keeps_the_private_key():
     assert API_KEY not in repr(snap)
 
 
-def test_set_route_puts_full_object_with_only_the_changes():
-    c, sent = make()
-    r = c.snapshot().routes[0]
-    c.set_route(r, network_id="t2", description="DE__X__1__1.1.1.1")
-    method, path, body, _ = sent[-1]
-    assert (method, path.endswith("/trafficroutes/r1")) == ("PUT", True)
-    assert body["network_id"] == "t2" and body["description"] == "DE__X__1__1.1.1.1"
-    assert body["target_devices"] == ROUTES[0]["target_devices"] and body["_id"] == "r1"
 
 
-def test_set_route_without_changes_sends_nothing():
-    c, sent = make()
-    r = c.snapshot().routes[0]
-    n = len(sent)
-    c.set_route(r, network_id="t1")
-    assert len(sent) == n
 
 
 def test_set_tunnel_enabled_does_get_then_put():

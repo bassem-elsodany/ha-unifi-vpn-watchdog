@@ -1,75 +1,81 @@
-"""A group owns the policies that target exactly its VLANs: groups on different VLANs never share or disturb each other's policies."""
+"""The watchdog's only write to UniFi is a VPN client's switch (on / off). Routing policies are UniFi's business."""
 from __future__ import annotations
 
 import pytest
 
-from conftest import run, tid, TUNNELS
-from vpn_watchdog.config import ConfigError, GroupCfg, parse_config
-from vpn_watchdog.models import Route
+from conftest import active_name, run, tid, TUNNELS
+from vpn_watchdog.config import GroupCfg, parse_config
 
 
-def two_groups(eng, un, on20="Home-Primary", on50="Home-Backup"):
-    eng.cfg = eng.cfg.model_copy(update={"groups": [
-        GroupCfg(name="g20", networks=["vlan20-iot"], order=["Home-Primary", "Home-Backup", "Cousin vpn 2"]),
-        GroupCfg(name="g50", networks=["vlan50-vpn"], order=["Home-Backup", "Home-Primary", "Cousin vpn 2"])]})
-    un.routes = []
-    for n in TUNNELS:
-        un.routes.append(Route(f"r20-{n}", f"{n} 20", tid(n), n == on20, False, frozenset({"net-iot"}), frozenset(), {}))
-        un.routes.append(Route(f"r50-{n}", f"{n} 50", tid(n), n == on50, False, frozenset({"net-vpn"}), frozenset(), {}))
-    un.enabled = {tid(on20), tid(on50)}
-
-
-def on(un, vlan):
-    return sorted(r.description.rsplit(" ", 1)[0] for r in un.routes if r.enabled and r.id.startswith(f"r{vlan}-"))
-
-
-def test_failover_of_one_group_leaves_the_other_groups_vlan_alone(make_engine):
+def test_it_never_writes_a_routing_policy(make_engine):
     eng, un, tester, notes, clock = make_engine()
-    two_groups(eng, un)
-    run(eng, clock, 2)
-    assert on(un, 20) == ["Home-Primary"] and on(un, 50) == ["Home-Backup"]
+    assert not hasattr(un, "set_route") and not hasattr(un, "create_route")
     un.dead.add(tid("Home-Primary"))
-    run(eng, clock, 8)
-    assert on(un, 20) == ["Home-Backup"]                      # g20 moved to its #2 ...
-    assert on(un, 50) == ["Home-Backup"]                      # ... and g50, on the same client, was not touched
-    un.dead.add(tid("Home-Backup"))
+    run(eng, clock, 6)
+    un.dead.discard(tid("Home-Primary"))
     run(eng, clock, 12)
-    assert len(on(un, 50)) == 1 and len(on(un, 20)) == 1      # each group still has exactly one policy on
+    assert un.calls and all(c[0] == "enable" for c in un.calls)
 
 
-def test_policies_that_cover_more_than_the_groups_vlans_are_not_the_groups(make_engine):
+def test_the_real_client_has_no_way_to_write_a_routing_policy():
+    from vpn_watchdog.unifi import UniFiClient
+    assert not hasattr(UniFiClient, "set_route") and not hasattr(UniFiClient, "create_route")
+    import inspect, vpn_watchdog.unifi as u
+    src = inspect.getsource(u)
+    assert "trafficroutes" in src and not any(f'"{m}", self._v2("trafficroutes' in src for m in ("PUT", "POST", "DELETE"))
+
+
+def test_a_client_that_is_in_two_groups_stays_with_the_first(make_engine):
     eng, un, *_ = make_engine()
-    two_groups(eng, un)
-    un.routes.append(Route("both", "covers both", tid("Cousin vpn 2"), False, False, frozenset({"net-iot", "net-vpn"}), frozenset(), {}))
-    routes = {g.name: [r.id for r in eng._group_routes(g, un.snapshot())] for g in eng.cfg.groups}
-    assert "both" not in routes["g20"] + routes["g50"]
-    assert all(i.startswith("r20-") for i in routes["g20"]) and all(i.startswith("r50-") for i in routes["g50"])
-
-
-def test_a_missing_policy_is_created_for_exactly_the_groups_vlans(make_engine):
-    eng, un, *_ = make_engine(with_policies=False, enabled=set())
-    eng.cfg = eng.cfg.model_copy(update={"groups": [GroupCfg(name="g20", networks=["vlan20-iot"], order=["Home-Primary", "Home-Backup"])]})
+    eng.cfg = eng.cfg.model_copy(update={"groups": [
+        GroupCfg(name="a", order=["Home-Primary", "Home-Backup"]),
+        GroupCfg(name="b", order=["Home-Backup", "Cousin vpn 2"])]})
     eng.tick()
-    made = [r for r in un.routes if r.id.startswith("new-")]
-    assert len(made) == 1 and made[0].target_networks == frozenset({"net-iot"}) and made[0].network_id == tid("Home-Primary") and made[0].enabled
-    assert made[0].description == "Home-Primary (g20)"
+    snap = un.snapshot()
+    assert [t.name for t in eng._pool(eng.cfg.groups[0], snap)] == ["Home-Primary", "Home-Backup"]
+    assert [t.name for t in eng._pool(eng.cfg.groups[1], snap)] == ["Cousin vpn 2"]
 
 
-def test_another_enabled_policy_above_the_groups_is_reported_not_changed(make_engine):
+def test_saving_refuses_a_client_that_is_in_two_groups(tmp_path):
+    from vpn_watchdog.app import App
+    f = tmp_path / "c.yaml"
+    f.write_text("unifi: {api_key: k}\nstate_file: " + str(tmp_path / "s.json") + "\ngroups:\n  - {name: a, order: [X, Y]}\n")
+    a = App(str(f), env={})
+    err = a.validate_text("unifi: {api_key: k}\ngroups:\n  - {name: a, order: [X, Y]}\n  - {name: b, order: [Y, Z]}\n")
+    assert err and "'Y'" in err and "one group only" in err
+    assert a.validate_text("unifi: {api_key: k}\ngroups:\n  - {name: a, order: [X]}\n  - {name: b, order: [Y]}\n") is None
+
+
+def test_old_configs_with_vlans_or_a_kill_switch_still_load_and_are_ignored():
+    cfg = parse_config("unifi: {api_key: k}\ngroups:\n  - {name: a, networks: [vlan20], kill_switch: false, order: [X]}\n", env={})
+    assert cfg.groups[0].order[0].tunnel == "X"
+
+
+def test_modes_that_steered_a_device_through_a_policy_are_refused_with_a_reason():
+    from vpn_watchdog.config import ConfigError
+    for mode in ("canary", "remote"):
+        with pytest.raises(ConfigError, match="routing policy"):
+            parse_config(f"unifi: {{api_key: k}}\nprobe: {{mode: {mode}}}\ngroups: []\n", env={})
+    with pytest.raises(ConfigError, match="routing policy"):
+        parse_config("unifi: {api_key: k}\nswitching: {on_exhausted: kill_switch}\ngroups: []\n", env={})
+
+
+def test_status_ignores_a_routing_policy_whose_vpn_client_is_switched_off(make_engine):
+    """UniFi skips a policy whose client is off, so the next policy that covers the VLAN is the one that applies."""
+    import dataclasses
     eng, un, *_ = make_engine()
-    two_groups(eng, un)
-    un.routes.insert(0, Route("old", "an older policy", tid("Cousin vpn 2"), True, False, frozenset({"net-iot", "net-vpn"}), frozenset(), {}))
-    run(eng, clock := eng.clock, 2)
-    g = {x["name"]: x for x in eng.status()["map"]["groups"]}
-    assert "an older policy" in g["g20"]["conflict"] and "an older policy" in g["g50"]["conflict"]
-    assert next(r for r in un.routes if r.id == "old").enabled          # never touched
-    un.routes = [r for r in un.routes if r.id != "old"]
-    run(eng, clock, 2)
-    assert all(x["conflict"] is None for x in eng.status()["map"]["groups"] if not x.get("unmanaged"))
+    eng.cfg = eng.cfg.model_copy(update={"groups": []})
+    un.routes = [dataclasses.replace(r, enabled=True) for r in un.routes]            # every policy is switched on, as the user keeps them
+    un.enabled = {tid("Home-Backup")}                                                # but only one client is on
+    eng.tick()
+    blocks = eng.status()["map"]["groups"]
+    assert len(blocks) == 1 and blocks[0]["active"] == "Home-Backup" and {n["name"] for n in blocks[0]["networks"]} == {"vlan20-iot", "vlan50-vpn"}
 
 
-def test_a_vlan_cannot_be_in_two_groups():
-    base = "interval_seconds: 15\nstate_file: /tmp/x\nunifi: {api_key: x}\n"
-    with pytest.raises(ConfigError, match="two groups"):
-        parse_config(base + "groups:\n  - {name: a, networks: [v20, v50]}\n  - {name: b, networks: [v50]}\n", env={})
-    parse_config(base + "groups:\n  - {name: a, networks: [v20]}\n  - {name: b, networks: [v50]}\n", env={})
+def test_a_group_shows_even_when_no_vlan_uses_its_client(make_engine):
+    import dataclasses
+    eng, un, *_ = make_engine()
+    un.routes = [dataclasses.replace(r, enabled=False) for r in un.routes]
+    eng.tick()
+    g = eng.status()["map"]["groups"][0]
+    assert g["name"] == "g1" and g["active"] == "Home-Primary" and g["networks"] == [] and "No routing policy" in g["conflict"]

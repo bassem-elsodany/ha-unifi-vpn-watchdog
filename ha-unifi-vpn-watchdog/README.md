@@ -1,17 +1,17 @@
 # HA UniFi VPN Watchdog
 
-Health-checks the WireGuard VPN clients on a UniFi gateway and moves a policy route to another **server, city, or
-country** when the active tunnel stops carrying traffic. Runs as a Docker container or a Home Assistant add-on, has a
+Health-checks the WireGuard VPN clients on a UniFi gateway and, when the one in use stops carrying traffic, **switches on the
+next VPN client from your fallback order and switches the failed one off**. That is the only thing it ever changes in UniFi:
+**a VPN client's on/off switch. Routing policies (which VLANs and devices use which client) are yours and are never written.** Runs as a Docker container or a Home Assistant add-on, has a
 web UI (status, jobs, start/stop, config editor), and is configured by one hot-reloaded YAML file.
 
 ```
-            ┌────────────────────────── ha-unifi-vpn-watchdog ──────────────────────────┐
- UniFi API  │  snapshot ─► health ─► decision ─► prepare+test ─► commit ─► alert │
- (read)  ──►│  tunnels     status     down?      enable tunnel   PUT route   HA/ntfy │──► UniFi API (write)
-            │  routes      blackhole  ladder     wait CONNECTED  (one call)  MQTT    │
-            │  WAN IP      exit-IP    quarantine canary exit-IP                      │
-            └───────────────┬───────────────────────────┬───────────────────────────┘
-                        web UI / API                canary client + probe agent
+            ┌────────────────────── ha-unifi-vpn-watchdog ──────────────────────┐
+ UniFi API  │  snapshot ─► health ─► decision ─► enable + test next ─► alert      │
+ (read)  ──►│  clients     status     down?      wait CONNECTED       HA/ntfy    │──► UniFi API: switch a VPN client on / off
+            │  policies    blackhole  order      (old one off later)  MQTT       │
+            └──────────────────────────────┬────────────────────────────────────┘
+                                       web UI / API
 ```
 
 ## How failover works
@@ -24,18 +24,17 @@ web UI (status, jobs, start/stop, config editor), and is configured by one hot-r
 3. **Pick.** Candidates come from the group's **fallback order**: a numbered list of tunnels you set yourself. #1 is used when
    it works; if the active tunnel fails the watchdog tries #1, #2, #3 ... skipping tunnels that failed recently. Tunnels can be
    called anything and are never interpreted, sorted or pattern-matched.
-4. **Test before switching.** The candidate is enabled, must reach `CONNECTED`, and (with a canary) must pass the
-   exit-IP probe. A candidate that fails is quarantined with exponential backoff and the next one is tried.
-5. **Commit.** Every tunnel has its own routing policy. The new tunnel's policy is switched on first and the old one off
-   afterwards (make before break), so there is never a moment without a route. Policies are never renamed or moved; a tunnel
-   that has none gets one created, named after it.
+4. **Test before switching.** The candidate is switched on and must reach `CONNECTED`. A candidate that fails is quarantined with
+   exponential backoff and the next one is tried.
+5. **Commit.** The failed client is switched off at the end of the cycle. Nothing else changes: your routing policies in UniFi
+   (one per VPN client, all kept switched on, in the priority order you want) send each VLAN or device through whichever client is up.
 6. **Guard rails.** `min_hold_seconds` and `max_switches_per_hour` prevent flapping; hard failures bypass the hold,
-   not the hourly cap. If nothing works it alerts once and optionally engages the kill switch (`on_exhausted`).
+   not the hourly cap. If nothing works it alerts once and leaves the current client as it is.
 7. **Fail back.** When a tunnel higher in your list (a lower number) has tested healthy for `stable_seconds`, traffic moves back
    up to it. It never moves down or sideways while the active tunnel is healthy.
-8. **One tunnel connected.** Only the tunnel in use stays connected; every other tunnel in your list is disconnected. Several tunnels
-   up for the same VLAN would let traffic leave through different exit IPs. (While it tests a higher tunnel for failback that one is
-   connected briefly.)
+8. **One client switched on per group.** Only the client in use stays switched on; every other client of the group is switched off, so
+   traffic never leaves through two exit IPs at once. (While it tests a higher client for failback that one is on briefly.) A VPN client
+   that carries a device's own route (a device-targeted policy) is never switched off.
 
 Safe start: until you set a fallback order the watchdog only watches the tunnel in use and never switches anything.
 
@@ -83,14 +82,11 @@ The project folder **is** the add-on (`config.yaml`, `Dockerfile`, `DOCS.md`).
 
 | mode | what it does | use when |
 |---|---|---|
-| `none` | status + black-hole checks only | quick start |
-| `canary` | a client with its **own MAC** (macvlan container) is routed through whichever tunnel is under test; the watchdog probes from that container | Docker on a host that can run a macvlan network |
-| `remote` | same, but the probe is run by `ha-unifi-vpn-watchdog agent` on the canary host | **Home Assistant add-on** (an add-on cannot have its own MAC) |
-| `direct` | probe from the watchdog's own egress | the watchdog itself sits behind the group's route |
+| `none` | status + black-hole checks only | default |
+| `direct` | probe from the watchdog's own egress | the watchdog itself is routed through the VPN |
 
-Canary/remote: give the container a fixed MAC, set `probe.canary.mac` to it, and the watchdog creates and steers a
-`WATCHDOG_CANARY` route for that client. See `docker/docker-compose.canary.yml`. A macvlan container cannot be reached
-by its own Docker host; reach it from another LAN machine.
+The earlier `canary` and `remote` modes steered a test device through each tunnel by changing a routing policy. The watchdog no longer
+writes any routing policy, so they were removed (a config that still asks for them is refused with an explanation).
 
 Geo-IP databases disagree on VPN address ranges. Keep several endpoints; set
 `probe.check_country: false` if you only want "works and is not a leak".
@@ -120,12 +116,11 @@ See [config/config.example.yaml](config/config.example.yaml); every key is docum
 - **Fallback order** (`groups[].order`): the sequence of tunnels, first = most preferred. Each entry is an exact tunnel name,
   or `{tunnel: NAME, expect_country: IT}` if the exit-IP test should check a country that you typed yourself. Tunnels not in the
   list are never used. Empty means the watchdog only watches. Set it in *Settings > Fallback order* (type a position number to move).
-- **One group per set of VLANs.** A group owns the routing policies that target *exactly* its VLANs (one per tunnel; a missing one is created, named
-  `<tunnel> (<group>)`). Give VLAN 20 and VLAN 50 their own groups and each fails over on its own. Policies that cover other VLANs as well are never touched,
-  and a VLAN can be in one group only. If a policy that is not the group's covers its VLANs and sits above the group's policy in UniFi's list, the group
-  header says so (UniFi applies the first enabled policy in its list).
-- **Renames are safe.** Groups store each VLAN and each tunnel of the fallback order by its UniFi id, with the name only as a label. Renaming a
-  VPN client or a VLAN in UniFi changes nothing (the label in `config.yaml` follows). The Status page is drawn from UniFi's own state on every check
+- **A group is an ordered list of VPN clients.** It has no VLANs: UniFi's routing policies decide which VLANs and devices use a client, and the
+  watchdog never reads or edits them for failover. A VPN client can belong to one group only. For the failover to carry traffic, keep a routing
+  policy switched on in UniFi for every client you want it to be able to use (UniFi sends traffic through the first matching policy whose client is up).
+- **Renames are safe.** Groups store each tunnel of the fallback order by its UniFi id, with the name only as a label. Renaming a
+  VPN client in UniFi changes nothing (the label in `config.yaml` follows). The Status page is drawn from UniFi's own state on every check
   (default every 15 s, or press *Check now*): which policy applies to which VLAN, and to which device, is read, never remembered.
 - **Jobs.** Failover is every group's first job. A group can also have a **rotation** job (Settings > Jobs): every N hours, days or weeks
   (days and weeks at a time of day) the group moves to the next tunnel in its fallback order, or to a random one from the order. The
@@ -148,9 +143,8 @@ With no `control_token` set the server is read-only.
 
 ## Things learned the hard way (all handled in code)
 
-- Disabling a tunnel does **not** disable its policy route; with two enabled routes covering a network the first in
-  UniFi's list wins and the other is silently ignored. The watchdog edits one route's tunnel instead of toggling routes,
-  and warns about overlapping routes.
+- Disabling a VPN client does not delete or disable its routing policy: UniFi simply skips a policy whose client is off. That is why the watchdog
+  only switches clients and leaves every policy alone.
 - UniFi rejects overlapping client subnets (`SubnetOverlapped`), so each tunnel needs a unique `10.5.x.2/24`.
 - Servers showing 0 % load never connected in testing; pick servers with some load and let the quarantine skip duds.
 - Use `traffic-flows` (UniFi) as independent proof of where traffic exits; the watchdog never trusts a single signal.
@@ -158,9 +152,9 @@ With no `control_token` set the server is read-only.
 ## Layout
 
 ```
-src/vpn_watchdog/   config · unifi · probe · ladder · engine · state · notify · settings · server+ui · safe_mode · ha_mqtt · agent · cli
+src/vpn_watchdog/   config · unifi · probe · ladder · engine · state · notify · settings · server+ui · safe_mode · ha_mqtt · cli
 tests/              56 tests (fake UniFi + fake probe drive the engine; HTTP mocked for the clients)
-docker/             Dockerfile · docker-compose.yml · docker-compose.canary.yml
+docker/             Dockerfile · docker-compose.yml
 config/             config.example.yaml
 config.yaml, Dockerfile, DOCS.md   Home Assistant add-on manifest/build/docs
 ```

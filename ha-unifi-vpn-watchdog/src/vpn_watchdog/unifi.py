@@ -5,7 +5,7 @@ Endpoints used (all verified against a UDM Pro SE):
   GET  /api/s/{site}/rest/networkconf/{id}       one object (needed for a full-object PUT)
   PUT  /api/s/{site}/rest/networkconf/{id}       enable / disable a tunnel
   GET  /v2/api/site/{site}/vpn/connections       live tunnel status (CONNECTED / CONNECTING, rx/tx rate)
-  GET|POST|PUT /v2/api/site/{site}/trafficroutes policy routes
+  GET /v2/api/site/{site}/trafficroutes policy routes (read only: routing policies are never written)
   GET  /api/s/{site}/stat/health                 WAN IP (for leak detection)
 
 The networkconf objects of VPN clients contain the WireGuard private key. They are only ever held in a local
@@ -160,55 +160,3 @@ class UniFiClient:
         obj["enabled"] = enabled
         self._request("PUT", self._s(f"rest/networkconf/{tunnel_id}"), json=obj)
         log.info("tunnel %s enabled=%s", obj.get("name"), enabled)
-
-    def set_route(
-        self,
-        route: Route,
-        *,
-        network_id: str | None = None,
-        description: str | None = None,
-        kill_switch: bool | None = None,
-        enabled: bool | None = None,
-    ) -> None:
-        changes: dict[str, Any] = {}
-        if network_id is not None:
-            changes["network_id"] = network_id
-        if description is not None:
-            changes["description"] = description
-        if kill_switch is not None:
-            changes["kill_switch_enabled"] = kill_switch
-        if enabled is not None:
-            changes["enabled"] = enabled
-        changes = {k: v for k, v in changes.items() if route.raw.get(k) != v}
-        if not changes:
-            return
-        body = {**route.raw, **changes}
-        self._request("PUT", self._v2(f"trafficroutes/{route.id}"), json=body)
-        log.info("route %r updated: %s", route.description, changes)
-
-    def create_route(
-        self,
-        description: str,
-        network_id: str,
-        target_networks: list[str] = (),  # type: ignore[assignment]
-        target_macs: list[str] = (),      # type: ignore[assignment]
-        kill_switch: bool = False,
-        enabled: bool = True,
-    ) -> None:
-        targets = [{"network_id": n, "type": "NETWORK"} for n in target_networks]
-        targets += [{"client_mac": m, "type": "CLIENT"} for m in target_macs]
-        body = {
-            "description": description,
-            "enabled": enabled,
-            "network_id": network_id,
-            "matching_target": "INTERNET",
-            "domains": [],
-            "ip_addresses": [],
-            "ip_ranges": [],
-            "regions": [],
-            "next_hop": "",
-            "kill_switch_enabled": kill_switch,
-            "target_devices": targets,
-        }
-        self._request("POST", self._v2("trafficroutes"), json=body)
-        log.info("route %r created", description)

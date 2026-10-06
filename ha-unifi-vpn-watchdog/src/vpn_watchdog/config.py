@@ -69,28 +69,23 @@ class CanaryCfg(_M):
 
 
 class ProbeCfg(_M):
-    # canary: swap a dedicated client's route to any tunnel to test it before use (recommended)
-    # remote: like canary, but the probe is run by a `ha-unifi-vpn-watchdog agent` on the canary host (use for HA add-ons)
-    # direct: probe from the container's own egress (only valid for the tunnel it is routed through)
+    # direct: probe from this host's own egress (only valid when this host is routed through the VPN)
     # none:   status + throughput checks only
-    mode: Literal["canary", "remote", "direct", "none"] = "none"
+    # (canary / remote were removed: steering a test device through a tunnel means changing a routing policy, which is never done)
+    mode: Literal["direct", "none"] = "none"
     endpoints: list[ProbeEndpoint] = Field(default_factory=_default_endpoints)
     require: int = 1
     check_country: bool = True                     # geo-IP databases disagree on VPN ranges; false = only "works and is not the WAN IP"
     timeout_seconds: float = 8
     wan_ip: str | None = None                      # None = learn it from UniFi; a probe returning it is a LEAK
     source_address: str | None = None
-    remote_url: str | None = None                  # http://<agent-host>:8081 (probe.mode=remote)
-    remote_token: str | None = None
+    remote_url: str | None = None                  # ignored (kept so older config files still load)
+    remote_token: str | None = None                # ignored
     country_aliases: dict[str, list[str]] = Field(default_factory=lambda: {"GB": ["UK"]})
-    canary: CanaryCfg = CanaryCfg()
+    canary: CanaryCfg = CanaryCfg()                # ignored
 
     @model_validator(mode="after")
-    def _canary_needs_mac(self) -> "ProbeCfg":
-        if self.mode in ("canary", "remote") and not self.canary.mac:
-            raise ValueError(f"probe.mode={self.mode} requires probe.canary.mac")
-        if self.mode == "remote" and not self.remote_url:
-            raise ValueError("probe.mode=remote requires probe.remote_url")
+    def _valid(self) -> "ProbeCfg":
         if self.require < 1 or self.require > max(1, len(self.endpoints)):
             raise ValueError("probe.require must be between 1 and the number of endpoints")
         return self
@@ -107,7 +102,7 @@ class SwitchingCfg(_M):
     min_hold_seconds: int = Field(60, ge=0)                  # minimum time between switches (hard failures bypass it)
     max_switches_per_hour: int = Field(6, ge=1)
     quarantine: QuarantineCfg = QuarantineCfg()
-    on_exhausted: Literal["keep", "kill_switch"] = "keep"
+    on_exhausted: Literal["keep", "kill_switch"] = "keep"      # "kill_switch" is refused (see removed_settings): it changed a routing policy
 
 
 class FailbackCfg(_M):
@@ -149,9 +144,9 @@ class OrderItem(_M):
 
 class GroupCfg(_M):
     name: str
-    networks: list[NetRef]               # VLANs whose internet traffic the group's policies steer (by UniFi id; a name alone is accepted and upgraded)
+    networks: list[NetRef] = Field(default_factory=list)   # ignored (older configs listed VLANs here): which VLANs use a VPN client is UniFi's routing policies' business
     order: list[OrderItem] = Field(default_factory=list)   # fallback sequence: #1 is the most preferred, then #2, #3, ...
-    kill_switch: bool | None = None      # None = leave the route's kill switch alone
+    kill_switch: bool | None = None      # ignored (it was a routing-policy setting)
     overrides: dict[str, Any] = Field(default_factory=dict)  # deep-merged over detection/switching/failback
 
     @field_validator("order", mode="before")
@@ -164,8 +159,6 @@ class GroupCfg(_M):
         self.name = self.name.strip()
         if not self.name:
             raise ValueError("a group needs a name")
-        if not self.networks:
-            raise ValueError(f"group {self.name!r} needs at least one network: tick the networks that should use the VPN")
         keys = [i.id or i.tunnel for i in self.order]
         dup = sorted({i.tunnel for i in self.order if keys.count(i.id or i.tunnel) > 1})
         if dup:
@@ -290,13 +283,6 @@ class Config(_M):
         names = [g.name for g in self.groups]
         if len(set(names)) != len(names):
             raise ValueError("group names must be unique")
-        owner: dict[str, str] = {}
-        for g in self.groups:
-            for ref in g.networks:
-                key = ref.id or ref.name
-                if key in owner and owner[key] != g.name:
-                    raise ValueError(f"the VLAN {ref.name or ref.id!r} is in two groups ({owner[key]!r} and {g.name!r}); a VLAN can belong to one group")
-                owner[key] = g.name
         seen: set[tuple[str, str]] = set()
         for j in self.jobs:
             if j.group not in names:
@@ -305,6 +291,19 @@ class Config(_M):
                 raise ValueError(f"group {j.group!r} has two {j.kind} jobs; a group can have one job of each kind")
             seen.add((j.kind, j.group))
         return self
+
+    def duplicate_clients(self) -> list[tuple[str, str, str]]:
+        """VPN clients listed in two groups: (client label, first group, second group). A client belongs to one group."""
+        owner: dict[str, tuple[str, str]] = {}
+        out: list[tuple[str, str, str]] = []
+        for g in self.groups:
+            for i in g.order:
+                key = i.id or i.tunnel
+                if key in owner and owner[key][0] != g.name:
+                    out.append((i.tunnel, owner[key][0], g.name))
+                else:
+                    owner[key] = (g.name, i.tunnel)
+        return out
 
     def job_for(self, group: str, kind: str = "rotation") -> JobCfg | None:
         return next((j for j in self.jobs if j.group == group and j.kind == kind), None)
@@ -337,6 +336,11 @@ def removed_settings(raw: dict[str, Any]) -> list[str]:
     if "standby" in raw or (isinstance(raw.get("groups"), list) and any(isinstance(g, dict) and isinstance(g.get("overrides"), dict) and "standby" in g["overrides"] for g in raw["groups"])):
         errs.append("`standby` was removed: only the tunnel in use stays connected. Several tunnels up at once for the same VLAN means "
                     "traffic can leave through different exit IPs and looks odd to firewalls and VPN providers. Delete the standby section.")
+    if isinstance(raw.get("probe"), dict) and raw["probe"].get("mode") in ("canary", "remote"):
+        errs.append(f"probe.mode={raw['probe']['mode']} was removed: it steered a test device through each tunnel by changing a routing policy, and the watchdog "
+                    "only ever switches VPN clients on and off. Use mode: none (status checks) or direct.")
+    if isinstance(raw.get("switching"), dict) and raw["switching"].get("on_exhausted") == "kill_switch":
+        errs.append("switching.on_exhausted=kill_switch was removed: it changed a routing policy. Set it to keep (or delete it).")
     if "naming" in raw:
         errs.append("`naming` was removed: tunnel names are never interpreted. Choose each step's tunnels by name or pattern.")
 

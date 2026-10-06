@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.15.0
+
+- **The watchdog now only switches VPN clients on and off.** It never creates, edits, enables or disables a routing policy, and the API client no longer has any way to write one. Which VLANs and devices use which VPN client is entirely your routing policies in UniFi.
+- **A group is an ordered list of VPN clients, nothing else.** The VLAN picker and the "If the client dies" setting are gone. Which VLANs a client carries is read from UniFi and shown on the Status page and in the group ("Carrying now, read from UniFi").
+- **How it works now:** one client of the group is switched on. When it stops working the watchdog switches on the first working client of the order (connected and tested) and switches the failed one off at the end of the cycle. Failback and rotation do the same. With none of the group's clients on, it switches on the first working one. A VPN client carrying a device's own route is never switched off. A VPN client can belong to one group only (saving refuses a client in two groups; an old config with one is read, the first group keeps it).
+- Status: a routing policy counts as applied only when its VPN client is switched on (UniFi skips a policy whose client is off). A group is drawn around the client it has switched on, and says so when no routing policy sends traffic through it.
+- Removed: probe modes `canary` and `remote` and the probe agent (they steered a test device through each tunnel by changing a routing policy), `switching.on_exhausted: kill_switch` and the group `kill_switch` / `networks` settings (older configs that mention the latter two still load; they are ignored and cleaned up on the next save).
+- **Before you rely on it:** keep a routing policy switched on in UniFi for every VPN client you want a group to be able to use. A client whose policy is off would be switched on but carry nothing.
+
 ## 0.14.2
 
 - The Status page can no longer change the fallback order: no dragging of VPN clients, no grip handles, no Alt+arrow keys, and no Move up / Move down / Add / Remove buttons in the details panel (Switch and Test stay). The order is built in Settings > VPN groups only. The reorder API call is gone too.
