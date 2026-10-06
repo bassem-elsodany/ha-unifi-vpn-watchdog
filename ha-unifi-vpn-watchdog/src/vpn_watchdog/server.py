@@ -25,7 +25,7 @@ def render_metrics(status: dict) -> str:
         out.append(f'vpn_watchdog_group_healthy{{group="{g}"}} {int(bool(d["healthy"]))}')
         out.append(f'vpn_watchdog_switches_last_hour{{group="{g}"}} {d["switches_last_hour"]}')
         if d["active"]:
-            out.append(f'vpn_watchdog_group_active{{group="{g}",tunnel="{d["active"]}",country="{d["country"]}"}} 1')
+            out.append(f'vpn_watchdog_group_active{{group="{g}",tunnel="{d["active"]}",step="{d["step"]}"}} 1')
     for t, d in status.get("tunnels", {}).items():
         out.append(f'vpn_watchdog_tunnel_connected{{tunnel="{t}"}} {int(d["status"] == "CONNECTED")}')
         out.append(f'vpn_watchdog_tunnel_quarantined_seconds{{tunnel="{t}"}} {d["quarantined_for"]}')

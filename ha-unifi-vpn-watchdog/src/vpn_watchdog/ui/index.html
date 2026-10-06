@@ -47,6 +47,7 @@
   .banner { padding: 10px 14px; border-radius: 10px; margin-bottom: 14px; max-width: 980px; }
   .ev { padding: 8px 0; border-bottom: 1px solid var(--line); max-width: 980px; }
   .hide { display: none !important; }
+  #errbar { white-space: pre-wrap; }
   pre.err { white-space: pre-wrap; color: var(--bad); margin: 8px 0 0; }
 
   /* settings form */
@@ -96,8 +97,13 @@
   </nav>
 
   <section id="tab-status"><div id="groups"></div>
-    <div class="card"><h3>Tunnels</h3>
-      <table><thead><tr><th>Tunnel<th>Enabled<th>Status<th>rx / tx<th>Cooling down<th>Last failure</tr></thead><tbody id="tunnels"></tbody></table>
+    <div class="card" style="max-width:1300px"><h3>Tunnels and the routing policies that use them</h3>
+      <p class="sub">Each policy sends the listed networks or devices through that tunnel. A tunnel with no policy carries nothing.</p>
+      <table><thead><tr><th>Tunnel<th>Enabled<th>Status<th>rx / tx<th>Routing policies<th>Cooling down</tr></thead><tbody id="tunnels"></tbody></table>
+    </div>
+    <div class="card" style="max-width:1300px"><h3>Traffic that does not use a tunnel</h3>
+      <p class="sub">Policies that send traffic somewhere else, for example straight to the internet connection.</p>
+      <div id="direct"></div>
     </div>
   </section>
 
@@ -159,7 +165,8 @@ async function refresh() {
   const can = !!data.can_control;
   $("#authbar").classList.toggle("hide", can);
   $("#errbar").classList.toggle("hide", !data.error);
-  $("#errbar").textContent = data.error ? "UniFi unreachable: " + data.error : "";
+  $("#errbar").textContent = data.error ? (data.safe_mode ? "CONFIGURATION REJECTED, failover is OFF. Fix it in the Advanced tab:\n" : "UniFi unreachable: ") + data.error : "";
+  if (data.safe_mode && !window.__safe) { window.__safe = true; document.querySelector("nav button[data-tab=advanced]").click(); }
   $("#mode").textContent = data.dry_run ? "DRY-RUN: nothing is changed" : "LIVE";
   $("#mode").className = "pill " + (data.dry_run ? "warn" : "ok");
   $("#modeBtn").textContent = data.dry_run ? "Go live" : "Switch to dry-run";
@@ -182,7 +189,7 @@ function renderGroups(d, can) {
     return `<div class="card">
       <div class="row"><span class="big">${esc(name)}</span><span class="pill ${health[0]}">${health[1]}</span><span class="grow"></span>
         <button class="act" ${can ? "" : "disabled"} onclick="act('groups/${encodeURIComponent(name)}/${g.paused ? "resume" : "pause"}')">${g.paused ? "Start automatic failover" : "Stop automatic failover"}</button></div>
-      <p>Active tunnel: <b>${esc(g.active || "none")}</b> <span class="muted">${esc(g.country || "")} ${esc(g.city || "")}</span></p>
+      <p>Active tunnel: <b>${esc(g.active || "none")}</b> <span class="muted">${esc(g.step || "")}</span></p>
       <p class="muted">${esc(g.decision)}<br>failed checks ${g.status_failures}, failed exit-IP tests ${g.probe_failures}, switches in the last hour ${g.switches_last_hour}<br>last exit-IP test: ${probe}</p>
       <p class="muted">${jobs.join(" &middot; ") || "no scheduled jobs"}</p>
       <div class="row"><select data-g="${esc(name)}">${opts}</select>
@@ -192,14 +199,25 @@ function renderGroups(d, can) {
   }).join("") || '<div class="card muted">No groups yet. Add one in Settings.</div>';
 }
 
+function policyHtml(r) {
+  const who = [].concat(r.networks.map((n) => esc(n)), r.clients.map((c) => "device " + esc(c))).join(", ") || "nothing";
+  const tags = [r.enabled ? '<span class="pill ok">on</span>' : '<span class="pill warn">off</span>',
+    r.kill_switch ? '<span class="pill info">kill switch</span>' : "",
+    r.managed_by ? `<span class="pill info">managed by ${esc(r.managed_by)}</span>` : "",
+    r.canary ? '<span class="pill info">exit-IP test client</span>' : ""].join(" ");
+  return `<div style="margin-bottom:6px"><b>${esc(r.description)}</b> ${tags}<div class="muted">carries: ${who}</div></div>`;
+}
+
 function renderTunnels(d) {
   const active = new Set(Object.values(d.groups).map((g) => g.active));
   $("#tunnels").innerHTML = Object.entries(d.tunnels).sort().map(([n, t]) => {
     const cls = t.status === "CONNECTED" ? "ok" : t.enabled ? "warn" : "muted";
+    const pol = (t.routes || []).map(policyHtml).join("") || '<span class="muted">no routing policy</span>';
     return `<tr class="${active.has(n) ? "cur" : ""}"><td>${esc(n)}${active.has(n) ? ' <span class="pill info">active</span>' : ""}<td>${t.enabled ? "yes" : "no"}
       <td><span class="${cls}">${esc(t.status || "-")}</span><td>${bps(t.rx_bps)} / ${bps(t.tx_bps)}
-      <td>${t.quarantined_for ? t.quarantined_for + "s" : "-"}<td class="muted">${esc(t.last_reason)}`;
+      <td>${pol}<td>${t.quarantined_for ? t.quarantined_for + "s" : "-"}${t.last_reason ? `<div class="muted">${esc(t.last_reason)}</div>` : ""}`;
   }).join("");
+  $("#direct").innerHTML = (d.direct_routes || []).map((r) => policyHtml(r).replace("</div></div>", `</div><div class="muted">goes to: ${esc(r.goes_to)}</div></div>`)).join("") || '<span class="muted">None.</span>';
 }
 
 function renderEvents(d) {
@@ -224,6 +242,7 @@ const txt = (p, ph, cls = "") => `<input type="text" class="${cls}" data-path="$
 async function loadSettings() {
   const r = await api("settings");
   if (!r.ok) { $("#settings").innerHTML = '<div class="card muted">Enter the control token (banner above) to view and change settings.</div>'; return; }
+  if (!r.data.values) { $("#settings").innerHTML = '<div class="card bad">' + esc(r.data.error || "Settings unavailable") + "</div>"; return; }
   V = r.data.values; M = r.data.meta; orig = JSON.stringify(V);
   const n = await api("ha/notify-services"); notify = n.ok ? n.data : null;
   renderSettings(); markDirty();
@@ -244,7 +263,6 @@ function renderSettings() {
     ${row("Wait between switches", "Minimum time after a switch. A tunnel that is fully down ignores this.", numIn("switching.min_hold_seconds", "seconds", 0))}
     ${row("Maximum switches per hour", "After this it stops switching and alerts you.", numIn("switching.max_switches_per_hour", "switches", 1))}
     ${row("Wait for a new tunnel to connect", "", numIn("switching.connect_timeout_seconds", "seconds", 5))}
-    ${row("Try another city first", "Within a country, other cities come before more servers in the same city.", tog("switching.prefer_different_city"))}
     ${row("If nothing works", "What to do when every candidate has failed.", sel("switching.on_exhausted", [["keep", "Stay on the current tunnel and alert me"], ["kill_switch", "Block the traffic so nothing leaks, and alert me"]]))}
     <div class="summary" id="sum-switch"></div></div>
 
@@ -271,37 +289,53 @@ function renderSettings() {
   renderGroupsForm(); renderNotify(); updateSummary();
 }
 
+const globRe = (p) => new RegExp("^" + p.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".") + "$");
+const tn = () => (M.tunnels || []).map((t) => t.name);
+const hit = (n, pats) => pats.some((p) => n === p || globRe(p).test(n));
+const matched = (st) => tn().filter((n) => hit(n, st.tunnels || []) && !hit(n, st.exclude || []));
+const exactOf = (st) => (st.tunnels || []).filter((x) => tn().includes(x));
+const patsOf = (st) => (st.tunnels || []).filter((x) => !tn().includes(x));
+
+function prefOptions(st) {
+  const m = matched(st), p = (st.prefer || [])[0] || "";
+  const cur = m.find((n) => n === p) || (p ? m.find((n) => globRe(p).test(n)) : "") || "";
+  return `<option value="">Automatic (in the order listed)</option>` + m.map((n) => `<option value="${esc(n)}" ${n === cur ? "selected" : ""}>${esc(n)}</option>`).join("");
+}
+
 function stepRow(g, gi, st, si) {
-  const last = g.ladder.length - 1;
+  const last = g.ladder.length - 1, m = matched(st), exact = new Set(exactOf(st));
   const btns = `<button class="act" data-act="up" data-gi="${gi}" data-si="${si}" ${si === 0 ? "disabled" : ""}>&uarr;</button>
     <button class="act" data-act="down" data-gi="${gi}" data-si="${si}" ${si === last ? "disabled" : ""}>&darr;</button>
     <button class="act" data-act="del" data-gi="${gi}" data-si="${si}">Remove</button>`;
-  if (!st.country) return `<div class="step"><span class="n">${si + 1}.</span><span class="grow">Custom rule <span class="chip">${esc((st.tunnels || []).join(", "))}</span> <span class="muted">(edit in Advanced)</span></span>${btns}</div>`;
-  const c = (M.countries || []).find((x) => x.iso === st.country);
-  const copts = (M.countries || []).map((x) => `<option value="${x.iso}" ${x.iso === st.country ? "selected" : ""}>${esc(x.name)} (${x.count} servers)</option>`).join("") + (c ? "" : `<option value="${esc(st.country)}" selected>${esc(st.country)}</option>`);
-  const names = c ? c.tunnels : [];
-  const pref = (st.prefer || [])[0] || "";
-  const prefix = pref.endsWith("*") ? pref.slice(0, -1) : null;
-  const cur = names.find((n) => n === pref) || (prefix ? names.find((n) => n.startsWith(prefix)) : "") || "";
-  const popts = [`<option value="">Any, automatic order</option>`].concat(names.map((n) => `<option value="${esc(n)}" ${n === cur ? "selected" : ""}>${esc(n)}</option>`)).join("");
-  return `<div class="step"><span class="n">${si + 1}.</span>
-    <select data-gi="${gi}" data-si="${si}" data-f="country">${copts}</select>
-    <span class="muted">preferred server</span><select data-gi="${gi}" data-si="${si}" data-f="prefer">${popts}</select>
-    <span class="grow"></span>${btns}</div>`;
+  const list = tn().map((n) => `<label class="net"><input type="checkbox" data-gi="${gi}" data-si="${si}" data-srv="${esc(n)}" ${m.includes(n) ? "checked" : ""} ${m.includes(n) && !exact.has(n) ? "disabled" : ""}> ${esc(n)}</label>`).join("") || '<span class="muted">No tunnels found yet.</span>';
+  return `<div class="step" style="display:block">
+    <div class="row"><span class="n">${si + 1}.</span><input type="text" placeholder="Step name (any label you like)" data-gi="${gi}" data-si="${si}" data-f="name" value="${esc(st.name)}" style="width:260px"><span class="grow"></span>${btns}</div>
+    <details style="margin:8px 0 0 30px" ${st.tunnels.length ? "" : "open"}><summary>Tunnels in this step: <b id="cnt-${gi}-${si}">${m.length}</b></summary>
+      <div style="max-height:180px;overflow:auto;margin:8px 0">${list}</div>
+      <div class="row"><span class="muted">or match by name pattern (comma separated, * and ? allowed)</span>
+      <input type="text" data-gi="${gi}" data-si="${si}" data-f="pattern" placeholder="e.g. Home-*, Backup*" value="${esc(patsOf(st).join(", "))}" style="width:280px"></div></details>
+    <div class="row" style="margin:8px 0 0 30px"><span class="muted">Preferred first</span><select id="pref-${gi}-${si}" data-gi="${gi}" data-si="${si}" data-f="prefer">${prefOptions(st)}</select>
+      <span class="muted">Expect exit country (optional)</span><input type="text" maxlength="2" placeholder="e.g. IT" data-gi="${gi}" data-si="${si}" data-f="expect" value="${esc(st.expect_country)}" style="width:60px"></div></div>`;
+}
+
+function refreshStep(gi, si) {
+  const st = V.groups[gi].ladder[si], m = matched(st), exact = new Set(exactOf(st));
+  const c = document.getElementById(`cnt-${gi}-${si}`); if (c) c.textContent = m.length;
+  const p = document.getElementById(`pref-${gi}-${si}`); if (p) p.innerHTML = prefOptions(st);
+  document.querySelectorAll(`input[data-srv][data-gi="${gi}"][data-si="${si}"]`).forEach((cb) => { const n = cb.dataset.srv; cb.checked = m.includes(n); cb.disabled = m.includes(n) && !exact.has(n); });
 }
 
 function renderGroupsForm() {
   $("#groupsForm").innerHTML = V.groups.map((g, gi) => {
     const nets = (M.networks || []).map((n) => `<label class="net"><input type="checkbox" data-gi="${gi}" data-net="${esc(n)}" ${g.networks.includes(n) ? "checked" : ""}> ${esc(n)}</label>`).join("");
     const extra = g.networks.filter((n) => !(M.networks || []).includes(n)).map((n) => `<label class="net"><input type="checkbox" data-gi="${gi}" data-net="${esc(n)}" checked> ${esc(n)} <span class="muted">(not found)</span></label>`).join("");
-    const used = new Set(g.ladder.map((s) => s.country));
-    const addopts = (M.countries || []).filter((c) => !used.has(c.iso)).map((c) => `<option value="${c.iso}">${esc(c.name)} (${c.count} servers)</option>`).join("");
-    return `<div class="card"><h3>Group: ${esc(g.name)}</h3><p class="sub">Which networks use the VPN, and which servers to use, in order.</p>
+    return `<div class="card"><h3>Group: ${esc(g.name)}</h3><p class="sub">Which networks use the VPN, and which tunnels to use, in order.</p>
       ${row("Networks that use this VPN", "Their internet traffic goes through the active tunnel.", (nets + extra) || '<span class="muted">Waiting for the first UniFi check...</span>')}
       ${row("If the tunnel dies", "", sel(`groups.${gi}.kill_switch`, [["null", "Leave the UniFi setting as it is"], ["true", "Block traffic (no leak) until a new tunnel is ready"], ["false", "Let traffic use the normal internet connection"]], "tri"))}
-      ${row("Server order", "Top is preferred. When it fails, the next one is used; when all servers of a country fail it moves to the next country.",
-        g.ladder.map((st, si) => stepRow(g, gi, st, si)).join("") +
-        `<div class="row" style="margin-top:8px"><select id="add-${gi}"><option value="">Add a country...</option>${addopts}</select><button class="act" data-act="add" data-gi="${gi}">Add</button></div>`)}</div>`;
+      ${row("Fallback order", "Top is preferred. When the active tunnel fails, the next tunnel in this list is used; steps are tried from top to bottom. A step is any set of tunnels you choose.",
+        (g.ladder.map((st, si) => stepRow(g, gi, st, si)).join("") || '<span class="muted">No steps yet.</span>') +
+        `<div class="row" style="margin-top:10px"><button class="act" data-act="add" data-gi="${gi}">Add a step</button>
+         <button class="act" data-act="suggest" data-gi="${gi}">Suggest steps from my tunnel names</button></div>`)}</div>`;
   }).join("");
 }
 
@@ -350,10 +384,16 @@ function handleField(t) {
     set(V, t.dataset.path, v);
   } else if (t.dataset.net !== undefined) {
     const g = V.groups[+t.dataset.gi]; g.networks = g.networks.filter((n) => n !== t.dataset.net); if (t.checked) g.networks.push(t.dataset.net);
+  } else if (t.dataset.srv !== undefined) {
+    const gi = +t.dataset.gi, si = +t.dataset.si, st = V.groups[gi].ladder[si], ex = new Set(exactOf(st));
+    if (t.checked) ex.add(t.dataset.srv); else ex.delete(t.dataset.srv);
+    st.tunnels = tn().filter((n) => ex.has(n)).concat(patsOf(st)); refreshStep(gi, si);
   } else if (t.dataset.f) {
-    const st = V.groups[+t.dataset.gi].ladder[+t.dataset.si];
-    if (t.dataset.f === "country") { st.country = t.value; st.prefer = []; renderGroupsForm(); }
-    else st.prefer = t.value ? [t.value] : [];
+    const gi = +t.dataset.gi, si = +t.dataset.si, st = V.groups[gi].ladder[si], f = t.dataset.f;
+    if (f === "name") st.name = t.value;
+    else if (f === "expect") st.expect_country = t.value.toUpperCase();
+    else if (f === "prefer") st.prefer = t.value ? [t.value] : [];
+    else if (f === "pattern") { st.tunnels = exactOf(st).concat(t.value.split(",").map((x) => x.trim()).filter(Boolean)); refreshStep(gi, si); }
   } else return;
   updateSummary(); markDirty();
 }
@@ -362,11 +402,16 @@ $("#settings").addEventListener("click", async (e) => {
   if (b.id === "notifySave") { const r = await api("notify/service", "POST", { service: $("#notifySel").value }); $("#notifyMsg").innerHTML = r.ok ? '<span class="pill ok">saved</span>' : '<span class="pill bad">' + esc(r.data.error || "failed") + "</span>"; return; }
   if (b.id === "notifyTest") { const r = await api("notify/test", "POST", { service: $("#notifySel").value }); $("#notifyMsg").innerHTML = r.ok ? '<span class="pill ok">sent: check your phone</span>' : '<span class="pill bad">' + esc(r.data.error || "failed") + "</span>"; return; }
   if (!b.dataset.act) return;
-  const g = V.groups[+b.dataset.gi], si = +b.dataset.si, L = g.ladder;
+  const g = V.groups[+b.dataset.gi], si = +b.dataset.si; let L = g.ladder;
   if (b.dataset.act === "up" && si > 0) [L[si - 1], L[si]] = [L[si], L[si - 1]];
   if (b.dataset.act === "down" && si < L.length - 1) [L[si + 1], L[si]] = [L[si], L[si + 1]];
   if (b.dataset.act === "del") L.splice(si, 1);
-  if (b.dataset.act === "add") { const v = $("#add-" + b.dataset.gi).value; if (!v) return; L.push({ country: v, tunnels: [], prefer: [], exclude: [] }); }
+  if (b.dataset.act === "add") L.push({ name: "", tunnels: [], prefer: [], exclude: [], expect_country: "" });
+  if (b.dataset.act === "suggest") {
+    if (!(M.suggestions || []).length) return;
+    if (L.length && !confirm("Replace the fallback order of this group with the suggestion?")) return;
+    g.ladder = M.suggestions.map((x) => ({ name: x.label, tunnels: x.tunnels.slice(), prefer: [], exclude: [], expect_country: x.expect_country || "" }));
+  }
   renderGroupsForm(); markDirty();
 });
 

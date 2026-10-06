@@ -12,10 +12,6 @@ unifi:
   site: default
   verify_tls: false
 
-# Tunnel names must follow this pattern so country/city/server/IP can be derived (default shown):
-naming:
-  pattern: '^(?P<iso>[A-Za-z]{2})__(?P<city>.+?)__(?P<id>\d+)__(?P<ip>\d{1,3}(?:\.\d{1,3}){3})$'
-
 detection:
   failure_threshold: 3            # bad polls in a row (x interval_seconds) before a tunnel is declared down
   probe_failure_threshold: 2      # bad exit-IP probes in a row
@@ -37,7 +33,6 @@ switching:
   connect_timeout_seconds: 40
   min_hold_seconds: 60            # hard failures (tunnel not CONNECTED) bypass this
   max_switches_per_hour: 6
-  prefer_different_city: true     # same country, other city first
   rename_route_to_tunnel: true    # route description always equals the active tunnel name
   quarantine: {base_seconds: 120, factor: 2, max_seconds: 3600}
   on_exhausted: keep              # keep | kill_switch (block traffic instead of leaking when nothing works)
@@ -56,11 +51,10 @@ groups:
   - name: iot-and-vpn
     networks: [vlan20-iot, vlan50-vpn]     # names or ids; the managed route is found automatically
     kill_switch: false                      # true = block (no leak) when the tunnel dies, until failover completes
-    ladder:                                  # tried top to bottom
-      - {country: IT, prefer: ["IT__ROME__418__*"]}
-      - {country: DE}
-      - {country: FR}
-      - {country: GB}
+    ladder:                                  # tried top to bottom. Tunnels can have ANY names: pick by exact name or pattern
+      - {name: Home,   tunnels: ["Home-*"], prefer: ["Home-Primary"]}
+      - {name: Office, tunnels: ["office/berlin", "office/frankfurt"], expect_country: DE}   # expect_country is optional
+      - {name: Last resort, tunnels: ["*"]}   # anything not claimed above
     # overrides:                             # any detection/switching/failback/standby key, per group
     #   detection: {failure_threshold: 2}
 

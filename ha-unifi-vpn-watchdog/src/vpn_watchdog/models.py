@@ -1,7 +1,6 @@
 """Plain data objects shared across modules. No secrets are ever stored here."""
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -9,29 +8,17 @@ from typing import Any
 @dataclass(frozen=True)
 class Tunnel:
     id: str
-    name: str
+    name: str            # whatever the user called it; the watchdog never interprets it
     enabled: bool
-    iso: str | None = None
-    city: str | None = None
-    server_id: str | None = None
-    ip: str | None = None
     subnet: str | None = None
 
 
-def parse_tunnel(raw: dict[str, Any], pattern: re.Pattern[str], enabled: bool | None = None) -> Tunnel:
+def parse_tunnel(raw: dict[str, Any], enabled: bool | None = None) -> Tunnel:
     """Build a Tunnel from a UniFi networkconf object, dropping every other field (keys!)."""
-    name = raw.get("name", "")
-    m = pattern.match(name)
-    parts = m.groupdict() if m else {}
-    iso = parts.get("iso")
     return Tunnel(
         id=raw["_id"],
-        name=name,
+        name=raw.get("name", ""),
         enabled=bool(raw.get("enabled")) if enabled is None else enabled,
-        iso=iso.upper() if iso else None,
-        city=(parts.get("city") or None) and parts["city"].upper(),
-        server_id=parts.get("id"),
-        ip=parts.get("ip"),
         subnet=raw.get("ip_subnet"),
     )
 

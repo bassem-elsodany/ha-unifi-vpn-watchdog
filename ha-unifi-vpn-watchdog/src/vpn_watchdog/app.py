@@ -66,7 +66,7 @@ class App:
 
     def _build(self) -> Engine:
         cfg = self.cfg
-        unifi = UniFiClient(cfg.unifi, cfg.naming_re(), dry_run=cfg.dry_run)
+        unifi = UniFiClient(cfg.unifi, dry_run=cfg.dry_run)
         tester = TunnelTester(cfg.probe, unifi, Prober(cfg.probe), self.clock)
         notifier = Notifier(cfg.notifications, self.clock, dry_run=cfg.dry_run, alerts=cfg.alerts)
         eng = Engine(cfg, unifi, tester, notifier, self.store, self.clock)

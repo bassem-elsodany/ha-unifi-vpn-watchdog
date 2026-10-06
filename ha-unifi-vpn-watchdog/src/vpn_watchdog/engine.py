@@ -10,7 +10,7 @@ from typing import Any
 
 from .clock import Clock
 from .config import Config, GroupCfg, GroupSettings
-from .ladder import candidates, resolve_ladder
+from .ladder import candidates, expected_country, failback_targets, resolve_ladder, step_of
 from .models import ProbeResult, Route, Snapshot, Tunnel
 from .notify import Notifier
 from .probe import TunnelTester
@@ -183,7 +183,7 @@ class Engine:
         now = self.clock.now()
         if self.tester.enabled and now - gs.last_probe_ts >= st.detection.probe_interval_seconds:
             gs.last_probe_ts = now
-            res = self.tester.test(cur, snap, pre=False)
+            res = self.tester.test(cur, snap, pre=False, expect=self._expect(g, snap, cur))
             if res is not None:
                 gs.last_probe = res.as_dict()
                 if res.ok:
@@ -210,13 +210,13 @@ class Engine:
             if ts.quarantined_until <= now:
                 self._quarantine(cur, why, st)
         snap = self.unifi.snapshot()
-        cands = candidates(g, list(snap.tunnels.values()), cur, st.switching.prefer_different_city)
+        cands = candidates(g, list(snap.tunnels.values()), cur)
         tried = 0
         for cand in cands:
             if self.store.tunnel(cand.id).quarantined_until > now:
                 continue
             tried += 1
-            ok, reason = self._try(cand, st)
+            ok, reason = self._try(g, cand, st)
             if ok:
                 self._commit(g, st, gs, cand, route, f"failover from {cur.name if cur else 'unknown'}: {why}", "switch")
                 return
@@ -231,13 +231,21 @@ class Engine:
             self.unifi.set_route(route, kill_switch=True)
         gs.last_decision = f"exhausted: {why}"
 
-    def _try(self, cand: Tunnel, st: GroupSettings) -> tuple[bool, str]:
+    def _step_name(self, g: GroupCfg, t: Tunnel | None) -> str:
+        snap = self._snap
+        hit = step_of(g, list(snap.tunnels.values()), t) if snap and t else None
+        return hit[1] if hit else ""
+
+    def _expect(self, g: GroupCfg, snap: Snapshot, t: Tunnel) -> str | None:
+        return expected_country(g, list(snap.tunnels.values()), t)
+
+    def _try(self, g: GroupCfg, cand: Tunnel, st: GroupSettings) -> tuple[bool, str]:
         ok, why = self._prepare(cand, st)
         if not ok:
             return False, why
         if self.tester.can_pretest:
             snap = self.unifi.snapshot()
-            res = self.tester.test(cand, snap, pre=True)
+            res = self.tester.test(cand, snap, pre=True, expect=self._expect(g, snap, cand))
             if res is not None and not res.ok:
                 return False, f"pre-test failed: {res.reason}"
         return True, "ok"
@@ -288,14 +296,13 @@ class Engine:
         old = self._snap.tunnels.get(prev or "") if self._snap else None
         self.notifier.emit(event, f"VPN {g.name} -> {cand.name}", reason, key=f"{g.name}:{cand.name}",
                            group=g.name, tunnel=cand.name, previous=old.name if old else (prev or ""),
-                           country=cand.iso or "", city=(cand.city or "").title(),
-                           previous_country=old.iso if old and old.iso else "", reason=reason)
+                           step=self._step_name(g, cand), previous_step=self._step_name(g, old) if old else "", reason=reason)
 
     def _provision(self, g: GroupCfg, st: GroupSettings, gs: GroupState, ladder: list[Tunnel], snap: Snapshot) -> None:
         for cand in ladder:
             if self.store.tunnel(cand.id).quarantined_until > self.clock.now():
                 continue
-            ok, why = self._try(cand, st)
+            ok, why = self._try(g, cand, st)
             if ok:
                 self._commit(g, st, gs, cand, None, "initial provisioning", "switch")
                 return
@@ -307,9 +314,8 @@ class Engine:
         if not st.failback.enabled or cur is None:
             return
         now = self.clock.now()
-        ladder = resolve_ladder(g, list(snap.tunnels.values()))
-        idx = next((i for i, t in enumerate(ladder) if t.id == cur.id), len(ladder))
-        better = [t for t in ladder[:idx] if self.store.tunnel(t.id).quarantined_until <= now]
+        better = [t for t in failback_targets(g, list(snap.tunnels.values()), cur)
+                  if self.store.tunnel(t.id).quarantined_until <= now]
         if not better:
             gs.failback_target = None
             gs.failback_stable_since = None
@@ -320,7 +326,7 @@ class Engine:
         target = better[0]
         if gs.failback_target != target.id:
             gs.failback_target, gs.failback_stable_since = target.id, None
-        ok, why = self._try(target, st)
+        ok, why = self._try(g, target, st)
         if not ok:
             gs.failback_stable_since = None
             self._quarantine(target, f"failback test: {why}", st)
@@ -343,7 +349,7 @@ class Engine:
             if gs.current_id:
                 keep.add(gs.current_id)
             cur = snap.tunnels.get(gs.current_id or "")
-            warm = [t for t in candidates(g, list(snap.tunnels.values()), cur, st.switching.prefer_different_city)
+            warm = [t for t in candidates(g, list(snap.tunnels.values()), cur)
                     if self.store.tunnel(t.id).quarantined_until <= now]
             keep.update(t.id for t in warm[: st.standby.warm])
             if gs.failback_target:
@@ -465,7 +471,7 @@ class Engine:
             t = snap.tunnel_by_name(cmd[2])
             if t is None:
                 return
-            ok, why = self._try(t, self.cfg.settings_for(g))
+            ok, why = self._try(g, t, self.cfg.settings_for(g))
             self._record("test", f"{t.name}: {'OK' if ok else 'FAILED - ' + why}", "info" if ok else "warning")
         elif kind == "switch":
             name = cmd[2]
@@ -474,7 +480,7 @@ class Engine:
                 log.warning("manual switch: tunnel %r not found", name)
                 return
             st = self.cfg.settings_for(g)
-            ok, why = self._try(target, st)
+            ok, why = self._try(g, target, st)
             if not ok:
                 log.warning("manual switch to %s refused: %s", name, why)
                 return
@@ -490,12 +496,30 @@ class Engine:
         now = self.clock.now()
         groups: dict[str, Any] = {}
         tunnels: dict[str, Any] = {}
+        direct: list[dict[str, Any]] = []
         if snap is not None:
+            managed = {self.store.group(g.name).route_id: g.name for g in self.cfg.groups}
+            canary = self.cfg.probe.canary.route_description
+
+            def describe(r) -> dict[str, Any]:
+                return {"description": r.description, "enabled": r.enabled, "kill_switch": r.kill_switch,
+                        "networks": sorted(snap.networks.get(n, n) for n in r.target_networks),
+                        "clients": sorted(r.target_macs), "managed_by": managed.get(r.id),
+                        "canary": r.description == canary}
+
+            by_tunnel: dict[str, list[dict[str, Any]]] = {}
+            for r in snap.routes:
+                if r.network_id in snap.tunnels:
+                    by_tunnel.setdefault(r.network_id, []).append(describe(r))
+                else:
+                    d = describe(r)
+                    d["goes_to"] = snap.networks.get(r.network_id or "", r.network_id or "unknown")
+                    direct.append(d)
             for t in snap.tunnels.values():
                 c = snap.connections.get(t.id)
                 ts = self.store.tunnels.get(t.id)
-                tunnels[t.name] = {
-                    "iso": t.iso, "city": t.city, "ip": t.ip, "enabled": t.enabled,
+                tunnels[t.name] = {"routes": by_tunnel.get(t.id, []),
+                    "enabled": t.enabled,
                     "status": c.status if c else None, "rx_bps": c.rx_bps if c else None, "tx_bps": c.tx_bps if c else None,
                     "quarantined_for": max(0, int((ts.quarantined_until if ts else 0) - now)),
                     "last_reason": ts.last_reason if ts else "",
@@ -505,8 +529,7 @@ class Engine:
                 cur = snap.tunnels.get(gs.current_id or "")
                 groups[g.name] = {
                     "active": cur.name if cur else None,
-                    "country": cur.iso if cur else None,
-                    "city": cur.city if cur else None,
+                    "step": self._step_name(g, cur),
                     "healthy": gs.healthy is True,
                     "decision": gs.last_decision,
                     "paused": gs.paused,
@@ -525,7 +548,7 @@ class Engine:
                 }
         status = {
             "dry_run": self.cfg.dry_run, "last_tick": self.last_tick, "error": self.last_error,
-            "groups": groups, "tunnels": tunnels,
+            "groups": groups, "tunnels": tunnels, "direct_routes": direct,
             "events": list(getattr(self.notifier, "history", []))[:60],
             "interval_seconds": self.cfg.interval_seconds,
         }

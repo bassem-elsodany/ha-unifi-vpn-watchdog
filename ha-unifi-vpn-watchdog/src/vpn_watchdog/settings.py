@@ -2,7 +2,7 @@
 
 `extract` reads the effective values; `apply` writes the form back into the raw YAML dict (keys the form does not
 know about, such as secrets, route pins and per-group overrides, are preserved); `meta` lists what the UI can offer
-(networks, countries, tunnels) from the last UniFi snapshot.
+(networks, tunnels, suggested steps) from the last UniFi snapshot.
 """
 from __future__ import annotations
 
@@ -11,16 +11,8 @@ from typing import Any
 
 from .alerts import EVENTS, PLACEHOLDERS
 from .config import Config
+from .ladder import suggest_groups
 from .models import Snapshot
-
-COUNTRIES = {
-    "AT": "Austria", "AU": "Australia", "BE": "Belgium", "BG": "Bulgaria", "BR": "Brazil", "CA": "Canada",
-    "CH": "Switzerland", "CZ": "Czechia", "DE": "Germany", "DK": "Denmark", "ES": "Spain", "FI": "Finland",
-    "FR": "France", "GB": "United Kingdom", "GR": "Greece", "HU": "Hungary", "IE": "Ireland", "IT": "Italy",
-    "JP": "Japan", "NL": "Netherlands", "NO": "Norway", "PL": "Poland", "PT": "Portugal", "RO": "Romania",
-    "SE": "Sweden", "SG": "Singapore", "US": "United States", "AE": "United Arab Emirates",
-}
-
 
 ALERT_INFO = {
     "events": {n: {"when": d["when"], "level": d["level"]} for n, d in EVENTS.items()},
@@ -41,7 +33,6 @@ def extract(cfg: Config) -> dict[str, Any]:
             "min_hold_seconds": cfg.switching.min_hold_seconds,
             "max_switches_per_hour": cfg.switching.max_switches_per_hour,
             "connect_timeout_seconds": cfg.switching.connect_timeout_seconds,
-            "prefer_different_city": cfg.switching.prefer_different_city,
             "on_exhausted": cfg.switching.on_exhausted,
         },
         "failback": {
@@ -67,7 +58,8 @@ def extract(cfg: Config) -> dict[str, Any]:
                 "networks": list(g.networks),
                 "kill_switch": g.kill_switch,
                 "ladder": [
-                    {"country": st.country, "tunnels": list(st.tunnels), "prefer": list(st.prefer), "exclude": list(st.exclude)}
+                    {"name": st.name or "", "tunnels": list(st.tunnels), "prefer": list(st.prefer),
+                     "exclude": list(st.exclude), "expect_country": st.expect_country or ""}
                     for st in g.ladder
                 ],
             }
@@ -101,8 +93,6 @@ def apply(raw: dict[str, Any], form: dict[str, Any]) -> dict[str, Any]:
             sw[k] = _num(s[k])
     if "connect_timeout_seconds" in s:
         sw["connect_timeout_seconds"] = _num(s["connect_timeout_seconds"], float)
-    if "prefer_different_city" in s:
-        sw["prefer_different_city"] = bool(s["prefer_different_city"])
     if "on_exhausted" in s:
         if s["on_exhausted"] not in ("keep", "kill_switch"):
             raise ValueError("on_exhausted must be keep or kill_switch")
@@ -164,11 +154,13 @@ def apply(raw: dict[str, Any], form: dict[str, Any]) -> dict[str, Any]:
             ladder = []
             for step in fg.get("ladder", []):
                 clean = {}
-                if step.get("country"):
-                    clean["country"] = str(step["country"]).upper()
+                if str(step.get("name") or "").strip():
+                    clean["name"] = str(step["name"]).strip()
                 for key in ("tunnels", "prefer", "exclude"):
                     if step.get(key):
                         clean[key] = [str(x) for x in step[key]]
+                if str(step.get("expect_country") or "").strip():
+                    clean["expect_country"] = str(step["expect_country"]).strip().upper()
                 ladder.append(clean)
             g["ladder"] = ladder
             groups.append(g)
@@ -178,18 +170,17 @@ def apply(raw: dict[str, Any], form: dict[str, Any]) -> dict[str, Any]:
 
 def meta(snap: Snapshot | None) -> dict[str, Any]:
     if snap is None:
-        return {"networks": [], "countries": [], "tunnels": [], "ready": False, "alert_info": ALERT_INFO}
+        return {"networks": [], "tunnels": [], "suggestions": [], "ready": False, "alert_info": ALERT_INFO}
     tunnel_ids = set(snap.tunnels)
     networks = sorted(
         n for i, n in snap.networks.items()
         if i not in tunnel_ids and not n.startswith("Internet") and n != "One-Click VPN"
     )
-    by_iso: dict[str, list[str]] = {}
-    for t in snap.tunnels.values():
-        if t.iso:
-            by_iso.setdefault(t.iso, []).append(t.name)
-    countries = [
-        {"iso": iso, "name": COUNTRIES.get(iso, iso), "count": len(names), "tunnels": sorted(names)}
-        for iso, names in sorted(by_iso.items(), key=lambda kv: COUNTRIES.get(kv[0], kv[0]))
-    ]
-    return {"alert_info": ALERT_INFO, "networks": networks, "countries": countries, "tunnels": sorted(t.name for t in snap.tunnels.values()), "ready": True}
+    tunnels = sorted(snap.tunnels.values(), key=lambda t: t.name.lower())
+    return {
+        "alert_info": ALERT_INFO,
+        "networks": networks,
+        "tunnels": [{"name": t.name, "enabled": t.enabled} for t in tunnels],
+        "suggestions": suggest_groups(tunnels),
+        "ready": True,
+    }

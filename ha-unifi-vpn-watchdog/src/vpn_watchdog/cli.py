@@ -44,15 +44,15 @@ def main(argv: list[str] | None = None) -> int:
             from .agent import serve
             serve(cfg.probe, "0.0.0.0", args.port, args.token)
             return 0
+        if args.command == "run":
+            return _run_forever(args, env)
         app = App(args.config, env, args.dry_run)
     except ConfigError as e:
         print(f"config error: {e}", file=sys.stderr)
         return 2
 
     setup_logging(app.cfg.log.level, app.cfg.log.format)
-    if args.command == "run":
-        app.run()
-    elif args.command == "once":
+    if args.command == "once":
         app.engine.tick()
         print(json.dumps(app.engine.status(), indent=2, default=str))
     elif args.command == "check":
@@ -63,13 +63,35 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def _run_forever(args, env: dict[str, str]) -> int:
+    import signal
+    import threading
+
+    from .safe_mode import wait_until_valid
+
+    stop = threading.Event()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        signal.signal(sig, lambda *_: stop.set())
+    setup_logging("INFO", "text")
+    while not stop.is_set():
+        try:
+            app = App(args.config, env, args.dry_run)
+        except ConfigError as e:
+            if not wait_until_valid(args.config, env, str(e), stop):
+                return 0
+            continue
+        setup_logging(app.cfg.log.level, app.cfg.log.format)
+        app.run()
+        return 0
+    return 0
+
+
 def _discover(app: App) -> None:
     snap = app.engine.unifi.snapshot()
     print("== VPN tunnels ==")
-    for t in sorted(snap.tunnels.values(), key=lambda t: (t.iso or "~", t.city or "", t.name)):
+    for t in sorted(snap.tunnels.values(), key=lambda t: t.name.lower()):
         c = snap.connections.get(t.id)
-        parsed = f"{t.iso}/{t.city}/{t.server_id}/{t.ip}" if t.iso else "UNPARSED (naming.pattern mismatch)"
-        print(f"  {t.name:42} enabled={str(t.enabled):5} status={(c.status if c else '-'):11} {parsed}")
+        print(f"  {t.name:42} enabled={str(t.enabled):5} status={(c.status if c else '-'):11}")
     print("== Policy routes ==")
     for r in snap.routes:
         nets = [snap.networks.get(n, n) for n in r.target_networks]

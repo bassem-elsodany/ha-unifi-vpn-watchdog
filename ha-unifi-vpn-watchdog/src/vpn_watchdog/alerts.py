@@ -7,11 +7,10 @@ from typing import Any
 # Placeholders available in every template (empty when not relevant to the event).
 PLACEHOLDERS = {
     "group": "VPN group name",
-    "tunnel": "active / new tunnel name, e.g. IT__ROME__418__187.14.84.144",
+    "tunnel": "active / new tunnel name",
     "previous": "tunnel it moved away from",
-    "country": "ISO country of the tunnel (IT)",
-    "city": "city of the tunnel (ROME)",
-    "previous_country": "ISO country of the previous tunnel",
+    "step": "name of the fallback step the tunnel belongs to",
+    "previous_step": "fallback step of the previous tunnel",
     "reason": "why the decision was taken",
     "tried": "number of candidate tunnels that were tested and failed",
     "groups": "number of groups being watched",
@@ -21,15 +20,15 @@ PLACEHOLDERS = {
 
 EVENTS: dict[str, dict[str, Any]] = {
     "switch": {
-        "when": "A tunnel stopped working and traffic was moved to another server, city or country.",
+        "when": "A tunnel stopped working and traffic was moved to another server (possibly in another fallback step).",
         "level": "warning", "enabled": True,
-        "title": "VPN {group}: switched to {country} {city}",
+        "title": "VPN {group}: switched to {step}",
         "message": "{previous} -> {tunnel}. Reason: {reason}",
     },
     "failback": {
         "when": "The preferred tunnel recovered and stayed healthy long enough, so traffic moved back to it.",
         "level": "info", "enabled": True,
-        "title": "VPN {group}: back on preferred {country} {city}",
+        "title": "VPN {group}: back on preferred {step}",
         "message": "{previous} -> {tunnel}. {reason}",
     },
     "exhausted": {

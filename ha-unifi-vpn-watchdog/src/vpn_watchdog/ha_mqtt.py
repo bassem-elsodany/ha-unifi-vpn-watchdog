@@ -100,7 +100,7 @@ class MqttPublisher:
                 self._announced[gid] = list(ladder)
             base = f"{self.cfg.base_topic}/{gid}"
             self._pub(f"{base}/active", g["active"] or "none")
-            self._pub(f"{base}/country", g["country"] or "none")
+            self._pub(f"{base}/step", g["step"] or "none")
             self._pub(f"{base}/healthy", "ON" if g["healthy"] else "OFF")
             self._pub(f"{base}/decision", (g["decision"] or "")[:250])
             self._pub(f"{base}/paused", "ON" if g["paused"] else "OFF")
@@ -121,7 +121,7 @@ class MqttPublisher:
             self.client.publish(f"{pfx}/{kind}/vpn_watchdog_{gid}/{key}/config", json.dumps(body), retain=True)
 
         cfg("sensor", "active", "Active tunnel", state_topic=f"{base}/active", icon="mdi:vpn")
-        cfg("sensor", "country", "Exit country", state_topic=f"{base}/country", icon="mdi:flag")
+        cfg("sensor", "step", "Fallback step", state_topic=f"{base}/step", icon="mdi:stairs")
         cfg("sensor", "decision", "Last decision", state_topic=f"{base}/decision", entity_category="diagnostic")
         cfg("binary_sensor", "healthy", "Healthy", state_topic=f"{base}/healthy", device_class="connectivity")
         cfg("switch", "paused", "Failover paused", state_topic=f"{base}/paused", command_topic=f"{base}/pause/set",

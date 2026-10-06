@@ -17,8 +17,8 @@ class StubEngine:
         self.wake = type("W", (), {"set": lambda s: None})()
 
     def status(self):
-        return {"dry_run": True, "last_tick": self.last_tick, "groups": {"g": {"healthy": True, "switches_last_hour": 0, "active": "IT__A", "country": "IT"}},
-                "tunnels": {"IT__A": {"status": "CONNECTED", "quarantined_for": 0}}, "events": []}
+        return {"dry_run": True, "last_tick": self.last_tick, "groups": {"g": {"healthy": True, "switches_last_hour": 0, "active": "Tunnel A", "step": "Home"}},
+                "tunnels": {"Tunnel A": {"status": "CONNECTED", "quarantined_for": 0}}, "events": []}
 
     def submit(self, *c):
         self.submitted.append(c)
@@ -101,7 +101,7 @@ def test_no_token_configured_means_read_only():
 
 
 def test_render_metrics_labels():
-    assert 'tunnel="IT__A"' in render_metrics(StubEngine().status())
+    assert 'tunnel="Tunnel A"' in render_metrics(StubEngine().status())
 
 
 def test_mqtt_failure_is_not_fatal(tmp_path, monkeypatch):
@@ -110,7 +110,7 @@ def test_mqtt_failure_is_not_fatal(tmp_path, monkeypatch):
 
     cfg = tmp_path / "c.yaml"
     cfg.write_text("unifi: {api_key: k}\nstate_file: " + str(tmp_path / "s.json") + "\nmqtt: {enabled: true, supervisor: true}\n"
-                   "groups:\n  - {name: g, networks: [n], ladder: [{country: IT}]}\n")
+                   "groups:\n  - {name: g, networks: [n], ladder: [{tunnels: ['*']}]}\n")
 
     def boom(*a, **k):
         raise RuntimeError("Client error '400 Bad Request' for url 'http://supervisor/services/mqtt'")

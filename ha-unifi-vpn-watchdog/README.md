@@ -19,10 +19,11 @@ web UI (status, jobs, start/stop, config editor), and is configured by one hot-r
 1. **Detect.** Each cycle (default 15 s) it reads tunnel status, then checks three things, because a tunnel can say
    `CONNECTED` while passing nothing:
    status is `CONNECTED` · receive rate is not stuck at 0 while sending (black hole) · an **exit-IP probe** through
-   the tunnel returns a working IP that is not your WAN IP (leak) and, optionally, is in the expected country.
+   the tunnel returns a working IP that is not your WAN IP (leak) and, only if you typed an expected country for the step, is in that country.
 2. **Decide.** A tunnel is *down* after `failure_threshold` bad polls (or `probe_failure_threshold` bad probes).
-3. **Pick.** Candidates come from the group's **ladder**, in order: the next server in the same country (other cities
-   first), then the next country, and so on. Quarantined tunnels are skipped.
+3. **Pick.** Candidates come from the group's **fallback order**: a list of steps, each a set of tunnels you chose by name or
+   pattern. The next tunnel of the current step is tried first, then the next step, and so on. Tunnels that failed recently
+   are skipped. Tunnels can be called anything; nothing is read out of a name.
 4. **Test before switching.** The candidate is enabled, must reach `CONNECTED`, and (with a canary) must pass the
    exit-IP probe. A candidate that fails is quarantined with exponential backoff and the next one is tried.
 5. **Commit.** One `PUT` changes the managed route's tunnel. There is never a moment with no route, so nothing leaks to
@@ -72,7 +73,7 @@ The project folder **is** the add-on (`config.yaml`, `Dockerfile`, `DOCS.md`).
 | Settings UI | sidebar panel → *Settings* tab (form: intervals, thresholds, fallback order, alerts) and *Advanced* (YAML); secrets via the add-on Configuration tab |
 | Status / jobs / start-stop | sidebar panel (ingress, authenticated by your HA login) |
 | Notifications | `home_assistant` notifier with `supervisor: true`, plus ntfy / Telegram / webhook |
-| Entities | MQTT discovery: *Active tunnel, Exit country, Last decision, Healthy, Failover paused (switch), Force tunnel (select)* per group |
+| Entities | MQTT discovery: *Active tunnel, Fallback step, Last decision, Healthy, Failover paused (switch), Force tunnel (select)* per group |
 | Logs | add-on *Log* tab |
 
 ## Probe modes (`probe.mode`)
@@ -88,17 +89,17 @@ Canary/remote: give the container a fixed MAC, set `probe.canary.mac` to it, and
 `WATCHDOG_CANARY` route for that client. See `docker/docker-compose.canary.yml`. A macvlan container cannot be reached
 by its own Docker host; reach it from another LAN machine.
 
-Geo-IP databases disagree on VPN address ranges (one reported a Rome server as Brazil). Keep several endpoints; set
+Geo-IP databases disagree on VPN address ranges. Keep several endpoints; set
 `probe.check_country: false` if you only want "works and is not a leak".
 
 ## Alerts
 
-Each alert has an on/off switch, a title and a message with `{placeholders}` (`{group} {tunnel} {previous} {country} {city}
+Each alert has an on/off switch, a title and a message with `{placeholders}` (`{group} {tunnel} {previous} {step}
 {reason} {tried} ...`), editable in *Settings → Notifications* or under `alerts:` in the YAML:
 
 | alert | sent when | default |
 |---|---|---|
-| `switch` | a tunnel failed and traffic moved to another server/city/country | on |
+| `switch` | a tunnel failed and traffic moved to another tunnel | on |
 | `failback` | the preferred tunnel recovered and traffic moved back | on |
 | `exhausted` | the active tunnel is down and every candidate failed (critical) | on |
 | `leak` | the exit-IP test saw your real WAN address (critical) | on |
@@ -111,10 +112,9 @@ Each alert has an on/off switch, a title and a message with `{placeholders}` (`{
 
 See [config/config.example.yaml](config/config.example.yaml); every key is documented there. Highlights:
 
-- **Ladder** (`groups[].ladder`): steps tried top to bottom; a step is a `country` (ISO code parsed from the tunnel
-  name), `tunnels` (glob patterns), `prefer`, `exclude`.
-- **Naming**: tunnels are named `ISO__CITY__ID__IP` (e.g. `IT__ROME__418__187.14.84.144`); `naming.pattern` is a regex,
-  so other schemes work.
+- **Fallback order** (`groups[].ladder`): steps tried top to bottom. A step has an optional `name`, `tunnels` (exact names or
+  `*`/`?` patterns, tried in the order written), `prefer`, `exclude` and an optional `expect_country` that you type yourself.
+  Nothing is ever derived from a tunnel's name, so any naming scheme works.
 - **Per-group overrides** for any `detection`, `switching`, `failback`, `standby` key.
 - **Hot reload**: edit the file (or use the UI), it is applied next cycle; an invalid file is rejected and the old
   config keeps running. Typos are errors (unknown keys are rejected). `${VAR}` / `${VAR:-default}` read the environment.
@@ -138,7 +138,7 @@ With no `control_token` set the server is read-only.
 ## Layout
 
 ```
-src/vpn_watchdog/   config · unifi · probe · ladder · engine · state · notify · server+ui · ha_mqtt · agent · cli
+src/vpn_watchdog/   config · unifi · probe · ladder · engine · state · notify · settings · server+ui · safe_mode · ha_mqtt · agent · cli
 tests/              56 tests (fake UniFi + fake probe drive the engine; HTTP mocked for the clients)
 docker/             Dockerfile · docker-compose.yml · docker-compose.canary.yml
 config/             config.example.yaml

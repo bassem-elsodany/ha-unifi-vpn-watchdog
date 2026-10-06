@@ -16,7 +16,6 @@ class ConfigError(Exception):
     pass
 
 
-DEFAULT_NAMING = r"^(?P<iso>[A-Za-z]{2})__(?P<city>.+?)__(?P<id>\d+)__(?P<ip>\d{1,3}(?:\.\d{1,3}){3})$"
 _ENV = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-(.*?))?\}")
 
 
@@ -32,18 +31,6 @@ class UnifiCfg(_M):
     verify_tls: bool = False
     timeout_seconds: float = 10
     retries: int = 2
-
-
-class NamingCfg(_M):
-    pattern: str = DEFAULT_NAMING
-
-    @model_validator(mode="after")
-    def _compiles(self) -> "NamingCfg":
-        try:
-            re.compile(self.pattern)
-        except re.error as e:
-            raise ValueError(f"naming.pattern is not a valid regex: {e}")
-        return self
 
 
 class BlackholeCfg(_M):
@@ -119,7 +106,6 @@ class SwitchingCfg(_M):
     connect_timeout_seconds: float = Field(40, ge=5)
     min_hold_seconds: int = Field(60, ge=0)                  # minimum time between switches (hard failures bypass it)
     max_switches_per_hour: int = Field(6, ge=1)
-    prefer_different_city: bool = True          # within a country, try other cities before other servers in the same city
     rename_route_to_tunnel: bool = True         # keep the route description equal to the active tunnel name
     quarantine: QuarantineCfg = QuarantineCfg()
     on_exhausted: Literal["keep", "kill_switch"] = "keep"
@@ -138,17 +124,20 @@ class StandbyCfg(_M):
 
 
 class LadderStep(_M):
-    country: str | None = None           # ISO code, matched against the parsed tunnel name
-    tunnels: list[str] = Field(default_factory=list)   # glob patterns on tunnel name
-    prefer: list[str] = Field(default_factory=list)    # globs tried first inside this step
+    """One tier of the fallback order, tried top to bottom. Its tunnels are chosen by exact name or glob pattern, so
+    tunnels can be called anything. Nothing is ever read out of a tunnel's name."""
+    name: str | None = None              # label shown in the UI and alerts
+    tunnels: list[str] = Field(default_factory=list)   # exact names or globs, tried in the order written
+    prefer: list[str] = Field(default_factory=list)    # tried first inside this step
     exclude: list[str] = Field(default_factory=list)
+    expect_country: str | None = None    # optional, typed by you: the country the exit-IP test must see for this step
 
     @model_validator(mode="after")
     def _something(self) -> "LadderStep":
-        if not self.country and not self.tunnels:
-            raise ValueError("a ladder step needs `country` and/or `tunnels`")
-        if self.country:
-            self.country = self.country.upper()
+        if not self.tunnels:
+            raise ValueError("a ladder step needs `tunnels`: tunnel names or patterns such as '*'")
+        if self.expect_country:
+            self.expect_country = self.expect_country.upper()
         return self
 
 
@@ -233,7 +222,6 @@ class Config(_M):
     state_file: str = "/data/state.json"
     log: LogCfg = LogCfg()
     unifi: UnifiCfg
-    naming: NamingCfg = NamingCfg()
     detection: DetectionCfg = DetectionCfg()
     probe: ProbeCfg = ProbeCfg()
     switching: SwitchingCfg = SwitchingCfg()
@@ -272,9 +260,6 @@ class Config(_M):
             raise ValueError("at least one group is required")
         return self
 
-    def naming_re(self) -> re.Pattern[str]:
-        return re.compile(self.naming.pattern)
-
     def settings_for(self, group: GroupCfg) -> GroupSettings:
         base = {
             "detection": self.detection.model_dump(),
@@ -296,6 +281,28 @@ def deep_merge(base: dict[str, Any], over: dict[str, Any]) -> dict[str, Any]:
         else:
             out[k] = copy.deepcopy(v)
     return out
+
+
+def removed_settings(raw: dict[str, Any]) -> list[str]:
+    """Settings that earlier versions had and that no longer exist. They are reported, never converted or guessed."""
+    errs: list[str] = []
+    if "naming" in raw:
+        errs.append("`naming` was removed: tunnel names are never interpreted. Choose each step's tunnels by name or pattern.")
+
+    def city(d: Any, where: str) -> None:
+        if isinstance(d, dict) and isinstance(d.get("switching"), dict) and "prefer_different_city" in d["switching"]:
+            errs.append(f"{where}switching.prefer_different_city was removed (cities are not a concept any more).")
+
+    city(raw, "")
+    for g in raw.get("groups") or []:
+        if not isinstance(g, dict):
+            continue
+        city(g.get("overrides"), f"groups[{g.get('name')}].overrides.")
+        for i, st in enumerate(g.get("ladder") or []):
+            if isinstance(st, dict) and "country" in st:
+                errs.append(f"groups[{g.get('name')}].ladder[{i + 1}]: `country` was removed. List the tunnel names or patterns "
+                            "under `tunnels` (e.g. tunnels: [\"Italy*\"]); add `expect_country: IT` if the exit-IP test should check a country.")
+    return errs
 
 
 _SENTINEL = "WDENVREF{}X"
@@ -361,11 +368,13 @@ def parse_config(text: str, env: dict[str, str] | None = None) -> Config:
     if not isinstance(raw, dict):
         raise ConfigError("config root must be a mapping")
     raw = _restore(raw, found, dict(os.environ) if env is None else env)
+    errs = removed_settings(raw)
+    if errs:
+        raise ConfigError("\n".join(errs))
     try:
         cfg = Config.model_validate(raw)
         for g in cfg.groups:
             cfg.settings_for(g)  # validate overrides eagerly
-        cfg.naming_re()
     except ValidationError as e:
         raise ConfigError(format_errors(e)) from e
     return cfg

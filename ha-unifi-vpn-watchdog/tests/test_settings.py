@@ -1,5 +1,3 @@
-import copy
-
 import pytest
 import yaml
 
@@ -17,8 +15,8 @@ groups:
     networks: [vlan20-iot, vlan50-vpn]
     overrides: {detection: {failure_threshold: 9}}
     ladder:
-      - {country: IT, prefer: ["IT__ROME__418__*"]}
-      - {tunnels: ["DE__*"], exclude: ["*1552*"]}
+      - {name: Home, tunnels: ["Home-*"], prefer: ["Home-Primary"], expect_country: IT}
+      - {tunnels: ["Backup*"], exclude: ["Backup 3"]}
 """
 ENV = {"UNIFI_API_KEY": "k"}
 
@@ -31,7 +29,9 @@ def test_extract_reads_effective_values_including_defaults():
     v = settings.extract(cfg_of(RAW))
     assert v["interval_seconds"] == 15 and v["detection"]["failure_threshold"] == 3
     assert v["switching"]["on_exhausted"] == "keep" and v["failback"]["enabled"] is True
-    assert v["groups"][0]["ladder"][0] == {"country": "IT", "tunnels": [], "prefer": ["IT__ROME__418__*"], "exclude": []}
+    assert "prefer_different_city" not in v["switching"]
+    assert v["groups"][0]["ladder"][0] == {"name": "Home", "tunnels": ["Home-*"], "prefer": ["Home-Primary"], "exclude": [], "expect_country": "IT"}
+    assert v["groups"][0]["ladder"][1]["name"] == ""
 
 
 def test_apply_changes_values_and_preserves_what_the_form_does_not_own():
@@ -42,28 +42,40 @@ def test_apply_changes_values_and_preserves_what_the_form_does_not_own():
     form["failback"]["enabled"] = False
     form["groups"][0]["kill_switch"] = True
     new = settings.apply(raw, form)
-    assert new["interval_seconds"] == 30 and new["detection"]["failure_threshold"] == 5
-    assert new["failback"]["enabled"] is False
+    assert new["interval_seconds"] == 30 and new["detection"]["failure_threshold"] == 5 and new["failback"]["enabled"] is False
     g = new["groups"][0]
     assert g["route_id"] == "keep-me" and g["overrides"] == {"detection": {"failure_threshold": 9}}   # preserved
     assert g["kill_switch"] is True
     assert new["unifi"]["api_key"] == "${UNIFI_API_KEY}"                                              # secret stays a reference
-    assert g["ladder"][1] == {"tunnels": ["DE__*"], "exclude": ["*1552*"]}                            # custom rule survives
-    cfg_of(yaml.safe_dump(new))                                                                    # still valid config
+    assert g["ladder"][1] == {"tunnels": ["Backup*"], "exclude": ["Backup 3"]}                        # untouched step stays minimal
+    cfg_of(yaml.safe_dump(new))
 
 
-def test_ladder_reorder_and_edit_round_trip():
+def test_ladder_reorder_rename_and_edit_round_trip():
     raw = load_raw(RAW)
     form = settings.extract(cfg_of(RAW))
-    form["groups"][0]["ladder"] = [{"country": "FR"}, {"country": "it", "prefer": ["IT__ROME__418__*"]}]
+    a, b = form["groups"][0]["ladder"]
+    b["name"] = "  Spare  "
+    b["expect_country"] = "fr"
+    form["groups"][0]["ladder"] = [b, a]
     new = settings.apply(raw, form)
-    assert new["groups"][0]["ladder"] == [{"country": "FR"}, {"country": "IT", "prefer": ["IT__ROME__418__*"]}]
+    assert new["groups"][0]["ladder"][0] == {"name": "Spare", "tunnels": ["Backup*"], "exclude": ["Backup 3"], "expect_country": "FR"}
+    assert new["groups"][0]["ladder"][1]["name"] == "Home"
+    cfg_of(yaml.safe_dump(new))
+
+
+def test_empty_step_is_rejected_by_validation():
+    raw = load_raw(RAW)
+    form = settings.extract(cfg_of(RAW))
+    form["groups"][0]["ladder"].append({"name": "empty", "tunnels": [], "prefer": [], "exclude": [], "expect_country": ""})
+    with pytest.raises(ConfigError, match="tunnels"):
+        cfg_of(yaml.safe_dump(settings.apply(raw, form)))
 
 
 def test_bad_values_are_rejected_by_validation_not_silently_saved():
     raw = load_raw(RAW)
     form = settings.extract(cfg_of(RAW))
-    form["interval_seconds"] = 1                       # below the minimum
+    form["interval_seconds"] = 1
     with pytest.raises(ConfigError, match="interval_seconds"):
         cfg_of(yaml.safe_dump(settings.apply(raw, form)))
     form["interval_seconds"] = "abc"
@@ -87,13 +99,15 @@ def test_probe_fields_and_clearing_them():
     assert c2.probe.mode == "none" and c2.probe.remote_url is None and c2.probe.canary.mac is None
 
 
-def test_meta_lists_networks_countries_and_hides_vpn_networks():
-    t = lambda n, iso: Tunnel("id-" + n, n, True, iso=iso)
-    snap = Snapshot({"id-a": t("a", "IT"), "id-b": t("b", "IT"), "id-c": t("c", "DE")}, {}, [],
-                    {"id-a": "a", "id-b": "b", "id-c": "c", "n1": "vlan20-iot", "n2": "Internet 1", "n3": "One-Click VPN"})
+def test_meta_lists_networks_and_tunnels_without_any_interpretation():
+    t = lambda n: Tunnel("id-" + n, n, True)
+    snap = Snapshot({"id-a": t("Home 1"), "id-b": t("Home 2"), "id-c": t("zeta")}, {}, [],
+                    {"id-a": "Home 1", "id-b": "Home 2", "id-c": "zeta", "n1": "vlan20-iot", "n2": "Internet 1", "n3": "One-Click VPN"})
     m = settings.meta(snap)
     assert m["networks"] == ["vlan20-iot"]
-    assert [(c["iso"], c["name"], c["count"]) for c in m["countries"]] == [("DE", "Germany", 1), ("IT", "Italy", 2)]
+    assert [x["name"] for x in m["tunnels"]] == ["Home 1", "Home 2", "zeta"]
+    assert [x["label"] for x in m["suggestions"]] == ["All tunnels"]
+    assert "countries" not in m
     assert settings.meta(None)["ready"] is False
 
 
@@ -103,7 +117,7 @@ def test_save_settings_works_when_the_file_uses_inline_env_references(tmp_path):
 
     f = tmp_path / "c.yaml"
     f.write_text("unifi: {api_key: ${UNIFI_API_KEY}}\nstate_file: " + str(tmp_path / "s.json") +
-                 "\ngroups:\n  - {name: g, networks: [n], ladder: [{country: IT}]}\n")
+                 "\ngroups:\n  - {name: g, networks: [n], ladder: [{tunnels: ['*']}]}\n")
     a = App(str(f), env={"UNIFI_API_KEY": "k"})
     form = settings.extract(a.cfg)
     form["interval_seconds"] = 45

@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import copy
 import logging
-import re
 import time
 from typing import Any
 
@@ -35,12 +34,10 @@ class UniFiClient:
     def __init__(
         self,
         cfg: UnifiCfg,
-        naming: re.Pattern[str],
         dry_run: bool = False,
         transport: httpx.BaseTransport | None = None,
     ):
         self.cfg = cfg
-        self.naming = naming
         self.dry_run = dry_run
         self._http = httpx.Client(
             base_url=f"{cfg.url.rstrip('/')}/proxy/network",
@@ -95,7 +92,7 @@ class UniFiClient:
         for n in nets:
             networks[n["_id"]] = n.get("name", "")
             if n.get("purpose") == "vpn-client":
-                t = parse_tunnel(n, self.naming, self._shadow_enabled.get(n["_id"]))
+                t = parse_tunnel(n, self._shadow_enabled.get(n["_id"]))
                 tunnels[t.id] = t
 
         connections = {

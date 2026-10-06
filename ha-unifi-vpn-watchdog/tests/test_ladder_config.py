@@ -1,59 +1,77 @@
-import re
-
 import pytest
 
-from vpn_watchdog.config import ConfigError, DEFAULT_NAMING, GroupCfg, parse_config
-from vpn_watchdog.ladder import candidates, resolve_ladder
+from vpn_watchdog.config import ConfigError, GroupCfg, parse_config
+from vpn_watchdog.ladder import candidates, expected_country, resolve_ladder, step_of, suggest_groups
 from vpn_watchdog.models import parse_tunnel
-
-P = re.compile(DEFAULT_NAMING)
 
 
 def tun(name, enabled=True):
-    return parse_tunnel({"_id": "i-" + name, "name": name, "enabled": enabled}, P)
+    return parse_tunnel({"_id": "i-" + name, "name": name, "enabled": enabled})
 
 
-NAMES = ["IT__ROME__418__1.1.1.1", "IT__ROME__511__1.1.1.2", "IT__MILAN__244__1.1.1.3", "DE__BERLIN__1__2.2.2.1", "XX_bad_name"]
+# Deliberately unstructured: no common scheme, spaces, slashes, mixed case.
+NAMES = ["Home-Primary", "Home-Backup", "Cousin vpn 2", "Cousin vpn 10", "office/berlin", "Zeta"]
 
 
 def group(ladder):
     return GroupCfg(name="g", networks=["n"], ladder=ladder)
 
 
-def test_name_parsing():
+def names(g, ts):
+    return [t.name for t in resolve_ladder(g, ts)]
+
+
+def test_a_tunnel_is_just_its_name_nothing_is_parsed():
     t = tun("IT__ROME__418__187.14.84.144")
-    assert (t.iso, t.city, t.server_id, t.ip) == ("IT", "ROME", "418", "187.14.84.144")
-    assert tun("garbage").iso is None
+    assert (t.name, t.enabled) == ("IT__ROME__418__187.14.84.144", True)
+    assert not hasattr(t, "iso") and not hasattr(t, "city")
 
 
-def test_ladder_orders_by_step_prefer_then_city_and_id():
-    g = group([{"country": "IT", "prefer": ["IT__ROME__511__*"]}, {"country": "DE"}])
-    names = [t.name for t in resolve_ladder(g, [tun(n) for n in NAMES])]
-    assert names == ["IT__ROME__511__1.1.1.2", "IT__MILAN__244__1.1.1.3", "IT__ROME__418__1.1.1.1", "DE__BERLIN__1__2.2.2.1"]
+def test_steps_pick_tunnels_by_exact_name_or_glob_in_the_order_written():
+    g = group([{"name": "A", "tunnels": ["Zeta", "Home-*"]}, {"name": "B", "tunnels": ["Cousin*", "office/berlin"]}])
+    assert names(g, [tun(n) for n in NAMES]) == ["Zeta", "Home-Backup", "Home-Primary", "Cousin vpn 2", "Cousin vpn 10", "office/berlin"]
 
 
-def test_tunnel_patterns_exclude_and_dedup():
-    g = group([{"tunnels": ["IT__ROME__*"], "exclude": ["*511*"]}, {"country": "IT"}])
-    names = [t.name for t in resolve_ladder(g, [tun(n) for n in NAMES])]
-    assert names == ["IT__ROME__418__1.1.1.1", "IT__MILAN__244__1.1.1.3", "IT__ROME__511__1.1.1.2"]
+def test_globs_expand_in_natural_order_not_text_order():
+    g = group([{"tunnels": ["Cousin*"]}])
+    assert names(g, [tun(n) for n in NAMES]) == ["Cousin vpn 2", "Cousin vpn 10"]       # 2 before 10
 
 
-def test_candidates_exclude_current_and_prefer_other_city():
-    g = group([{"country": "IT", "prefer": ["IT__ROME__418__*"]}])
+def test_prefer_goes_first_exclude_removes_and_a_tunnel_belongs_to_one_step():
+    g = group([{"tunnels": ["Home-*", "Cousin*"], "prefer": ["Cousin vpn 10"], "exclude": ["Home-Backup"]}, {"tunnels": ["*"]}])
+    assert names(g, [tun(n) for n in NAMES]) == ["Cousin vpn 10", "Home-Primary", "Cousin vpn 2", "Home-Backup", "office/berlin", "Zeta"]
+
+
+def test_candidates_never_include_the_current_tunnel():
+    g = group([{"tunnels": ["Home-*"]}, {"tunnels": ["Zeta"]}])
     ts = [tun(n) for n in NAMES]
-    cur = ts[1]  # Rome 511 is failing: ladder order is Rome 418, Milan 244, (Rome 511)
-    assert [t.name for t in candidates(g, ts, cur, False)] == ["IT__ROME__418__1.1.1.1", "IT__MILAN__244__1.1.1.3"]
-    # same-city Rome 418 is pushed behind the other-city Milan 244
-    assert [t.name for t in candidates(g, ts, cur, True)] == ["IT__MILAN__244__1.1.1.3", "IT__ROME__418__1.1.1.1"]
+    assert [t.name for t in candidates(g, ts, ts[0])] == ["Home-Backup", "Zeta"]
 
 
-BASE = "unifi: {api_key: ${K}}\ngroups:\n  - {name: a, networks: [n], ladder: [{country: it}]}\n"
+def test_step_label_and_expected_country_come_only_from_the_config():
+    g = group([{"name": "Cousin", "tunnels": ["Cousin*"], "expect_country": "it"}, {"tunnels": ["Zeta"]}])
+    ts = [tun(n) for n in NAMES]
+    assert step_of(g, ts, ts[2])[1] == "Cousin" and step_of(g, ts, ts[5])[1] == "Step 2"
+    assert expected_country(g, ts, ts[2]) == "IT"          # typed by the user
+    assert expected_country(g, ts, ts[5]) is None          # nothing is ever guessed from the name
+    assert expected_country(g, ts, tun("IT__ROME__1__1.1.1.1")) is None
+
+
+def test_suggestions_group_by_a_shared_first_word_or_fall_back_to_one_list():
+    s = suggest_groups([tun(n) for n in ["Home-A", "Home-B", "Cousin x", "Cousin y", "Solo"]])
+    assert [x["label"] for x in s] == ["Cousin", "Home", "Others"] and s[1]["tunnels"] == ["Home-A", "Home-B"]
+    one = suggest_groups([tun(n) for n in ["a", "b", "c"]])
+    assert len(one) == 1 and one[0]["label"] == "All tunnels"
+    assert all(x["expect_country"] is None for x in s + one)
+
+
+BASE = "unifi: {api_key: ${K}}\ngroups:\n  - {name: a, networks: [n], ladder: [{tunnels: ['*']}]}\n"
 
 
 def test_env_interpolation_and_default():
     cfg = parse_config(BASE, env={"K": "secret"})
-    assert cfg.unifi.api_key == "secret" and cfg.groups[0].ladder[0].country == "IT"
-    assert parse_config("unifi: {api_key: '${NOPE:-fallback}'}\ngroups:\n  - {name: a, networks: [n], ladder: [{country: IT}]}\n", env={}).unifi.api_key == "fallback"
+    assert cfg.unifi.api_key == "secret"
+    assert parse_config("unifi: {api_key: '${NOPE:-fallback}'}\ngroups:\n  - {name: a, networks: [n], ladder: [{tunnels: ['*']}]}\n", env={}).unifi.api_key == "fallback"
 
 
 def test_missing_env_var_is_an_error():
@@ -64,6 +82,21 @@ def test_missing_env_var_is_an_error():
 def test_unknown_keys_are_rejected():
     with pytest.raises(ConfigError):
         parse_config(BASE.replace("unifi:", "dryrun: true\nunifi:"), env={"K": "x"})
+
+
+def test_a_step_without_tunnels_is_rejected():
+    with pytest.raises(ConfigError, match="tunnels"):
+        parse_config(BASE.replace("{tunnels: ['*']}", "{name: empty}"), env={"K": "x"})
+
+
+def test_removed_settings_are_reported_with_instructions_never_converted():
+    with pytest.raises(ConfigError, match="`country` was removed.*tunnels") as e:
+        parse_config(BASE.replace("{tunnels: ['*']}", "{country: IT}"), env={"K": "x"})
+    assert "became" not in str(e.value)
+    with pytest.raises(ConfigError, match="naming"):
+        parse_config(BASE + "naming: {pattern: '(?P<iso>..)'}\n", env={"K": "x"})
+    with pytest.raises(ConfigError, match="prefer_different_city"):
+        parse_config(BASE + "switching: {prefer_different_city: true}\n", env={"K": "x"})
 
 
 def test_dry_run_is_the_default():
@@ -86,8 +119,3 @@ def test_group_overrides_merge_over_globals():
 def test_bad_override_is_rejected_at_load():
     with pytest.raises(ConfigError):
         parse_config(BASE.replace("{name: a,", "{name: a, overrides: {detection: {nope: 1}},"), env={"K": "x"})
-
-
-def test_bad_naming_regex_is_rejected():
-    with pytest.raises(ConfigError):
-        parse_config(BASE + "naming: {pattern: '('}\n", env={"K": "x"})

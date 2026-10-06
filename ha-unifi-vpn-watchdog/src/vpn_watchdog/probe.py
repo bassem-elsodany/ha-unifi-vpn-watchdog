@@ -104,9 +104,10 @@ class TunnelTester:
     def can_pretest(self) -> bool:
         return self.cfg.mode in ("canary", "remote") and not self.unifi.dry_run
 
-    def test(self, tunnel: Tunnel, snap: Snapshot, *, pre: bool) -> ProbeResult | None:
+    def test(self, tunnel: Tunnel, snap: Snapshot, *, pre: bool, expect: str | None = None) -> ProbeResult | None:
         """Returns None when this tunnel cannot be tested in the current mode."""
         mode = self.cfg.mode
+        iso = expect
         if mode == "none":
             return None
         if self.unifi.dry_run:
@@ -115,15 +116,15 @@ class TunnelTester:
             log.info("[dry-run] informational probe from this host: %s ip=%s country=%s", res.reason, res.ip, res.country)
             return None
         if mode == "direct":
-            return None if pre else self.prober.probe(tunnel.iso, snap.wan_ip)
+            return None if pre else self.prober.probe(iso, snap.wan_ip)
         # canary / remote: point the canary client at the tunnel first
         err = self._point_canary(tunnel, snap)
         if err:
             return ProbeResult(False, err)
         self.clock.sleep(self.cfg.canary.settle_seconds)
         if mode == "remote":
-            return self._remote_probe(tunnel.iso, snap.wan_ip)
-        return self.prober.probe(tunnel.iso, snap.wan_ip)
+            return self._remote_probe(iso, snap.wan_ip)
+        return self.prober.probe(iso, snap.wan_ip)
 
     def _remote_probe(self, iso: str | None, wan_ip: str | None) -> ProbeResult:
         headers = {"Authorization": f"Bearer {self.cfg.remote_token}"} if self.cfg.remote_token else {}

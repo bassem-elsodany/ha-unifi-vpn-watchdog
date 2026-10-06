@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.0
+- **Name-agnostic.** Tunnel names are never interpreted: no country, city or naming-convention assumptions anywhere.
+  A fallback order is a list of steps; each step is a set of tunnels you pick by name or pattern, with any label you like.
+  The Settings tab has a tunnel checklist per step, a preferred tunnel, and an optional "expect exit country" you type.
+- Removed settings (`naming`, ladder `country`, `switching.prefer_different_city`) are rejected with a message saying what to do
+  instead; nothing is converted or guessed. The `{country}`, `{city}` and `{previous_country}` alert placeholders became
+  `{step}` and `{previous_step}`.
+- **Safe mode:** if the config is rejected at start-up the web UI still starts (failover off) with the error and the YAML
+  editor, and normal operation begins as soon as the file is valid.
+- Status page: every tunnel lists the routing policies that use it (what they carry, on/off, kill switch, which are managed
+  by the watchdog), plus a card for policies that bypass the VPN.
+- The HA entity "Exit country" became "Fallback step".
+
 ## 0.2.0
 - Settings are now a form (Settings tab), not YAML: check interval, thresholds, switch limits, failback, spare tunnels,
   exit-IP test, per-group networks and an orderable country/server list, with live explanations ("down after about 45 s").

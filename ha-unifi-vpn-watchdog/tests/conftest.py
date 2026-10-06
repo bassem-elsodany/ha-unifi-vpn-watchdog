@@ -1,22 +1,19 @@
 from __future__ import annotations
 
 import dataclasses
-import re
-
 import pytest
 
-from vpn_watchdog.config import DEFAULT_NAMING, parse_config
+from vpn_watchdog.config import parse_config
 from vpn_watchdog.engine import Engine
 from vpn_watchdog.models import Connection, ProbeResult, Route, Snapshot, parse_tunnel
 from vpn_watchdog.state import StateStore
 
-PATTERN = re.compile(DEFAULT_NAMING)
 NETS = {"net-iot": "vlan20-iot", "net-vpn": "vlan50-vpn"}
 
 TUNNELS = [
-    "IT__ROME__418__1.1.1.1", "IT__ROME__511__1.1.1.2", "IT__MILAN__244__1.1.1.3",
-    "DE__BERLIN__1552__2.2.2.1", "DE__FRANKFURT__1287__2.2.2.2",
-    "FR__PARIS__953__3.3.3.1",
+    "Home-Primary", "Home-Backup", "Cousin vpn 2",
+    "office/berlin", "office/frankfurt",
+    "zzz-last-resort",
 ]
 
 
@@ -38,7 +35,7 @@ class FakeClock:
 class FakeUniFi:
     """In-memory UniFi. `dead` tunnels never connect; `muted` tunnels connect but receive nothing."""
 
-    def __init__(self, active: str = "IT__ROME__418__1.1.1.1", enabled: set[str] | None = None):
+    def __init__(self, active: str = "Home-Primary", enabled: set[str] | None = None):
         self.dry_run = False
         self.dead: set[str] = set()
         self.muted: set[str] = set()
@@ -53,7 +50,7 @@ class FakeUniFi:
         conns = {}
         for n in TUNNELS:
             i = tid(n)
-            tunnels[i] = parse_tunnel({"_id": i, "name": n, "enabled": i in self.enabled}, PATTERN)
+            tunnels[i] = parse_tunnel({"_id": i, "name": n, "enabled": i in self.enabled})
             if i in self.enabled:
                 bad = i in self.dead
                 conns[i] = Connection(i, "CONNECTING" if bad else "CONNECTED", None if bad else "9.9.9.9",
@@ -93,9 +90,11 @@ class FakeTester:
         self.bad: set[str] = set()
         self.leak: set[str] = set()
         self.tested: list[tuple[str, bool]] = []
+        self.expects: list = []
 
-    def test(self, tunnel, snap, *, pre):
+    def test(self, tunnel, snap, *, pre, expect=None):
         self.tested.append((tunnel.name, pre))
+        self.expects.append(expect)
         if tunnel.id in self.leak:
             return ProbeResult(False, "LEAK", leak=True)
         return ProbeResult(tunnel.id not in self.bad, "ok" if tunnel.id not in self.bad else "no traffic")
@@ -126,16 +125,16 @@ groups:
   - name: g1
     networks: [vlan20-iot, vlan50-vpn]
     ladder:
-      - {{country: IT, prefer: ["IT__ROME__418__*"]}}
-      - {{country: DE}}
-      - {{country: FR}}
+      - {{name: Home, tunnels: ["Home-*", "Cousin*"]{home_prefer}}}
+      - {{name: Office, tunnels: ["office/*"], expect_country: DE}}
+      - {{name: Last resort, tunnels: ["zzz-last-resort"]}}
 """
 
 
 @pytest.fixture
 def make_engine():
-    def _make(active="IT__ROME__418__1.1.1.1", failback=True, extra_switching="", pretest=True, tester_enabled=True, enabled=None):
-        cfg = parse_config(CFG.format(failback=str(failback).lower(), extra_switching=extra_switching), env={})
+    def _make(active="Home-Primary", failback=True, extra_switching="", pretest=True, tester_enabled=True, enabled=None, prefer=True):
+        cfg = parse_config(CFG.format(failback=str(failback).lower(), extra_switching=extra_switching, home_prefer=', prefer: ["Home-Primary"]' if prefer else ''), env={})
         clock = FakeClock()
         un = FakeUniFi(active, enabled)
         tester = FakeTester(can_pretest=pretest, enabled=tester_enabled)

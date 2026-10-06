@@ -1,20 +1,19 @@
 import json
-import re
 
 import httpx
 import pytest
 
-from vpn_watchdog.config import DEFAULT_NAMING, UnifiCfg
+from vpn_watchdog.config import UnifiCfg
 from vpn_watchdog.unifi import UniFiClient, UniFiError
 
 SECRET_KEY = "PRIVATE-KEY-DO-NOT-LEAK"
 API_KEY = "SECRETAPIKEY123"
 NETCONF = [
-    {"_id": "t1", "name": "IT__ROME__418__187.14.84.144", "purpose": "vpn-client", "enabled": True, "ip_subnet": "10.5.22.2/24",
+    {"_id": "t1", "name": "My Tunnel #1", "purpose": "vpn-client", "enabled": True, "ip_subnet": "10.5.22.2/24",
      "wireguard_client_configuration_file": f"[Interface]\nPrivateKey={SECRET_KEY}\n"},
     {"_id": "n20", "name": "vlan20-iot", "purpose": "corporate"},
 ]
-ROUTES = [{"_id": "r1", "description": "IT__ROME__418__187.14.84.144", "network_id": "t1", "enabled": True,
+ROUTES = [{"_id": "r1", "description": "My Tunnel #1", "network_id": "t1", "enabled": True,
            "kill_switch_enabled": False, "target_devices": [{"network_id": "n20", "type": "NETWORK"}, {"client_mac": "AA:BB", "type": "CLIENT"}]}]
 
 
@@ -38,7 +37,7 @@ def make(dry_run=False, fail=None):
             return httpx.Response(200, json={"data": [{"subsystem": "wan", "wan_ip": "92.0.0.1"}]})
         return httpx.Response(200, json={})
 
-    c = UniFiClient(UnifiCfg(api_key=API_KEY, retries=0), re.compile(DEFAULT_NAMING), dry_run=dry_run, transport=httpx.MockTransport(handler))
+    c = UniFiClient(UnifiCfg(api_key=API_KEY, retries=0), dry_run=dry_run, transport=httpx.MockTransport(handler))
     return c, sent
 
 
@@ -46,7 +45,7 @@ def test_snapshot_parses_and_never_keeps_the_private_key():
     c, sent = make()
     snap = c.snapshot()
     t = snap.tunnels["t1"]
-    assert (t.iso, t.city, t.server_id, t.ip) == ("IT", "ROME", "418", "187.14.84.144")
+    assert (t.name, t.enabled, t.subnet) == ("My Tunnel #1", True, "10.5.22.2/24")
     assert SECRET_KEY not in repr(snap)
     assert snap.connections["t1"].connected and snap.wan_ip == "92.0.0.1"
     r = snap.routes[0]

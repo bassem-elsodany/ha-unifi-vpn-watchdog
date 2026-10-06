@@ -21,11 +21,8 @@ groups:
   - name: iot-and-vpn
     networks: [vlan20-iot, vlan50-vpn]
     kill_switch: false
-    ladder:
-      - {country: IT}
-      - {country: DE}
-      - {country: FR}
-      - {country: GB}
+    ladder:                                 # tried top to bottom; edit in the Settings tab
+      - {name: All tunnels, tunnels: ["*"]}
 
 notifications:
   - {type: home_assistant, supervisor: true, service: "${NOTIFY_SERVICE:-persistent_notification.create}"}
