@@ -97,3 +97,16 @@ def test_snapshot_reads_devices_with_a_bit_rate():
     cl = c.snapshot().clients
     assert cl["aa:bb"] == {"name": "TV", "ip": "10.0.50.5", "network": "vlan50", "rate_bps": 200_000, "wired": True}    # (1000+24000) bytes/s * 8
     assert cl["cc:dd"]["name"] == "phone" and cl["cc:dd"]["rate_bps"] is None
+
+
+def test_the_app_never_creates_or_deletes_a_unifi_network():
+    """The watchdog switches existing VPN clients and edits routing policies. It must never create or delete a network/VLAN."""
+    import re
+    from pathlib import Path
+    src = (Path(__file__).resolve().parents[1] / "src" / "vpn_watchdog" / "unifi.py").read_text()
+    calls = re.findall(r'_request\(\s*"(\w+)",\s*self\.\w+\(f?"([^"]+)"', src)
+    assert calls, "found no UniFi requests to check"
+    for method, path in calls:
+        assert method != "DELETE", f"{method} {path}"
+        if "networkconf" in path:
+            assert method in ("GET", "PUT"), f"{method} {path} would create a network"
