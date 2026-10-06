@@ -427,7 +427,7 @@ function groupBlock(g, can, first, last, m) {
   const behind = g.networks.reduce((a, n) => a + n.count - n.bypass_count, 0);
   const probe = ex.ip && ex.age != null ? ` · exit-IP test passed ${ex.age}s ago` : "";
   const note = act ? `Active: <b class="mono" style="color:var(--ink);font-weight:500">${esc(act.name)}</b>${act.position ? " · #" + act.position : g.unmanaged ? "" : " · not in the order"}${probe}${g.decision && g.decision !== "healthy" ? " · " + esc(g.decision) : ""}` : esc(g.decision || "no VPN client is switched on");
-  const conflict = g.conflict ? `<br><span style="color:var(--warn)">⚠ ${esc(g.conflict)}.</span>` : "";
+  const conflict = (g.conflict ? `<br><span style="color:var(--warn)">⚠ ${esc(g.conflict)}.</span>` : "") + (g.gaps || []).map((x) => `<br><span style="color:var(--warn)">⚠ ${esc(x)}.</span>`).join("");
   const exline = ex.ip ? `exit <span class="mono">${esc(ex.ip)}</span>${ex.age != null ? `<br>exit-IP test OK ${ex.age}s ago` : ""}` : ex.server ? `VPN server <span class="mono">${esc(ex.server)}</span>` : "";
   const inet = act ? `<div class="inet" data-role="inet"><span class="dot ok"></span><div><b>Internet</b><div>${exline}</div></div></div>`
     : `<div class="inet bad" data-role="inet"><span class="dot bad"></span><div><b>Internet</b><div>no VPN client is switched on</div></div></div>`;
@@ -715,7 +715,7 @@ function secSwitching() {
 let ordOpen = false, ordDrag = null, pendingGroup = null;
 const GINTRO = `<div class="glead"><h1>VPN groups</h1><p><b>A group is an ordered list of VPN clients.</b> The watchdog keeps one of them switched on. If it stops working, the watchdog switches on the next one in your order and switches the failed one off. It changes nothing else in UniFi: which VLANs and devices use a VPN client is decided by your routing policies in UniFi.</p>
   <div class="gsteps"><div class="gst"><i>1</i><span><b>Build the fallback order:</b> add the VPN clients you trust, #1 first. <b>Until you do, the group only watches and never switches.</b></span></div>
-  <div class="gst"><i>2</i><span>That is all. Optional: set up a timed rotation under Jobs.</span></div></div></div>`;
+  <div class="gst"><i>2</i><span>That is all.</span></div></div></div>`;
 function secGroups() {
   const live = Object.fromEntries((M.tunnels || []).map((t) => [t.id, t.name]));
   const label = (x) => (x.id && live[x.id]) || x.tunnel;
@@ -740,15 +740,13 @@ function secGroups() {
     : `<div class="gstate gok"><b>Ready.</b> Failover is on: if #1 stops working, the watchdog switches on #2 and switches #1 off.</div>`;
   const live2 = ((status && status.map && status.map.groups) || []).find((x) => x.name === g.name), carrying = live2 ? live2.networks.map((n) => n.name).join(", ") : "";
   const carry = live2 ? `<div class="note" style="margin:0 0 4px">${carrying ? "Carrying now, read from UniFi: " + esc(carrying) : "No VLAN is routed through this group's VPN client right now (that is set in UniFi's routing policies)."}</div>` : "";
-  const job = V.jobs.find((j) => j.group === g.name);
-  const jobTxt = job ? `${job.enabled ? "On" : "Off"} · ${job.every === 1 ? "every 1 " + job.unit.slice(0, -1) : "every " + job.every + " " + job.unit}${job.unit === "hours" ? "" : " at " + job.at}` : "Off";
+  const gapsHtml = live2 ? (live2.gaps || []).map((x) => `<div class="gstate gwarn"><b>Warning.</b> ${esc(x)}.</div>`).join("") : "";
   const badge = (ok, missing) => ok ? '<span class="bdg ok">done</span>' : `<span class="bdg ${missing}">${missing === "req" ? "required" : "optional"}</span>`;
   const sr = (title, bd, help, ctl) => `<div class="srow"><div class="slab"><b>${title} ${bd}</b><span>${help}</span></div><div>${ctl}</div></div>`;
   return `${GINTRO}<div class="gm" style="border-top:1px solid var(--hair)">${left}<div class="gd">
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:8px"><input class="gname" data-path="groups.${selG}.name" data-t="str" value="${esc(g.name)}" placeholder="Group name" aria-label="Group name"><button class="btn danger" data-act="delgroup">Delete group</button></div>
-    ${state}${g.order.length ? carry : ""}
+    ${state}${g.order.length ? carry : ""}${gapsHtml}
     ${sr("Fallback order", badge(g.order.length > 0, "req"), "#1 is used first. If it stops working the watchdog moves to #2, then #3. VPN clients that are not in the list are never switched on or off. A VPN client can be in one group only.", orderCtl)}
-    ${sr("Timed rotation", '<span class="bdg opt">optional</span>', "Move to another client every few hours or days.", `<div style="font-size:14px;color:var(--sub);line-height:32px">${esc(jobTxt)} · <a href="#" data-act="gojobs" style="color:var(--accentink);font-weight:600;text-decoration:none">${job ? "Change it under Jobs" : "Set it up under Jobs"}</a></div>`)}
   </div></div>`;
 }
 let addOpen = false;
@@ -881,7 +879,6 @@ setEl.addEventListener("click", async (e) => {
   if (k === "deljob") { const n = b.dataset.g; V.jobs = V.jobs.filter((j) => j.group !== n); openJob.delete(n); renderSection(); return; }
   if (k === "rotatenow") { await act(`groups/${encodeURIComponent(b.dataset.g)}/rotate`); toast("Rotating " + b.dataset.g + "..."); return; }
   if (k === "ord-show") { e.preventDefault(); ordOpen = !ordOpen; renderSection(); return; }
-  if (k === "gojobs") { e.preventDefault(); sset = "jobs"; renderSection(); return; }
   if (k.startsWith("ord-")) {
     const g = V.groups[selG], i = +b.dataset.i;
     if (k === "ord-up" && i > 0) [g.order[i - 1], g.order[i]] = [g.order[i], g.order[i - 1]];

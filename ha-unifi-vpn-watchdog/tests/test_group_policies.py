@@ -78,4 +78,14 @@ def test_a_group_shows_even_when_no_vlan_uses_its_client(make_engine):
     un.routes = [dataclasses.replace(r, enabled=False) for r in un.routes]
     eng.tick()
     g = eng.status()["map"]["groups"][0]
-    assert g["name"] == "g1" and g["active"] == "Home-Primary" and g["networks"] == [] and "No routing policy" in g["conflict"]
+    assert g["name"] == "g1" and g["active"] == "Home-Primary" and g["networks"] and "No routing policy" in g["conflict"]
+
+
+def test_a_client_without_a_policy_for_the_groups_vlan_is_flagged(make_engine):
+    eng, un, *_ = make_engine(order="[Home-Primary, Home-Backup]")
+    eng.tick()
+    assert eng.status()["map"]["groups"][0]["gaps"] == []
+    un.routes = [r for r in un.routes if r.network_id != tid("Home-Backup")]
+    eng.tick()
+    gaps = eng.status()["map"]["groups"][0]["gaps"]
+    assert gaps and all(x.startswith("Home-Backup has no routing policy for") for x in gaps)

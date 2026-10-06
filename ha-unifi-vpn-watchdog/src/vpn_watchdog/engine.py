@@ -686,24 +686,43 @@ class Engine:
                 by_tunnel.setdefault(None, []).append(n)           # VPN policies exist for it, but none of them is live
         vlan_of = lambda n: (snap.network_info.get(n, {}).get("vlan") is None, snap.network_info.get(n, {}).get("vlan") or 0, snap.networks[n].lower())
 
-        for g in self.cfg.groups:                                              # a group is drawn around the VPN client it has switched on
+        plan: dict[str, tuple[list[Tunnel], Tunnel | None, list[str], list[str]]] = {}
+        for g in self.cfg.groups:                                              # first the VLANs UniFi sends through each group's switched-on client
             order = self._pool(g, snap)
-            in_order = {t.id for t in order}
             gs = self.store.group(g.name)
             act = snap.tunnels.get(gs.current_id or "")
-            if act is not None and (not act.enabled or act.id not in in_order):
+            if act is not None and (not act.enabled or act.id not in {t.id for t in order}):
                 act = None
+            live_nets = sorted(by_tunnel.pop(act.id, []), key=vlan_of) if act else []
+            plan[g.name] = (order, act, live_nets, [])
+            used.update(live_nets)
+        for g in self.cfg.groups:                                              # then the VLANs only a policy of one of its clients names, so a group keeps them while all its clients are down
+            order, act, live_nets, _ = plan[g.name]
+            ids = {t.id for t in order}
+            elsewhere = {n for k, v in by_tunnel.items() if k is not None for n in v}      # UniFi really sends these through another client
+            extra = [n for n in lans if n not in used and n not in elsewhere and any(r.network_id in ids and covers(r, n) for r in vpn_pols)]
+            for n in extra:
+                for lst in by_tunnel.values():
+                    if n in lst:
+                        lst.remove(n)
+            used.update(extra)
+            plan[g.name] = (order, act, live_nets, sorted(extra, key=vlan_of))
+        for g in self.cfg.groups:                                              # a group is drawn around its VLANs
+            order, act, live_nets, extra_nets = plan[g.name]
+            in_order = {t.id for t in order}
+            gs = self.store.group(g.name)
             active_id = act.id if act else None
-            nets = sorted(by_tunnel.pop(active_id, []), key=vlan_of) if active_id else []
-            used.update(nets)
+            nets = live_nets + extra_nets
             pool = sorted((t for t in snap.tunnels.values() if t.id not in in_order and self._owners.get(t.id) in (None, g.name)), key=lambda t: t.name.lower())
             gstat = groups.get(g.name, {})
             ac = snap.connections.get(active_id or "")
             probe = gstat.get("last_probe") or {}
+            gaps = [f"{t.name} has no routing policy for {snap.networks[n]}, so a failover to it would leave that VLAN on the normal internet"
+                    for t in order for n in nets if not any(r.network_id == t.id and covers(r, n) for r in vpn_pols)]
             out_groups.append({
-                "name": g.name, "paused": gstat.get("paused", False), "healthy": gstat.get("healthy"), "decision": gstat.get("decision", ""),
+                "gaps": gaps, "name": g.name, "paused": gstat.get("paused", False), "healthy": gstat.get("healthy"), "decision": gstat.get("decision", ""),
                 "exhausted": gstat.get("exhausted", False), "jobs": gstat.get("jobs", {}), "has_order": bool(order), "rotation": gstat.get("rotation"),
-                "conflict": "No routing policy in UniFi sends traffic through this VPN client right now, so nothing is using it" if act and not nets else None,
+                "conflict": "No routing policy in UniFi sends traffic through this VPN client right now, so nothing is using it" if act and not live_nets else None,
                 "active": act.name if act else None, "networks": [card(n) for n in nets],
                 "lane": [tinfo(g, t, active_id, pol_of) for t in order],
                 "pool": [{"id": t.id, "name": t.name, "status": (snap.connections.get(t.id).status if snap.connections.get(t.id) else None),
@@ -712,7 +731,7 @@ class Engine:
                          "server": ac.remote_ip if ac else None, "age": gstat.get("last_probe_age") if probe.get("ok") else None},
             })
         # Every other VLAN that a VPN client carries is drawn the same way, whether or not a group manages that client.
-        for key, nets in sorted(by_tunnel.items(), key=lambda kv: (kv[0] is None, min(vlan_of(n) for n in kv[1]))):
+        for key, nets in sorted(((k, v) for k, v in by_tunnel.items() if v), key=lambda kv: (kv[0] is None, min(vlan_of(n) for n in kv[1]))):
             nets.sort(key=vlan_of)
             used.update(nets)
             rs = [r for r in vpn_pols if any(covers(r, n) for n in nets)]
