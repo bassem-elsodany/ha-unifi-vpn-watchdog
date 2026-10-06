@@ -112,18 +112,17 @@ def test_the_config_file_gets_the_ids_written_once(tmp_path):
     assert f.read_text() == first                           # nothing more to write
 
 
-def test_status_follows_unifi_when_a_vlan_is_routed_through_a_client_outside_the_group(make_engine):
-    """vlan20 goes through a client that is not in the group: it is drawn there, and vlan50 stays with the group's client."""
+def test_a_picked_vlan_stays_in_its_group_and_warns_when_unifi_routes_it_through_a_client_outside_it(make_engine):
+    """vlan20 is picked by g1 but UniFi sends it through a client that is not in g1: it stays in g1, with a warning."""
     eng, un, *_ = make_engine(order="[Home-Primary, Home-Backup]")
     un.enabled.add(tid("zzz-last-resort"))
     un.routes.insert(0, dataclasses.replace(un.routes[1], id="split", description="elsewhere", network_id=tid("zzz-last-resort"), enabled=True,
                                             target_networks=frozenset({"net-iot"})))
     run(eng, eng.clock, 2)
-    blocks = eng.status()["map"]["groups"]
-    by = {b["name"]: b for b in blocks}
-    assert by["g1"]["active"] == "Home-Primary" and [n["name"] for n in by["g1"]["networks"]] == ["vlan50-vpn"]
-    other = next(b for b in blocks if b is not by["g1"])
-    assert other["active"] == "zzz-last-resort" and [n["name"] for n in other["networks"]] == ["vlan20-iot"]
+    g1 = next(b for b in eng.status()["map"]["groups"] if b["name"] == "g1")
+    assert g1["active"] == "Home-Primary" and sorted(n["name"] for n in g1["networks"]) == ["vlan20-iot", "vlan50-vpn"]
+    assert any(x.startswith("vlan20-iot is routed through zzz-last-resort, which is not in this group") for x in g1["gaps"])
+
 
 
 def test_a_policy_for_all_devices_covers_every_vlan(make_engine):

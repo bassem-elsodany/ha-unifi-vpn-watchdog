@@ -89,3 +89,13 @@ def test_a_client_without_a_policy_for_the_groups_vlan_is_flagged(make_engine):
     eng.tick()
     gaps = eng.status()["map"]["groups"][0]["gaps"]
     assert gaps and all(x.startswith("Home-Backup has no routing policy for") for x in gaps)
+
+
+def test_a_picked_vlan_with_no_live_vpn_policy_is_flagged_and_stays_in_the_group(make_engine):
+    import dataclasses
+    eng, un, *_ = make_engine()
+    un.routes = [dataclasses.replace(r, enabled=False) for r in un.routes]
+    eng.tick()
+    g = eng.status()["map"]["groups"][0]
+    assert g["declared"] and {n["name"] for n in g["networks"]} == {"vlan20-iot", "vlan50-vpn"}
+    assert any("vlan20-iot is not routed through any VPN client" in x for x in g["gaps"])

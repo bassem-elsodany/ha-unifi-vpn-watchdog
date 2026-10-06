@@ -144,7 +144,7 @@ class OrderItem(_M):
 
 class GroupCfg(_M):
     name: str
-    networks: list[NetRef] = Field(default_factory=list)   # ignored (older configs listed VLANs here): which VLANs use a VPN client is UniFi's routing policies' business
+    networks: list[NetRef] = Field(default_factory=list)   # the VLANs this group is for (read-only: the watchdog only checks UniFi's routing policies against them)
     order: list[OrderItem] = Field(default_factory=list)   # fallback sequence: #1 is the most preferred, then #2, #3, ...
     kill_switch: bool | None = None      # ignored (it was a routing-policy setting)
     overrides: dict[str, Any] = Field(default_factory=dict)  # deep-merged over detection/switching/failback

@@ -686,18 +686,34 @@ class Engine:
                 by_tunnel.setdefault(None, []).append(n)           # VPN policies exist for it, but none of them is live
         vlan_of = lambda n: (snap.network_info.get(n, {}).get("vlan") is None, snap.network_info.get(n, {}).get("vlan") or 0, snap.networks[n].lower())
 
+        declared: dict[str, list[str]] = {}          # the VLANs each group is for, as picked in Settings (a VLAN belongs to the first group that picked it)
+        claimed: set[str] = set()
+        for g in self.cfg.groups:
+            ids = [n.id for n in g.networks if n.id in lans and n.id not in claimed]
+            declared[g.name] = sorted(ids, key=vlan_of)
+            claimed.update(ids)
+        for lst in by_tunnel.values():
+            lst[:] = [n for n in lst if n not in claimed]
+        used.update(claimed)
         plan: dict[str, tuple[list[Tunnel], Tunnel | None, list[str], list[str]]] = {}
-        for g in self.cfg.groups:                                              # first the VLANs UniFi sends through each group's switched-on client
+        for g in self.cfg.groups:                                              # the VLANs UniFi really sends through each group's switched-on client
             order = self._pool(g, snap)
             gs = self.store.group(g.name)
             act = snap.tunnels.get(gs.current_id or "")
             if act is not None and (not act.enabled or act.id not in {t.id for t in order}):
                 act = None
+            decl = declared[g.name]
+            if decl:
+                live_nets = [n for n in decl if act and (w := applied(n)) is not None and w.network_id == act.id]
+                plan[g.name] = (order, act, live_nets, [n for n in decl if n not in live_nets])
+                continue
             live_nets = sorted(by_tunnel.pop(act.id, []), key=vlan_of) if act else []
             plan[g.name] = (order, act, live_nets, [])
             used.update(live_nets)
-        for g in self.cfg.groups:                                              # then the VLANs only a policy of one of its clients names, so a group keeps them while all its clients are down
+        for g in self.cfg.groups:                                              # a group that picked no VLAN: the VLANs only a policy of one of its clients names
             order, act, live_nets, _ = plan[g.name]
+            if declared[g.name]:
+                continue
             ids = {t.id for t in order}
             elsewhere = {n for k, v in by_tunnel.items() if k is not None for n in v}      # UniFi really sends these through another client
             extra = [n for n in lans if n not in used and n not in elsewhere and any(r.network_id in ids and covers(r, n) for r in vpn_pols)]
@@ -717,10 +733,17 @@ class Engine:
             gstat = groups.get(g.name, {})
             ac = snap.connections.get(active_id or "")
             probe = gstat.get("last_probe") or {}
-            gaps = [f"{t.name} has no routing policy for {snap.networks[n]}, so a failover to it would leave that VLAN on the normal internet"
-                    for t in order for n in nets if not any(r.network_id == t.id and covers(r, n) for r in vpn_pols)]
+            gaps = []
+            for n in declared[g.name]:
+                w = applied(n)
+                if w is None or w.network_id not in snap.tunnels:
+                    gaps.append(f"{snap.networks[n]} is not routed through any VPN client right now, so it goes straight to the internet")
+                elif w.network_id not in in_order:
+                    gaps.append(f"{snap.networks[n]} is routed through {snap.tunnels[w.network_id].name}, which is not in this group")
+            gaps += [f"{t.name} has no routing policy for {snap.networks[n]}, so a failover to it would leave that VLAN on the normal internet"
+                     for t in order for n in nets if not any(r.network_id == t.id and covers(r, n) for r in vpn_pols)]
             out_groups.append({
-                "gaps": gaps, "name": g.name, "paused": gstat.get("paused", False), "healthy": gstat.get("healthy"), "decision": gstat.get("decision", ""),
+                "gaps": gaps, "declared": bool(declared[g.name]), "name": g.name, "paused": gstat.get("paused", False), "healthy": gstat.get("healthy"), "decision": gstat.get("decision", ""),
                 "exhausted": gstat.get("exhausted", False), "jobs": gstat.get("jobs", {}), "has_order": bool(order), "rotation": gstat.get("rotation"),
                 "conflict": "No routing policy in UniFi sends traffic through this VPN client right now, so nothing is using it" if act and not live_nets else None,
                 "active": act.name if act else None, "networks": [card(n) for n in nets],

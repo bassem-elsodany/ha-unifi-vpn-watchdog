@@ -114,9 +114,12 @@ class App:
             if g is None:
                 continue
             new = group_raw(g)
-            if rg.get("order", []) != new["order"] or "networks" in rg:
+            if rg.get("order", []) != new["order"] or rg.get("networks", []) != new.get("networks", []):
                 rg["order"] = new["order"]
-                rg.pop("networks", None)                      # older configs listed VLANs here: they are not used any more
+                if "networks" in new:
+                    rg["networks"] = new["networks"]
+                else:
+                    rg.pop("networks", None)
                 changed = True
         if changed:
             log.info("config: ids and names of VPN clients and VLANs brought in line with UniFi")

@@ -24,14 +24,24 @@ def normalize(cfg: Config, snap: Snapshot) -> bool:
             used.add(t.id)
             if item.id != t.id or item.tunnel != t.name:
                 item.id, item.tunnel, changed = t.id, t.name, True
+        for net in g.networks:                                  # a VLAN is followed by id the same way
+            nid = net.id if net.id in snap.networks else None
+            if nid is None:
+                hits = [i for i, n in snap.networks.items() if n == net.name]
+                nid = hits[0] if len(hits) == 1 else None
+            if nid is not None and (net.id != nid or net.name != snap.networks[nid]):
+                net.id, net.name, changed = nid, snap.networks[nid], True
     return changed
 
 
 def group_raw(g: GroupCfg) -> dict:
     """How a group's references are written to config.yaml."""
-    return {
+    out: dict = {
         "order": [{k: v for k, v in (("tunnel", i.tunnel), ("id", i.id), ("expect_country", i.expect_country)) if v} for i in g.order],
     }
+    if g.networks:
+        out["networks"] = [{k: v for k, v in (("id", n.id), ("name", n.name)) if v} for n in g.networks]
+    return out
 
 
 def item_for(group: GroupCfg, tunnel_id: str, tunnel_name: str) -> OrderItem | None:

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.16.0
+
+- **You pick the VLANs of a group** (Settings > VPN groups > VLANs). A group is now its VLANs plus its ordered VPN clients, so the Status page always shows which VLANs belong to which group, even when every client is down. VLANs are followed by their UniFi id, so a rename in UniFi changes nothing. A VLAN belongs to one group.
+- The watchdog still never writes to UniFi: it checks the routing policies against your choice and warns when a picked VLAN is not routed through any VPN client, is routed through a client outside the group, or when a client in the order has no policy for it.
+- A group that picked no VLAN works as before (its VLANs are read from the policies).
+
 ## 0.15.3
 
 - Settings save by themselves: a change is saved and applied about a second after you make it, and a small "Saved and applied" note shows it. The Save & apply and Discard buttons and the "unsaved changes" bar are gone. If a change is invalid, the note says why and nothing is saved until it is fixed.

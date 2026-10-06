@@ -710,7 +710,7 @@ function secSwitching() {
 let ordOpen = false, ordDrag = null, pendingGroup = null;
 const GINTRO = `<div class="glead"><h1>VPN groups</h1><p><b>A group is an ordered list of VPN clients.</b> The watchdog keeps one of them switched on. If it stops working, the watchdog switches on the next one in your order and switches the failed one off. It changes nothing else in UniFi: which VLANs and devices use a VPN client is decided by your routing policies in UniFi.</p>
   <div class="gsteps"><div class="gst"><i>1</i><span><b>Build the fallback order:</b> add the VPN clients you trust, #1 first. <b>Until you do, the group only watches and never switches.</b></span></div>
-  <div class="gst"><i>2</i><span>That is all.</span></div></div></div>`;
+  <div class="gst"><i>2</i><span><b>Pick the VLANs</b> this group is for. The watchdog checks UniFi's routing policies against them and warns you if one is not routed through this group.</span></div></div></div>`;
 function secGroups() {
   const live = Object.fromEntries((M.tunnels || []).map((t) => [t.id, t.name]));
   const label = (x) => (x.id && live[x.id]) || x.tunnel;
@@ -736,11 +736,15 @@ function secGroups() {
   const live2 = ((status && status.map && status.map.groups) || []).find((x) => x.name === g.name), carrying = live2 ? live2.networks.map((n) => n.name).join(", ") : "";
   const carry = live2 ? `<div class="note" style="margin:0 0 4px">${carrying ? "Carrying now, read from UniFi: " + esc(carrying) : "No VLAN is routed through this group's VPN client right now (that is set in UniFi's routing policies)."}</div>` : "";
   const gapsHtml = live2 ? (live2.gaps || []).map((x) => `<div class="gstate gwarn"><b>Warning.</b> ${esc(x)}.</div>`).join("") : "";
+  const picked = (x, n) => (x.networks || []).some((y) => y.id === n.id || (!y.id && y.name === n.name));
+  const takenBy = (n) => { const o = V.groups.find((x, k) => k !== selG && picked(x, n)); return o ? o.name : null; };
+  const netCtl = (M.networks || []).length ? `<div style="display:flex;flex-direction:column;gap:8px">${(M.networks || []).map((n) => { const o = takenBy(n); return `<label style="display:flex;align-items:center;gap:10px;font-size:14px"><input type="checkbox" data-netpick="${esc(n.id)}" ${picked(g, n) ? "checked" : ""} ${o ? "disabled" : ""}><span>${esc(n.name)}${n.vlan != null ? " · VLAN " + n.vlan : ""}</span>${o ? `<span class="muted">already in group ${esc(o)}</span>` : ""}</label>`; }).join("")}</div>` : '<div class="muted">No VLAN read from UniFi yet.</div>';
   const badge = (ok, missing) => ok ? '<span class="bdg ok">done</span>' : `<span class="bdg ${missing}">${missing === "req" ? "required" : "optional"}</span>`;
   const sr = (title, bd, help, ctl) => `<div class="srow"><div class="slab"><b>${title} ${bd}</b><span>${help}</span></div><div>${ctl}</div></div>`;
   return `${GINTRO}<div class="gm" style="border-top:1px solid var(--hair)">${left}<div class="gd">
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:8px"><input class="gname" data-path="groups.${selG}.name" data-t="str" value="${esc(g.name)}" placeholder="Group name" aria-label="Group name"><button class="btn danger" data-act="delgroup">Delete group</button></div>
     ${state}${g.order.length ? carry : ""}${gapsHtml}
+    ${sr("VLANs", badge((g.networks || []).length > 0, "opt"), "The VLANs this group is for. The watchdog only checks UniFi's routing policies against them and warns you; it changes nothing in UniFi.", netCtl)}
     ${sr("Fallback order", badge(g.order.length > 0, "req"), "#1 is used first. If it stops working the watchdog moves to #2, then #3. VPN clients that are not in the list are never switched on or off. A VPN client can be in one group only.", orderCtl)}
   </div></div>`;
 }
@@ -828,6 +832,12 @@ setEl.addEventListener("input", (e) => handleField(e.target));
 setEl.addEventListener("change", (e) => {
   if (e.target.id === "notifySel") return saveNotifyService(e.target.value);
   if (e.target.dataset && e.target.dataset.fo) { const on = e.target.checked; act(`groups/${encodeURIComponent(e.target.dataset.fo)}/${on ? "resume" : "pause"}`).then(() => { if (sset === "jobs") renderSection(); }); return; }
+  if (e.target.dataset && e.target.dataset.netpick) {                     // a VLAN ticked or unticked in the group
+    const g = V.groups[selG], id = e.target.dataset.netpick, nm = (M.networks || []).find((x) => x.id === id);
+    g.networks = (g.networks || []).filter((y) => y.id !== id && !(!y.id && nm && y.name === nm.name));
+    if (e.target.checked && nm) g.networks.push({ id: nm.id, name: nm.name });
+    renderSection(); return;
+  }
   handleField(e.target);
 });
 setEl.addEventListener("focusin", (e) => { if (e.target.matches && e.target.matches("input[data-path^='alerts.']")) lastField = e.target; });

@@ -50,6 +50,7 @@ def extract(cfg: Config) -> dict[str, Any]:
                 "name": g.name,
                 "_orig": g.name,
                 "order": [{"tunnel": i.tunnel, "id": i.id, "expect_country": i.expect_country or ""} for i in g.order],
+                "networks": [{"id": n.id, "name": n.name} for n in g.networks],
             }
             for g in cfg.groups
         ],
@@ -109,8 +110,17 @@ def apply(raw: dict[str, Any], form: dict[str, Any]) -> dict[str, Any]:
         for fg in form["groups"]:
             g = copy.deepcopy(existing.get(fg.get("_orig") or "", {}))      # keeps per-group overrides across a rename
             g["name"] = str(fg["name"]).strip()
-            g.pop("networks", None)                          # which VLANs use a VPN client is UniFi's business, not the group's
             g.pop("kill_switch", None)
+            nets = []
+            for n in fg.get("networks", []):
+                n = {"name": n} if isinstance(n, str) else n
+                nid, nname = str(n.get("id") or "").strip(), str(n.get("name") or "").strip()
+                if nid or nname:
+                    nets.append({k: v for k, v in (("id", nid), ("name", nname)) if v})
+            if nets:
+                g["networks"] = nets
+            else:
+                g.pop("networks", None)
             order = []
             for item in fg.get("order", []):
                 name = str(item.get("tunnel") or "").strip()
@@ -151,5 +161,7 @@ def meta(snap: Snapshot | None) -> dict[str, Any]:
     return {
         "alert_info": ALERT_INFO,
         "tunnels": [{"id": t.id, "name": t.name, "enabled": t.enabled} for t in tunnels],
+        "networks": sorted(({"id": i, "name": n, "vlan": snap.network_info.get(i, {}).get("vlan")} for i, n in snap.networks.items()
+                            if snap.network_info.get(i, {}).get("purpose") in ("corporate", "guest")), key=lambda x: (x["vlan"] is None, x["vlan"] or 0, x["name"].lower())),
         "ready": True,
     }

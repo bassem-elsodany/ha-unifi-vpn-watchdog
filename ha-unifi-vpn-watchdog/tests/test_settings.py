@@ -44,7 +44,7 @@ def test_apply_changes_values_and_preserves_what_the_form_does_not_own():
     assert new["interval_seconds"] == 30 and new["detection"]["failure_threshold"] == 5 and new["failback"]["enabled"] is False
     g = new["groups"][0]
     assert g["overrides"] == {"detection": {"failure_threshold": 9}}                                  # preserved
-    assert "kill_switch" not in g and "networks" not in g                                             # routing is UniFi's business
+    assert "kill_switch" not in g and g["networks"] == [{"name": "vlan20-iot"}, {"name": "vlan50-vpn"}]   # the picked VLANs are kept
     assert new["unifi"]["api_key"] == "${UNIFI_API_KEY}"                                              # secret stays a reference
     assert g["order"] == ["Home-Primary", {"tunnel": "Office Berlin", "expect_country": "DE"}, "Last resort"]
     cfg_of(yaml.safe_dump(new))
@@ -95,7 +95,7 @@ def test_meta_lists_networks_and_tunnels_without_any_interpretation():
     snap = Snapshot({"id-a": t("Home 1"), "id-b": t("Home 2"), "id-c": t("zeta")}, {}, [],
                     {"id-a": "Home 1", "id-b": "Home 2", "id-c": "zeta", "n1": "vlan20-iot", "n2": "Internet 1", "n3": "One-Click VPN"})
     m = settings.meta(snap)
-    assert "networks" not in m
+    assert [x["name"] for x in m["networks"]] == []                                  # no network here is a LAN/VLAN (no purpose)
     assert [x["name"] for x in m["tunnels"]] == ["Home 1", "Home 2", "zeta"]
     assert "countries" not in m
     assert settings.meta(None)["ready"] is False
