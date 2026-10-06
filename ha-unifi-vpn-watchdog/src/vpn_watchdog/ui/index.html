@@ -231,9 +231,9 @@
   #papp * { box-sizing: border-box; }
   :where(#papp) button { font: inherit; color: inherit; cursor: pointer; }
   .ph-top { flex: none; min-width: 0; max-width: 100vw; overflow: hidden; background: var(--bg); padding-top: env(safe-area-inset-top); }
-  #papp { min-width: 0; width: 100%; } .ph-body, .ph-bot { min-width: 0; max-width: 100vw; }
-  .ph-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 4px 16px 16px; }
-  .ph-bot { flex: none; background: var(--card); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
+  #papp { min-width: 0; width: 100%; }
+  .ph-body { flex: 1; min-height: 0; min-width: 0; max-width: 100vw; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 4px 16px 16px; }
+  .ph-bot { flex: none; min-width: 0; max-width: 100vw; background: var(--card); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
   .phtop { display: flex; align-items: center; gap: 6px; padding: 14px 12px 6px 6px; min-height: 64px; }
   .phtop.root { padding: 20px 16px 8px 20px; }
   .phback { width: 44px; height: 44px; border: 0; background: none; display: flex; align-items: center; justify-content: center; }

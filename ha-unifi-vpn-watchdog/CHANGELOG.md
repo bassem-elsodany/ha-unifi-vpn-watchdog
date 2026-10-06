@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.25.1
+
+- Phone app: housekeeping of the stylesheet (a class was defined twice); no visible change.
+
 ## 0.25.0
 
 - **Phone app.** On a phone (700 px wide or less) the web UI is now an app of its own, built from the approved design; desktop and tablet are unchanged. A bottom tab bar (Status, Events, Settings), one short screen at a time, a back arrow to return, and no long scrolling pages.
