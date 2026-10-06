@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.1
+- The UI now uses the full window width: the network map adds columns as the window grows, the Settings cards and the alert editor flow
+  into columns, and nothing is capped at a fixed width (it still collapses to one column on narrow screens).
+
 ## 0.7.0
 - **Network map replaces the tunnel table.** The Status page shows one card per VLAN (VLAN id, subnet, device count, managing group).
   Inside it: its devices, an animated path through the VPN client that is switched on for that VLAN, and the internet; the other VPN

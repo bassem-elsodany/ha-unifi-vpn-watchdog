@@ -25,7 +25,7 @@
   nav { display: flex; gap: 4px; margin-bottom: 14px; flex-wrap: wrap; }
   nav button { background: none; border: 0; padding: 8px 14px; border-radius: 8px; color: var(--muted); cursor: pointer; font: inherit; }
   nav button.on { background: var(--accentbg); color: var(--accent); font-weight: 600; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin-bottom: 14px; max-width: 980px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin-bottom: 14px; }
   .card h3 { margin: 0 0 2px; font-size: 15px; }
   .card > .sub { color: var(--muted); margin: 0 0 12px; }
   .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -44,8 +44,8 @@
   th { color: var(--muted); font-weight: 600; font-size: 12px; }
   tr.cur td:first-child { box-shadow: inset 3px 0 var(--accent); }
   textarea { width: 100%; min-height: 55vh; font: 13px/1.5 ui-monospace, Menlo, monospace; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); }
-  .banner { padding: 10px 14px; border-radius: 10px; margin-bottom: 14px; max-width: 980px; }
-  .ev { padding: 8px 0; border-bottom: 1px solid var(--line); max-width: 980px; }
+  .banner { padding: 10px 14px; border-radius: 10px; margin-bottom: 14px; }
+  .ev { padding: 8px 0; border-bottom: 1px solid var(--line); }
   .hide { display: none !important; }
   #errbar { white-space: pre-wrap; }
   pre.err { white-space: pre-wrap; color: var(--bad); margin: 8px 0 0; }
@@ -64,13 +64,17 @@
   .net { display: inline-flex; align-items: center; gap: 6px; margin: 0 14px 6px 0; }
   .step { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px dashed var(--line); }
   .step select { max-width: 340px; }
+  #groups, #settings, #groupsForm { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 0 14px; align-items: start; }
+  #groupsForm { grid-column: 1 / -1; }
+  #groupsForm > .card:first-child, #notifyCard { grid-column: 1 / -1; }
   .step .n { width: 22px; color: var(--muted); font-weight: 600; }
   .chip { display: inline-block; background: var(--accentbg); color: var(--accent); border-radius: 6px; padding: 1px 7px; margin: 2px 4px 2px 0; font: 12px ui-monospace, Menlo, monospace; }
+  .alertgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); gap: 0 28px; }
   .alert { padding: 10px 0; border-top: 1px solid var(--line); }
   .alert .head { display: flex; gap: 10px; align-items: center; margin-bottom: 6px; }
   .alert .grid { display: grid; grid-template-columns: 70px 1fr; gap: 6px 10px; align-items: center; }
   /* network map */
-  .map { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 14px; max-width: 1500px; align-items: start; }
+  .map { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; align-items: start; }
   .vcard { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
   .vhead { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
   .vname { font-size: 16px; } .vhead .pill { align-self: flex-start; white-space: nowrap; }
@@ -122,7 +126,7 @@
 
   <section id="tab-status"><div id="groups"></div>
     <h3 style="margin:18px 0 4px">Network map</h3>
-    <p class="muted" style="margin:0 0 12px;max-width:900px">Each card is a VLAN. Its devices reach the internet through the VPN client that is switched on for it (animated path). The other VPN clients that carry the VLAN wait below; click any client for details and actions.</p>
+    <p class="muted" style="margin:0 0 12px">Each card is a VLAN. Its devices reach the internet through the VPN client that is switched on for it (animated path). The other VPN clients that carry the VLAN wait below; click any client for details and actions.</p>
     <div id="map" class="map"><div class="card muted">Waiting for the first UniFi check...</div></div>
     <div id="unused"></div>
   </section>
@@ -384,7 +388,7 @@ function renderSettings() {
 
   <div id="groupsForm"></div>
 
-  <div class="card"><h3>Notifications</h3><p class="sub">Who gets told, and what they are told.</p>
+  <div class="card" id="notifyCard"><h3>Notifications</h3><p class="sub">Who gets told, and what they are told.</p>
     <div id="notifyBox"></div></div>`;
   renderGroupsForm(); renderNotify(); updateSummary();
 }
@@ -444,7 +448,7 @@ function renderNotify() {
         <b>${esc(name)}</b> <span class="pill ${(info.events[name] || {}).level === "critical" ? "bad" : (info.events[name] || {}).level === "warning" ? "warn" : "info"}">${esc((info.events[name] || {}).level || "")}</span></div>
       <div class="muted" style="margin-bottom:6px">Sent when: ${esc((info.events[name] || {}).when || "")}</div>
       <div class="grid"><span class="muted">Title</span>${txt(`alerts.${name}.title`, "", "wide")}<span class="muted">Message</span>${txt(`alerts.${name}.message`, "", "wide")}</div></div>`).join("");
-  $("#notifyBox").innerHTML = svc + `<div style="margin-top:12px"><b>Alerts</b><p class="muted" style="margin:2px 0 6px">Turn each alert on or off and edit its wording. Placeholders (hover for meaning): ${ph}</p>${alerts}</div>`;
+  $("#notifyBox").innerHTML = svc + `<div style="margin-top:12px"><b>Alerts</b><p class="muted" style="margin:2px 0 6px">Turn each alert on or off and edit its wording. Placeholders (hover for meaning): ${ph}</p><div class="alertgrid">${alerts}</div></div>`;
 }
 
 function updateSummary() {
