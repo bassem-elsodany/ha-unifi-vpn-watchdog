@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.22.1
+
+- Status: the devices of a VLAN are shown **inside the VLAN's own box** again, as before: click a VLAN and its box opens with its devices (the first few, "Show all N devices", a search box when there are many), while the group and the egress on the right follow it. The separate devices panel at the bottom of the page is gone.
+
 ## 0.22.0
 
 - **Status page: one VLAN list, one flow that follows your pick.** All VLANs of all groups are boxes in one list on the left, each tagged with its group (or "no VPN" / "no group"). Click a VLAN and the group (active client, standbys, fallback order, warnings, buttons) and the egress on the right change to that VLAN's; the connector lines go from the picked VLAN only. A VLAN with no VPN shows the normal connection.

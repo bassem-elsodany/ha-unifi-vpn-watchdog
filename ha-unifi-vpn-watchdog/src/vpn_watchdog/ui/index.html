@@ -89,8 +89,6 @@
   .vc.sel { border-color: var(--accent); background: var(--accentbg); box-shadow: 0 0 0 1px var(--accent); }
   .gtag { margin-left: auto; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: var(--chip); color: var(--chipink); white-space: nowrap; }
   .gtag.nv { background: transparent; border: 1px dashed var(--dline); color: var(--muted); }
-  .devpanel { margin-top: 28px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px 8px; }
-  .devpanel .dph { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; } .devpanel .dph .vs { width: 280px; margin-left: auto; }
   .vh > span.vn { font-size: 14px; line-height: 20px; color: var(--ink); min-width: 0; } .vh > span.vn small { display: block; font-size: 12px; color: var(--muted); margin: 0; }
   .vfilter { margin: 18px 0 4px; } .vfilter input { box-sizing: border-box; width: 340px; max-width: 100%; height: 36px; font: inherit; font-size: 14px; padding: 0 12px; border: 1px solid var(--line2); border-radius: 10px; background: var(--card); color: var(--ink); }
   .dsum .vh { min-height: 28px; }
@@ -326,7 +324,7 @@ const rate = (n) => n == null ? "" : n <= 800 ? "idle" : n < 1e6 ? Math.round(n 
 const tcolor = (t) => t.status === "CONNECTED" ? "ok" : (t.status || t.enabled) ? "warn" : "idle";
 const tlabel = (t) => t.status === "CONNECTED" ? "connected" : t.status ? t.status.toLowerCase() : t.enabled ? "starting" : "disconnected";
 let selected = null;           // {kind: "tun", g, name} | {kind: "dev", mac}
-const vsearch = {}, poolOpen = new Set();
+const vsearch = {}, vexp = {}, poolOpen = new Set();
 let selNet = null, vfilter = "";             // the VLAN picked on the left (the group and egress on the right follow it), and the filter box
 try { selNet = localStorage.getItem("wd_net"); } catch (e) {}
 const NETCAP = 5;
@@ -351,23 +349,31 @@ const netNameHit = (n) => { const q = fq(); return !!q && [n.name, n.vlan != nul
 const devHit = (d) => { const q = fq(); return !!q && [d.name, d.ip, d.mac].some((x) => (x || "").toLowerCase().includes(q)); };
 const netMatches = (n) => !fq() || netNameHit(n) || n.devices.some(devHit);
 const allNets = (m) => m.groups.flatMap((g) => g.networks.map((n) => ({ n, g }))).concat(m.direct.map((n) => ({ n, g: null })));     // every VLAN, with the group it belongs to (null: no VPN)
-function netBox(n, g, sel) {        // one VLAN as a box in the list on the left: click it and the group and the egress on the right follow
-  const sub = [n.vlan != null ? "VLAN " + n.vlan : null, `${n.count} device${n.count === 1 ? "" : "s"}`].filter(Boolean).join(" · ");
-  return `<div class="vc cmp ${g ? "" : "direct"} ${sel ? "sel" : ""}" data-net="${esc(n.id)}"><div class="vh" data-vpick="${esc(n.id)}" role="button" tabindex="0" aria-pressed="${sel}"><span class="dot ${g ? "b" : "idle"}"></span><span class="vn"><b>${esc(n.name)}</b><small>${esc(sub)}</small></span><span class="gtag ${g ? "" : "nv"}">${g ? esc(g.unmanaged ? "no group" : g.name) : "no VPN"}</span></div></div>`;
-}
-function devicesList(n) {           // the devices of the selected VLAN, all of them (the panel scrolls), filtered by the search boxes
-  const q = (vsearch[n.id] || (netNameHit(n) ? "" : vfilter) || "").trim().toLowerCase();
+function devList(n) {               // the devices shown inside the picked VLAN's box: the first few, "Show all" for the rest, a search box when there are many
+  const q = (vsearch[n.id] || (netNameHit(n) ? "" : vfilter) || "").trim().toLowerCase(), exp = !!vexp[n.id];
   const list = n.devices.filter((d) => !q || [d.name, d.ip, d.mac].some((x) => (x || "").toLowerCase().includes(q)));
-  return list.map(devRow).join("") || `<div class="muted" style="padding:6px 0">${n.devices.length ? "No device matches." : "No devices connected right now."}</div>`;
+  const byp = list.filter((d) => d.bypass), rest = list.filter((d) => !d.bypass);
+  const shown = exp || q ? list : rest.slice(0, Math.max(0, 6 - Math.min(byp.length, 2))).concat(byp.slice(0, 2));
+  const none = n.devices.length ? "No device matches." : "No devices connected right now.";
+  return { html: shown.map(devRow).join("") || `<div class="muted" style="padding:6px 0">${none}</div>`, total: list.length, expanded: exp || !!q };
 }
-function devicesPanel(n) {
-  const sub = [n.vlan != null ? "VLAN " + n.vlan : null, netAddr(n.subnet), `${n.count} device${n.count === 1 ? "" : "s"}`].filter(Boolean).join(" · ");
-  return `<section class="devpanel" data-net="${esc(n.id)}"><div class="dph"><b>Devices in ${esc(n.name)}</b><span class="muted">${esc(sub)}</span><input class="vs" data-net="${esc(n.id)}" placeholder="Find a device or IP" aria-label="Find a device in ${esc(n.name)}" value="${esc(vsearch[n.id] || "")}"></div>
-    <div class="vlist exp" style="max-height:360px">${devicesList(n)}</div></section>`;
+function netBox(n, g, sel) {        // one VLAN as a box in the list on the left: click it and the group and the egress on the right follow, and its devices open inside the box
+  const sub = [n.vlan != null ? "VLAN " + n.vlan : null, sel ? netAddr(n.subnet) : null, `${n.count} device${n.count === 1 ? "" : "s"}`].filter(Boolean).join(" · ");
+  const head = `<div class="vh" data-vpick="${esc(n.id)}" role="button" tabindex="0" aria-pressed="${sel}"><span class="dot ${g ? "b" : "idle"}"></span><span class="vn"><b>${esc(n.name)}</b><small>${esc(sub)}</small></span><span class="gtag ${g ? "" : "nv"}">${g ? esc(g.unmanaged ? "no group" : g.name) : "no VPN"}</span></div>`;
+  if (!sel) return `<div class="vc cmp ${g ? "" : "direct"}" data-net="${esc(n.id)}">${head}</div>`;
+  const dl = devList(n);
+  return `<div class="vc sel ${g ? "" : "direct"}" data-net="${esc(n.id)}">${head}
+    ${n.count > 6 ? `<input class="vs" data-net="${esc(n.id)}" placeholder="Find a device or IP" aria-label="Find a device in ${esc(n.name)}" value="${esc(vsearch[n.id] || "")}">` : ""}
+    <div class="vlist ${dl.expanded ? "exp" : ""}" data-net="${esc(n.id)}">${dl.html}</div>
+    ${n.count > 6 && !(vsearch[n.id] || "").trim() && !fq() ? `<div class="vfr"><span class="vf" data-net="${esc(n.id)}">${vexp[n.id] ? "Show fewer" : `Show all ${n.count} devices`}</span>${vexp[n.id] ? "" : `<span class="muted">${n.count - 6} more</span>`}</div>` : ""}</div>`;
 }
-function updateDevPanel(id) {
-  const n = allNets(mapData()).map((x) => x.n).find((x) => x.id === id), list = document.querySelector(`.devpanel[data-net="${CSS.escape(id)}"] .vlist`);
-  if (n && list) list.innerHTML = devicesList(n);
+function updateVlist(id) {           // search / "Show all" inside the open VLAN box
+  const n = allNets(mapData()).map((x) => x.n).find((x) => x.id === id), card = document.querySelector(`.vc.sel[data-net="${CSS.escape(id)}"]`);
+  if (!n || !card) return;
+  const dl = devList(n), list = card.querySelector(".vlist"); if (!list) return;
+  list.innerHTML = dl.html; list.classList.toggle("exp", dl.expanded);
+  const vf = card.querySelector(".vf"); if (vf) { vf.textContent = vexp[id] ? "Show fewer" : `Show all ${n.count} devices`; vf.parentElement.classList.toggle("hide", !!(vsearch[id] || "").trim()); const more = vf.parentElement.querySelector(".muted"); if (more) more.classList.toggle("hide", !!vexp[id]); }
+  drawLinks();
 }
 function laneCard(g, t, can, behind) {
   const inOrder = t.position != null, c = tcolor(t);
@@ -472,8 +478,8 @@ function renderMap(d) {
   if (cur) { selNet = cur.n.id; try { localStorage.setItem("wd_net", selNet); } catch (e) {} }
   const left = { html: shownAll.map((x) => netBox(x.n, x.g, cur && x.n.id === cur.n.id)).join("") || (all.length ? '<div class="muted">No VLAN or device matches.</div>' : ""), count: all.length };
   let html = "";
-  if (cur && cur.g) html = groupBlock(cur.g, can, left, (m.own || []).some((x) => x.kind === "normal"), m) + devicesPanel(cur.n);
-  else if (cur) html = plainBlock(m, can, left) + devicesPanel(cur.n);
+  if (cur && cur.g) html = groupBlock(cur.g, can, left, (m.own || []).some((x) => x.kind === "normal"), m);
+  else if (cur) html = plainBlock(m, can, left);
   else if ((m.own || []).length || (m.own_off || []).length) html = plainBlock(m, can, left);
   if (html) html += `<div class="mapfoot"><div>${legendHtml(can && m.groups.some((g) => !g.unmanaged))}</div></div>`;
   if (!html) html = d.loading || !d.last_tick ? '<div class="loading"><span class="spin big"></span><div>Loading from UniFi...</div></div>'
@@ -624,12 +630,13 @@ mapEl.addEventListener("click", (e) => {
   const bk = e.target.closest("[data-gblk]"); if (bk) { blockerAction(bk.dataset.g, bk.dataset.gblk, bk.dataset.r); return; }
   const gb = e.target.closest("[data-gact]"); if (gb) { act(`groups/${encodeURIComponent(gb.dataset.g)}/${gb.dataset.gact}`); return; }
   const vp = e.target.closest("[data-vpick]"); if (vp) { selNet = vp.dataset.vpick; if (selected && selected.kind === "dev") selected = null; renderMap(status); return; }
+  const vf = e.target.closest(".vf"); if (vf) { vexp[vf.dataset.net] = !vexp[vf.dataset.net]; updateVlist(vf.dataset.net); return; }
   const dv = e.target.closest(".dev"); if (dv) { selected = { kind: "dev", mac: dv.dataset.mac }; renderMap(status); return; }
   const t = e.target.closest("[data-tun]"); if (t) { selected = { kind: "tun", g: t.dataset.g, name: t.dataset.tun }; renderMap(status); }
 });
 mapEl.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches("[data-vpick]")) { e.preventDefault(); e.target.click(); } });
 $("#vfilter").addEventListener("input", (e) => { vfilter = e.target.value; renderMap(status); });
-mapEl.addEventListener("input", (e) => { const vs = e.target.closest(".vs"); if (vs) { vsearch[vs.dataset.net] = vs.value; updateDevPanel(vs.dataset.net); } });
+mapEl.addEventListener("input", (e) => { const vs = e.target.closest(".vs"); if (vs) { vsearch[vs.dataset.net] = vs.value; updateVlist(vs.dataset.net); } });
 mapEl.addEventListener("toggle", (e) => { const d = e.target; if (d.matches && d.matches("details.pool")) { if (d.open) poolOpen.add(d.dataset.g); else poolOpen.delete(d.dataset.g); drawLinks(); } }, true);
 
 $("#drawer").addEventListener("click", (e) => {
