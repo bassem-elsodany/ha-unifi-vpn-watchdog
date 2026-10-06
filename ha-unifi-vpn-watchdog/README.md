@@ -73,7 +73,7 @@ The project folder **is** the add-on (`config.yaml`, `Dockerfile`, `DOCS.md`).
 | HA feature | How |
 |---|---|
 | Network map | sidebar panel → *Status*: per group, its VLANs with their devices, an animated path through the active VPN client to the internet, and the fallback order as numbered cards you **drag up or down** to reorder (drag a tunnel in from the unused list to add it, drop one on that list to remove it); click a client or device for details |
-| Settings UI | sidebar panel → *Settings* tab (form: intervals, thresholds, fallback order, alerts) and *Advanced* (YAML); secrets via the add-on Configuration tab |
+| Settings UI | sidebar panel → *Settings* tab (form: intervals, thresholds, fallback order, alerts); secrets via the add-on Configuration tab |
 | Status / jobs / start-stop | sidebar panel (ingress, authenticated by your HA login) |
 | Notifications | `home_assistant` notifier with `supervisor: true`, plus ntfy / Telegram / webhook |
 | Entities | MQTT discovery: *Active tunnel, Fallback step, Last decision, Healthy, Failover paused (switch), Force tunnel (select)* per group |

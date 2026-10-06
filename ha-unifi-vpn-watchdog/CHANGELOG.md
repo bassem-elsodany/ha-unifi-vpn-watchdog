@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.11.2
+
+- Removed the Advanced (YAML) tab. Everything is in Settings. If a saved configuration is ever rejected, the YAML editor still opens by itself so it can be repaired.
+
+## 0.11.2
+
+- Removed the Advanced (YAML) tab. Everything is in Settings. If a saved configuration is ever rejected, the YAML editor still opens by itself so it can be repaired.
+
 ## 0.11.1
 
 - With the log level on DEBUG, every check cycle now also appears in the Events tab (what was read from UniFi and each group's verdict) and in the add-on log. Before, DEBUG only changed the add-on log, and a healthy check logged nothing. The Events tab otherwise still lists only real events (switch, failback, alerts). Changing the log level needs an add-on restart.

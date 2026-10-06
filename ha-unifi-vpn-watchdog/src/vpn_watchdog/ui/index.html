@@ -215,7 +215,6 @@
     <button data-tab="status" class="on">Status</button>
     <button data-tab="events">Events</button>
     <button data-tab="settings">Settings</button>
-    <button data-tab="advanced">Advanced (YAML)</button>
   </nav>
 
   <section id="tab-status"><div id="map"><svg id="links"></svg><div class="loading"><span class="spin big"></span><div>Loading from UniFi...</div></div></div></section>
@@ -226,7 +225,7 @@
 
   <section id="tab-advanced" class="hide">
     <div class="card">
-      <h3>Advanced: edit the YAML file directly</h3>
+      <h3>The configuration file was rejected: fix it here</h3>
       <p class="sub">Everything in Settings is also here, plus rules the form does not cover (custom server patterns, per-group overrides). It is validated before saving, a backup is kept as <code>config.yaml.bak</code>, and secrets stay as <code>${VAR}</code> references.</p>
       <textarea id="yaml" spellcheck="false"></textarea>
       <div class="row" style="margin-top:10px">
@@ -287,8 +286,8 @@ async function refreshInner() {
   const can = !!data.can_control;
   $("#authbar").classList.toggle("hide", can);
   $("#errbar").classList.toggle("hide", !data.error);
-  $("#errbar").textContent = data.error ? (data.safe_mode ? "CONFIGURATION REJECTED, failover is OFF. Fix it in the Advanced tab:\n" : "UniFi unreachable: ") + data.error : "";
-  if (data.safe_mode && !window.__safe) { window.__safe = true; document.querySelector("nav button[data-tab=advanced]").click(); }
+  $("#errbar").textContent = data.error ? (data.safe_mode ? "CONFIGURATION REJECTED, failover is OFF. Fix the configuration file below:\n" : "UniFi unreachable: ") + data.error : "";
+  if (data.safe_mode && !window.__safe) { window.__safe = true; showTab("advanced"); }
   $("#tick").textContent = data.last_tick ? "last check " + ago(data.last_tick) : "reading from UniFi...";
   $("#spin").classList.toggle("hide", busyCount <= 0 && !data.loading);
   ["checkNow", "pauseAll", "resumeAll", "saveCfg", "validate", "saveSettings"].forEach((id) => ($("#" + id).disabled = !can));
@@ -834,20 +833,21 @@ $("#saveSettings").onclick = async () => {
 };
 $("#discard").onclick = () => { V = JSON.parse(orig); renderSettings(); $("#saveMsg").textContent = ""; };
 
-/* ------------------------------------------------------------------ header, tabs, advanced */
+/* ------------------------------------------------------------------ header, tabs, recovery editor */
 $("#checkNow").onclick = () => act("check-now");
 $("#pauseAll").onclick = () => act("groups/*/pause");
 $("#resumeAll").onclick = () => act("groups/*/resume");
 $("#saveToken").onclick = () => { token = $("#token").value.trim(); try { localStorage.setItem("wd_token", token); } catch (e) {} refresh(); };
 
 let cfgLoaded = false;
-document.querySelectorAll("nav button").forEach((b) => (b.onclick = () => {
-  document.querySelectorAll("nav button").forEach((x) => x.classList.toggle("on", x === b));
-  ["status", "events", "settings", "advanced"].forEach((t) => $("#tab-" + t).classList.toggle("hide", t !== b.dataset.tab));
-  if (b.dataset.tab === "settings" && !V) loadSettings();
-  if (b.dataset.tab === "advanced" && !cfgLoaded) loadCfg();
-  if (b.dataset.tab !== "settings") $("#savebar").classList.add("hide"); else markDirty();
-}));
+function showTab(tab) {     // "advanced" is the YAML editor: not a tab, it only opens when the saved configuration was rejected
+  document.querySelectorAll("nav button").forEach((x) => x.classList.toggle("on", x.dataset.tab === tab));
+  ["status", "events", "settings", "advanced"].forEach((t) => $("#tab-" + t).classList.toggle("hide", t !== tab));
+  if (tab === "settings" && !V) loadSettings();
+  if (tab === "advanced" && !cfgLoaded) loadCfg();
+  if (tab !== "settings") $("#savebar").classList.add("hide"); else markDirty();
+}
+document.querySelectorAll("nav button").forEach((b) => (b.onclick = () => showTab(b.dataset.tab)));
 async function loadCfg() {
   const r = await api("config");
   if (r.ok) { $("#yaml").value = r.data.yaml; cfgLoaded = true; $("#cfgerr").textContent = ""; $("#cfgmsg").textContent = ""; }
