@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.25.0
+
+- **Phone app.** On a phone (700 px wide or less) the web UI is now an app of its own, built from the approved design; desktop and tablet are unchanged. A bottom tab bar (Status, Events, Settings), one short screen at a time, a back arrow to return, and no long scrolling pages.
+- **Status:** a card per group (health, active client, VLANs, devices, standbys, rotation) and a "N things need you" banner; tap a card for the group screen with **Clients / Routes / Warnings**, and a bottom bar with Pause failover, Switch client... and More. The warning "Switch it off..." button (always confirmed) is there. **Networks:** the VLANs as swipeable chips with the devices of the picked one and a search box.
+- **Settings:** grouped rows that open one focused screen each: a group's Failover and Routing switches, Fallback order (move up and down, remove, add), VLANs, Devices, Warm standbys and Rotation; Detection, Switching and Notifications open their existing forms. Everything saves by itself, as before. **Events:** short list with filters (All, Switches, Routing, Warnings).
+- All controls are at least 44 px, input text is 16 px (no zoom on iPhones).
+
 ## 0.24.1
 
 - The phone layout of 0.24.0 is reverted: the web UI is exactly as in 0.23.0 again (the hold command stays). A new phone design will be agreed before anything is built.

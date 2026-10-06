@@ -218,6 +218,77 @@
   @media (max-width: 900px) { .sset { flex-direction: column; gap: 16px; } .snav { width: auto; flex-direction: row; overflow-x: auto; position: static; } .srow, .gd .srow { grid-template-columns: 1fr; } .gm { flex-direction: column; } .gl { width: auto; border-right: 0; border-bottom: 1px solid var(--line); } .al { grid-template-columns: 52px 1fr; } .al .wh, .al .ed { grid-column: 2; text-align: left; } .spanel { padding: 22px 18px; } }
   .savebar { position: fixed; left: 0; right: 0; bottom: 0; height: 64px; background: var(--card); border-top: 1px solid var(--line); padding: 0 48px; display: flex; gap: 14px; align-items: center; z-index: 5; }
   .sset { margin-top: 28px; } #tab-events, #tab-advanced { padding-top: 16px; }
+
+  /* ============ phone app (up to 700 px wide): its own screens; the desktop layout above is untouched ============ */
+  #papp { display: none; }
+  @media (max-width: 700px) {
+    body.isphone header, body.isphone main, body.isphone #drawer { display: none !important; }
+    body.isphone #papp { display: flex; flex-direction: column; height: 100vh; height: 100dvh; background: var(--bg); overflow: hidden; }
+    body.isphone { display: block; width: 100%; max-width: 100vw; overflow: hidden; }
+    body.isphone #savebar { left: 12px; right: 12px; bottom: 80px; height: auto; min-height: 44px; border: 1px solid var(--line); border-radius: 12px; padding: 6px 14px; z-index: 30; }
+    body.isphone #toast { bottom: 84px; max-width: 92vw; z-index: 40; }
+  }
+  #papp * { box-sizing: border-box; }
+  :where(#papp) button { font: inherit; color: inherit; cursor: pointer; }
+  .ph-top { flex: none; min-width: 0; max-width: 100vw; overflow: hidden; background: var(--bg); padding-top: env(safe-area-inset-top); }
+  #papp { min-width: 0; width: 100%; } .ph-body, .ph-bot { min-width: 0; max-width: 100vw; }
+  .ph-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 4px 16px 16px; }
+  .ph-bot { flex: none; background: var(--card); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
+  .phtop { display: flex; align-items: center; gap: 6px; padding: 14px 12px 6px 6px; min-height: 64px; }
+  .phtop.root { padding: 20px 16px 8px 20px; }
+  .phback { width: 44px; height: 44px; border: 0; background: none; display: flex; align-items: center; justify-content: center; }
+  .phtt { flex: 1; min-width: 0; } .phtt .t { font-size: 22px; font-weight: 600; line-height: 26px; } .phtop.root .phtt .t { font-size: 24px; line-height: 30px; }
+  .phtt .s { font-size: 13px; color: var(--muted); margin-top: 1px; }
+  .phround { width: 44px; height: 44px; border-radius: 22px; border: 1px solid var(--line2); background: var(--card); display: flex; align-items: center; justify-content: center; flex: none; }
+  .phtabs { display: flex; height: 68px; }
+  .phtabs button { flex: 1; border: 0; background: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; color: var(--muted); min-height: 44px; }
+  .phtabs button.on { color: var(--accentink); font-weight: 600; }
+  .phlist { background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+  .phr { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 10px 16px; min-height: 60px; border: 0; background: none; border-top: 1px solid var(--hair); }
+  .phr:first-child { border-top: 0; }
+  .phr .tt { flex: 1; min-width: 0; } .phr .tt b { display: block; font-size: 16px; font-weight: 600; } .phr .tt small { display: block; font-size: 13px; color: var(--muted); margin-top: 1px; overflow-wrap: anywhere; }
+  .phr .val { font-size: 15px; color: var(--muted); } .phr .chev { color: var(--muted); display: flex; }
+  .phr.blue { color: var(--accentink); font-weight: 600; font-size: 16px; min-height: 56px; }
+  .phsec { margin: 16px 4px 6px; font-size: 11px; font-weight: 600; letter-spacing: .06em; color: var(--muted); text-transform: uppercase; }
+  .phbanner { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; margin: 8px 0 0; padding: 12px 14px; background: var(--warnbg); border: 1px solid #E8C98A; border-radius: 14px; color: var(--warnink); min-height: 44px; }
+  .phbanner .t { flex: 1; min-width: 0; } .phbanner .t b { display: block; font-size: 15px; } .phbanner .t small { display: block; font-size: 13px; margin-top: 1px; }
+  .phcard { display: block; width: 100%; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; margin-top: 12px; }
+  .phcard .r1 { display: flex; align-items: center; gap: 10px; } .phcard .r1 b { flex: 1; font-size: 19px; }
+  .phcard .r2 { display: flex; align-items: baseline; gap: 8px; margin-top: 10px; } .phcard .r2 i { font-style: normal; font-size: 11px; font-weight: 600; letter-spacing: .06em; color: var(--muted); }
+  .phmono { font: 500 14px 'IBM Plex Mono', ui-monospace, Menlo, monospace; overflow-wrap: anywhere; }
+  .phchips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; } .phchip { padding: 4px 10px; border-radius: 999px; background: var(--chip); color: var(--chipink); font-size: 13px; } .phchip.own { background: var(--ownbg); color: var(--ownink); }
+  .phpill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; letter-spacing: .04em; white-space: nowrap; background: var(--chip); color: var(--chipink); }
+  .phpill.ok { background: var(--okbg); color: var(--okink); } .phpill.warn { background: var(--warnbg); color: var(--warnink); } .phpill.bad { background: var(--badbg); color: var(--bad); } .phpill.solid { background: var(--ok); color: #fff; }
+  .phhero { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; margin-top: 6px; }
+  .phhero .l { font-size: 11px; font-weight: 600; letter-spacing: .06em; color: var(--muted); } .phhero .n { font: 500 20px 'IBM Plex Mono', ui-monospace, monospace; margin-top: 4px; overflow-wrap: anywhere; } .phhero .x { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 13px; color: var(--muted); }
+  .phseg { display: flex; margin-top: 14px; padding: 4px; background: var(--chip); border-radius: 12px; }
+  .phseg button { flex: 1; height: 40px; border: 0; border-radius: 9px; background: none; font-size: 14px; color: var(--chipink); display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .phseg button.on { background: var(--card); font-weight: 600; color: var(--ink); }
+  .phcrow { display: flex; align-items: center; gap: 12px; padding: 12px 14px; min-height: 56px; border-top: 1px solid var(--hair); } .phcrow:first-child { border-top: 0; }
+  .phcrow.act { background: var(--okbg); } .phcrow .rk { width: 28px; font-size: 13px; font-weight: 600; color: var(--muted); } .phcrow .nm { flex: 1; min-width: 0; } .phcrow .nm .phmono { font-size: 15px; font-weight: 400; } .phcrow .nm small { display: block; font-size: 12px; color: var(--muted); margin-top: 1px; }
+  .phbtn { height: 48px; border-radius: 12px; border: 1px solid var(--line2); background: var(--card); font-size: 15px; font-weight: 600; padding: 0 14px; } .phbtn.primary { background: var(--accent); border-color: var(--accent); color: #fff; } .phbtn.danger { border-color: #E3C3C0; color: var(--bad); } .phbtn.warn { border-color: var(--warn); background: var(--card); color: var(--warnink); }
+  .phbtn.full { width: 100%; } .phbtn:disabled { opacity: .5; }
+  .phbar { display: flex; gap: 10px; padding: 12px 16px 14px; } .phbar .phbtn { flex: 1; } .phbar .phbtn.sq { flex: none; width: 48px; padding: 0; display: flex; align-items: center; justify-content: center; }
+  .phwarn { background: var(--warnbg); border: 1px solid #E8C98A; border-radius: 14px; padding: 14px; margin-top: 10px; color: var(--warnink); } .phwarn b { display: block; font-size: 15px; } .phwarn p { margin: 6px 0 0; font-size: 14px; line-height: 20px; overflow-wrap: anywhere; } .phwarn .phbtn { margin-top: 12px; }
+  .phnote { border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-top: 10px; background: var(--card); } .phnote b { display: block; font-size: 15px; } .phnote p { margin: 6px 0 0; font-size: 14px; line-height: 20px; color: var(--muted); overflow-wrap: anywhere; }
+  .phchipbar { display: flex; gap: 8px; padding: 8px 16px 4px; overflow-x: auto; flex: none; min-width: 0; max-width: 100%; -webkit-overflow-scrolling: touch; } .phchipbar button { flex: none; height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line2); background: var(--card); font-size: 14px; } .phchipbar button.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; } .phchipbar button.dash { border-style: dashed; color: var(--muted); }
+  .phsearch { width: 100%; height: 44px; border: 1px solid var(--line2); border-radius: 12px; padding: 0 14px; font: inherit; font-size: 16px; background: var(--card); color: var(--ink); }
+  .phdot { width: 10px; height: 10px; border-radius: 50%; background: var(--idle2); flex: none; display: inline-block; } .phdot.ok { background: var(--ok); } .phdot.warn { background: var(--warn); } .phdot.b { background: var(--accent); } .phdot.bad { background: var(--bad); }
+  .phsw { width: 60px; height: 44px; position: relative; flex: none; border: 0; padding: 0; background: none; } .phsw::before { content: ""; position: absolute; left: 4px; top: 6px; width: 52px; height: 32px; border-radius: 16px; background: var(--line2); } .phsw::after { content: ""; position: absolute; top: 9px; left: 7px; width: 26px; height: 26px; border-radius: 13px; background: #fff; transition: left .15s; } .phsw.on::before { background: var(--accent); } .phsw.on::after { left: 27px; } .phsw:disabled { opacity: .5; }
+  .phsq { width: 44px; height: 44px; border: 0; background: none; display: flex; align-items: center; justify-content: center; color: var(--muted); flex: none; } .phsq:disabled { opacity: .3; }
+  .phscrim { position: fixed; inset: 0; background: rgba(22,32,42,.45); z-index: 50; }
+  .phsheet { position: fixed; left: 0; right: 0; bottom: 0; max-height: 82vh; overflow-y: auto; background: var(--card); border-radius: 22px 22px 0 0; padding: 10px 16px calc(18px + env(safe-area-inset-bottom)); z-index: 51; box-shadow: 0 -8px 24px rgba(0,0,0,.18); }
+  .phsheet .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--line2); margin: 0 auto 12px; } .phsheet .hd { display: flex; align-items: center; gap: 10px; } .phsheet .hd b { flex: 1; font-size: 20px; }
+  .phevrow { display: flex; gap: 12px; padding: 12px 14px; min-height: 64px; border-top: 1px solid var(--hair); } .phevrow:first-child { border-top: 0; } .phevrow .phdot { margin-top: 6px; } .phevrow b { display: block; font-size: 15px; font-weight: 500; line-height: 20px; overflow-wrap: anywhere; } .phevrow small { display: block; font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .phform .fld, .phform select, .phform input { width: 100% !important; max-width: 100% !important; font-size: 16px !important; }
+  .phfield { display: flex; align-items: center; gap: 12px; padding: 10px 16px; min-height: 56px; border-top: 1px solid var(--hair); } .phfield label { width: 110px; font-size: 14px; color: var(--muted); flex: none; } .phfield .in { flex: 1; min-width: 0; display: flex; gap: 8px; } .phfield input, .phfield select { height: 44px; border: 1px solid var(--line2); border-radius: 10px; padding: 0 10px; font: inherit; font-size: 16px; background: var(--card); color: var(--ink); min-width: 0; width: 100%; }
+  .phpad { padding: 16px 4px; }
+  /* the desktop Settings forms (Detection, Switching, Notifications) shown inside a phone screen */
+  .phsect .sset { display: block; margin-top: 4px; } .phsect .snav { display: none; } .phsect .spanel { padding: 16px 14px; border-radius: 14px; max-width: none; } .phsect .spanel h1 { font-size: 22px; }
+  .phsect .srow { grid-template-columns: 1fr !important; gap: 10px; padding: 16px 0; align-items: start; } .phsect .slab span { max-width: none; }
+  .phsect .fld, .phsect select, .phsect input[type=text], .phsect input[type=number], .phsect input[type=time] { width: 100% !important; max-width: 100% !important; font-size: 16px !important; min-height: 44px; }
+  .phsect .nf { width: 100% !important; height: 44px; } .phsect .nf input { width: 100% !important; font-size: 16px !important; }
+  .phsect .al { grid-template-columns: 44px 1fr; } .phsect .al .nm, .phsect .al .wh, .phsect .al .ed { grid-column: 2; } .phsect .exf { margin-left: 0 !important; grid-template-columns: 1fr; } .phsect button, .phsect .ed, .phsect .seg span { min-height: 44px; }
 </style>
 </head>
 <body>
@@ -268,6 +339,7 @@
 <div id="toast" class="hide"></div>
 
 <div class="savebar hide" id="savebar"><span id="saveMsg"></span></div>
+<div id="papp" aria-live="polite"></div>
 
 <script>
 const $ = (s) => document.querySelector(s);
@@ -316,7 +388,7 @@ async function refreshInner() {
   ["checkNow", "pauseAll", "resumeAll", "saveCfg", "validate"].forEach((id) => ($("#" + id).disabled = !can));
   $("#resumeAll").classList.toggle("hide", !(data.map && data.map.groups.some((g) => g.paused)));
   if (data.version) { const v = $("#ver"); v.textContent = "v" + data.version; v.classList.remove("hide"); }
-  renderMap(data); renderEvents(data);
+  renderMap(data); renderEvents(data); phRefresh();
 }
 
 const natural = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
@@ -990,6 +1062,285 @@ $("#saveCfg").onclick = async () => {
   setTimeout(refresh, 1500);
 };
 
+
+/* ====================================================================== phone app (<= 700 px): its own screens ======================================================================
+   A bottom tab bar (Status / Events / Settings); tapping a card goes one level deeper and the back arrow comes back. The desktop UI above is untouched and keeps running. */
+const PH = { tab: "status", stack: [], seg: "clients", net: null, q: "", evf: "all", sheet: null, loading: false };
+const phone = () => window.matchMedia("(max-width: 700px)").matches;
+const phI = (d, w = 24) => `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const phIc = {
+  back: phI('<path d="M15 6l-6 6 6 6"/>'), chev: phI('<path d="m9 6 6 6-6 6"/>', 18), refresh: phI('<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>', 20),
+  warn: phI('<path d="M12 3 2 21h20L12 3z"/><path d="M12 10v5"/><path d="M12 18h.01"/>', 22), status: phI('<path d="M3 12h4l3-8 4 16 3-8h4"/>'),
+  events: phI('<path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/>'), settings: phI('<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>'),
+  net: phI('<rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/>', 22), close: phI('<path d="M6 6l12 12M18 6 6 18"/>', 22),
+  more: '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>', plus: phI('<path d="M12 5v14M5 12h14"/>', 20),
+  up: phI('<path d="M12 19V5M5 12l7-7 7 7"/>', 18), down: phI('<path d="M12 5v14M5 12l7 7 7-7"/>', 18), x: phI('<path d="M6 6l12 12M18 6 6 18"/>', 18), check: phI('<path d="m5 12 5 5 9-10"/>', 20),
+};
+const phShort = (n) => { const m = /^([A-Z]{2})__(.+?)__(\d+)__[\d.]+$/.exec(n || ""); return m ? `${m[1]} · ${m[2].replace(/_/g, " ").toLowerCase().replace(/(^| )\w/g, (c) => c.toUpperCase())} #${m[3]}` : (n || ""); };
+const phGroups = () => (mapData().groups || []).filter((g) => !g.unmanaged);
+const phG = (name) => phGroups().find((g) => g.name === name);
+const phVg = (name) => (V ? V.groups.find((g) => g.name === name) : null);
+const phPill = (t, k = "") => `<span class="phpill ${k}">${esc(t)}</span>`;
+const phStatus = (g) => g.exhausted ? ["bad", "NO WORKING TUNNEL"] : g.paused ? ["", "PAUSED"] : !g.has_order ? ["warn", "NEEDS ORDER"] : g.healthy ? ["ok", "HEALTHY"] : ["warn", "DEGRADED"];
+const phWarn = (g) => { const r = g.routing || {}, o = []; (r.blockers || []).forEach((b) => o.push({ g, kind: "blocker", b })); if (g.conflict) o.push({ g, kind: "text", t: g.conflict }); (g.gaps || []).forEach((t) => o.push({ g, kind: "text", t })); return o; };
+const phWarnText = (w) => w.kind === "blocker" ? `${w.g.name}: a policy of yours sends ${w.b.vlans.join(", ")} elsewhere` : `${w.g.name}: ${w.t}`;
+const phCur = () => PH.stack.length ? PH.stack[PH.stack.length - 1] : { s: PH.tab };
+
+function phGo(sc) { PH.stack.push(sc); PH.sheet = null; PH.q = ""; phRender(true); }
+function phBack() { PH.stack.pop(); PH.sheet = null; PH.q = ""; phRender(true); }
+function phTab(t) { PH.tab = t; PH.stack = []; PH.sheet = null; PH.q = ""; if (t === "settings") phNeedSettings(); phRender(true); }
+function phNeedSettings() { if (!V && !PH.loading) { PH.loading = true; loadSettings().finally(() => { PH.loading = false; phRender(); }); } }
+function phChanged() { markDirty(); phRender(); }
+
+const phTop = (title, o = {}) => `<div class="phtop ${o.root ? "root" : ""}">${o.root ? "" : `<button class="phback" data-ph="back" aria-label="Back">${phIc.back}</button>`}<div class="phtt"><div class="t">${esc(title)}</div>${o.sub ? `<div class="s">${esc(o.sub)}</div>` : ""}</div>${o.right || ""}</div>`;
+const phTabs = () => `<div class="phtabs" role="navigation" aria-label="Main">${[["status", "Status", phIc.status], ["events", "Events", phIc.events], ["settings", "Settings", phIc.settings]].map(([k, l, i]) => `<button data-ph="tab" data-t="${k}" class="${PH.tab === k ? "on" : ""}" ${PH.tab === k ? 'aria-current="page"' : ""}>${i}<span>${l}</span></button>`).join("")}</div>`;
+const phLoading = (what) => `<div class="phpad muted">${esc(what)}...</div>`;
+
+/* ---------------------------------------------------------------- Status */
+function phHome() {
+  const can = !!(status && status.can_control);
+  const top = phTop("VPN Watchdog", { root: true, sub: status && status.last_tick ? "Checked " + ago(status.last_tick) : "Reading from UniFi...", right: `<button class="phround" data-ph="check" aria-label="Check now" ${can ? "" : "disabled"}>${phIc.refresh}</button>` });
+  if (!status) return { top, body: phLoading("Loading"), bot: phTabs() };
+  const gs = phGroups(), items = [];
+  gs.forEach((g) => phWarn(g).forEach((w) => items.push(w)));
+  const banner = items.length ? `<button class="phbanner" data-ph="group" data-g="${esc(items[0].g.name)}" data-seg="warnings">${phIc.warn}<span class="t"><b>${items.length} thing${items.length === 1 ? "" : "s"} need${items.length === 1 ? "s" : ""} you</b><small>${esc(phWarnText(items[0]))}</small></span>${phIc.chev}</button>` : "";
+  const cards = gs.map((g) => {
+    const st = phStatus(g), nw = phWarn(g).length, chips = [], warm = g.keep_ready > 1 ? (g.warm || []) : [];
+    (g.networks || []).slice(0, 2).forEach((n) => chips.push(`<span class="phchip">${esc(n.name)}</span>`));
+    if ((g.networks || []).length > 2) chips.push(`<span class="phchip">+${g.networks.length - 2}</span>`);
+    if (g.device_net) { const ds = g.device_net.devices; chips.push(`<span class="phchip">${esc(ds.slice(0, 2).map((d) => d.name || d.mac).join(", "))}${ds.length > 2 ? " +" + (ds.length - 2) : ""}</span>`); }
+    if (g.keep_ready > 1) chips.push(`<span class="phchip">${warm.filter((w) => w.connected).length} standby${warm.length === 1 ? "" : "s"} ✓</span>`);
+    if (g.rotation && g.rotation.enabled) chips.push(`<span class="phchip own">↻ ${esc(g.rotation.summary)}</span>`);
+    return `<button class="phcard" data-ph="group" data-g="${esc(g.name)}" data-seg="clients"><div class="r1"><b>${esc(g.name)}</b>${phPill(st[1], st[0])}${nw ? `<span class="phpill warn">⚠ ${nw}</span>` : ""}</div>
+      <div class="r2"><i>ACTIVE</i><span class="phmono">${esc(g.active ? phShort(g.active) : "none switched on")}</span></div><div class="phchips">${chips.join("")}</div></button>`;
+  }).join("") || '<div class="phpad muted">No VPN group yet. Create one under Settings.</div>';
+  const nets = allNets(mapData()).filter((x) => !String(x.n.id).startsWith("grp-dev:")), devs = nets.reduce((a, x) => a + (x.n.count || 0), 0);
+  const netRow = `<button class="phcard" data-ph="go" data-s="networks" style="display:flex;align-items:center;gap:12px;padding:12px 16px;min-height:60px"><span style="color:var(--accent);display:flex">${phIc.net}</span><span style="flex:1"><b style="display:block;font-size:16px">Networks</b><small style="color:var(--muted);font-size:13px">${nets.length} VLANs · ${devs} devices</small></span><span style="color:var(--muted);display:flex">${phIc.chev}</span></button>`;
+  return { top, body: banner + cards + netRow, bot: phTabs() };
+}
+
+/* ---------------------------------------------------------------- one group */
+function phGroupScreen(name) {
+  const g = phG(name);
+  if (!g) return { top: phTop(name), body: '<div class="phpad muted">This group is not in the watchdog any more.</div>' };
+  const can = !!(status && status.can_control), st = phStatus(g), warns = phWarn(g), ex = g.exit || {};
+  const top = phTop(g.name, { right: phPill(st[1], st[0]) });
+  const hero = `<div class="phhero"><div class="l">ACTIVE CLIENT</div><div class="n">${esc(g.active ? phShort(g.active) : "none switched on")}</div><div class="x"><span class="phdot ${g.active ? "ok" : "bad"}"></span>${g.active ? "Connected" + (ex.ip || ex.server ? " · exit " + esc(ex.ip || ex.server) : "") : esc(g.decision || "no VPN client is switched on")}</div></div>`;
+  const seg = `<div class="phseg" role="tablist">${[["clients", "Clients"], ["routes", "Routes"], ["warnings", "Warnings"]].map(([k, l]) => `<button role="tab" data-ph="seg" data-seg="${k}" class="${PH.seg === k ? "on" : ""}" aria-selected="${PH.seg === k}">${l}${k === "warnings" && warns.length ? `<span class="phpill warn" style="padding:1px 7px">${warns.length}</span>` : ""}</button>`).join("")}</div>`;
+  let body;
+  if (PH.seg === "clients") {
+    const lane = [...(g.lane || [])].sort((a, b) => (b.active ? 1 : 0) - (a.active ? 1 : 0) || (b.standby ? 1 : 0) - (a.standby ? 1 : 0) || (a.position || 999) - (b.position || 999)), shown = lane.slice(0, 4);
+    body = `<div class="phlist" style="margin-top:12px">${shown.map((t) => `<div class="phcrow ${t.active ? "act" : ""}"><span class="rk" ${t.active ? 'style="color:var(--okink)"' : ""}>${t.position ? "#" + t.position : "--"}</span><div class="nm"><span class="phmono">${esc(phShort(t.name))}</span><small>${t.active ? "carries the traffic" : t.standby ? (t.standby_ready ? "takes over at once" : "connecting...") : t.quarantined_for ? "cooling down " + t.quarantined_for + "s" : "ready to take over"}</small></div>${t.active ? phPill("ACTIVE", "solid") : t.standby ? phPill(t.standby_ready ? "STANDBY ✓" : "STANDBY ...", t.standby_ready ? "ok" : "warn") : ""}</div>`).join("") || '<div class="phpad muted" style="padding:14px">No VPN client in the fallback order yet.</div>'}
+      ${lane.length > shown.length ? `<button class="phr blue" data-ph="go" data-s="order" data-g="${esc(g.name)}"><span class="tt">+ ${lane.length - shown.length} more in the fallback order</span><span class="chev">${phIc.chev}</span></button>` : ""}</div>`;
+  } else if (PH.seg === "routes") {
+    const rows = (g.networks || []).map((n) => `<button class="phr" data-ph="net" data-id="${esc(n.id)}"><span class="phdot b"></span><span class="tt"><b>${esc(n.name)}</b><small>${n.vlan != null ? "VLAN " + n.vlan + " · " : ""}${n.count} device${n.count === 1 ? "" : "s"}</small></span><span class="chev">${phIc.chev}</span></button>`);
+    rows.push(g.device_net ? `<button class="phr" data-ph="net" data-id="${esc(g.device_net.id)}"><span class="phdot b"></span><span class="tt"><b>${esc(g.device_net.devices.map((d) => d.name || d.mac).join(", "))}</b><small>${g.device_net.count} device${g.device_net.count === 1 ? "" : "s"} routed one by one</small></span><span class="chev">${phIc.chev}</span></button>`
+      : `<button class="phr" data-ph="go" data-s="devices" data-g="${esc(g.name)}"><span class="phdot"></span><span class="tt"><b>Devices</b><small>none yet · tap to add one</small></span><span class="chev">${phIc.chev}</span></button>`);
+    const r = g.routing || {};
+    body = `<div class="phsec">Routed through this group</div><div class="phlist">${rows.join("")}</div><div class="phsec">Routing</div><div class="phnote"><b>${r.manage ? phPill("ON", "ok") + " the watchdog manages it" : phPill("OFF") + " you manage the policies in UniFi"}</b><p>${r.manage ? "It keeps one policy per VLAN (and one for the devices) on the active client and moves it on failover." + ((r.plan || []).length ? " Applying now: " + esc(r.plan.join("; ")) + "." : "") : "Switch Routing on in the group settings and the watchdog creates and moves the policies for you."}</p></div>`;
+  } else {
+    const so = (g.routing && g.routing.switched_off) || [];
+    body = warns.length || so.length ? warns.map((w) => w.kind === "blocker" ? `<div class="phwarn"><b>A policy of yours is in the way</b><p>Your routing policy <b style="display:inline;font-family:'IBM Plex Mono',monospace;font-size:13px">${esc(w.b.description)}</b> (#${w.b.position} in UniFi's list) sends ${esc(w.b.vlans.join(", "))} through ${esc(w.b.goes_to)}, ahead of the watchdog's own policy${w.b.others.length ? ". It also covers " + esc(w.b.others.join(", ")) : ""}.</p><button class="phbtn warn full" data-ph="blk" data-kind="blocker-off" data-g="${esc(g.name)}" data-r="${esc(w.b.id)}" ${can ? "" : "disabled"}>Switch it off…</button><p style="font-size:12px">You will be asked to confirm. The policy is not deleted; you can switch it back on.</p></div>` : `<div class="phnote"><p style="margin:0;color:var(--ink);font-size:15px">${esc(w.t)}</p></div>`).join("")
+      + so.map((x) => `<div class="phnote"><b>You let the watchdog switch off your policy ${esc(x.description)}</b><button class="phbtn full" style="margin-top:12px" data-ph="blk" data-kind="blocker-on" data-g="${esc(g.name)}" data-r="${esc(x.id)}" ${can ? "" : "disabled"}>Switch it back on…</button></div>`).join("")
+      : '<div class="phnote"><b>No warnings</b><p>Everything this group does matches what UniFi has.</p></div>';
+  }
+  const bar = `<div class="phbar"><button class="phbtn" data-ph="pause" data-g="${esc(g.name)}" ${can ? "" : "disabled"}>${g.paused ? "Start failover" : "Pause failover"}</button><button class="phbtn primary" data-ph="sheet" data-t="switch" data-g="${esc(g.name)}" ${can && (g.lane || []).length ? "" : "disabled"}>Switch client…</button><button class="phbtn sq" data-ph="sheet" data-t="more" data-g="${esc(g.name)}" aria-label="More">${phIc.more}</button></div>`;
+  return { top, body: hero + seg + body, bot: bar };
+}
+
+/* ---------------------------------------------------------------- Networks and devices */
+function phNetworks() {
+  const all = allNets(mapData()), cur = all.find((x) => x.n.id === PH.net) || all[0];
+  const top = phTop("Networks", { sub: `${all.filter((x) => !String(x.n.id).startsWith("grp-dev:")).length} VLANs` });
+  if (!cur) return { top, body: '<div class="phpad muted">No network read from UniFi yet.</div>', bot: phTabs() };
+  PH.net = cur.n.id;
+  const chips = all.map((x) => `<button data-ph="net" data-id="${esc(x.n.id)}" class="${x.n.id === cur.n.id ? "on" : x.g ? "" : "dash"}">${esc(String(x.n.id).startsWith("grp-dev:") ? x.n.name : x.n.name)}</button>`).join("");
+  const n = cur.n, sub = [n.vlan != null ? "VLAN " + n.vlan : "devices of the group", n.subnet ? netAddr(n.subnet) : null, `${n.count} device${n.count === 1 ? "" : "s"}`].filter(Boolean).join(" · ");
+  const head = `<div class="phhero" style="display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0"><div style="font-size:17px;font-weight:600">${esc(n.name)}</div><div class="x" style="margin-top:1px">${esc(sub)}</div></div>${phPill(cur.g ? cur.g.name : "no VPN")}</div>`;
+  return { top: top + `<div class="phchipbar" role="tablist">${chips}</div>`, body: head + `<input class="phsearch" style="margin-top:10px" type="search" data-ph="q" placeholder="Find a device, IP or MAC" aria-label="Find a device" value="${esc(PH.q)}"><div class="phlist" id="phlist" style="margin-top:10px">${phDevRows(n)}</div>`, bot: phTabs() };
+}
+function phDevRows(n) {
+  const q = (PH.q || "").trim().toLowerCase(), list = (n.devices || []).filter((d) => !q || [d.name, d.ip, d.mac].some((x) => (x || "").toLowerCase().includes(q)));
+  return list.map((d) => `<div class="phcrow" style="min-height:60px"><span class="phdot ${d.active ? "ok" : ""}"></span><div class="nm"><b style="font-size:15px;font-weight:500">${d.name && d.name !== d.ip ? esc(d.name) : '<span class="muted">unnamed</span>'}</b><small class="phmono" style="font-size:12px">${esc(d.ip || d.mac)}</small></div><span style="font-size:13px;color:${d.bypass ? "var(--warn)" : "var(--muted)"};font-weight:${d.bypass ? 600 : 400}">${d.bypass ? (d.bypass.kind === "vpn" ? "→ " + esc(phShort(d.bypass.tunnel)) : "direct, no VPN") : esc(rate(d.rate_bps))}</span></div>`).join("") || `<div class="phpad muted" style="padding:14px">${(n.devices || []).length ? "No device matches." : "No devices connected right now."}</div>`;
+}
+
+/* ---------------------------------------------------------------- Events */
+function phEvents() {
+  const kind = (e) => /^routing/.test(e.event) ? "routing" : /switch|failover|rotat|provision|manual|exhaust|recover/.test(e.event) ? "switch" : e.level !== "info" ? "warning" : "other";
+  const evs = ((status && status.events) || []).filter((e) => e.event !== "check"), f = PH.evf;
+  const list = evs.filter((e) => f === "all" || (f === "warning" ? e.level !== "info" : kind(e) === f)).slice(0, 80);
+  const chip = ([k, l]) => `<button data-ph="evf" data-f="${k}" class="${f === k ? "on" : ""}">${l}</button>`;
+  const rows = list.map((e) => `<div class="phevrow"><span class="phdot ${e.level === "critical" ? "bad" : e.level === "warning" ? "warn" : kind(e) === "switch" ? "ok" : "b"}"></span><div><b>${esc(e.message)}</b><small>${esc(e.event)} · ${esc(fmtWhen(e.ts))}</small></div></div>`).join("");
+  return { top: phTop("Events", { root: true, sub: "What the watchdog did and why" }) + `<div class="phchipbar">${[["all", "All"], ["switch", "Switches"], ["routing", "Routing"], ["warning", "Warnings"]].map(chip).join("")}</div>`, body: `<div class="phlist" style="margin-top:10px">${rows || '<div class="phpad muted" style="padding:14px">Nothing yet.</div>'}</div>`, bot: phTabs() };
+}
+
+/* ---------------------------------------------------------------- Settings */
+function phSettings() {
+  const top = phTop("Settings", { root: true, sub: "Changes save by themselves" });
+  if (!V) { phNeedSettings(); return { top, body: phLoading("Loading settings"), bot: phTabs() }; }
+  const rows = V.groups.map((g) => { const parts = [`${g.order.length} client${g.order.length === 1 ? "" : "s"}`]; if ((g.networks || []).length) parts.push(g.networks.map((n) => n.name).join(", ")); if ((g.devices || []).length) parts.push((g.devices[0].name || g.devices[0].mac) + ((g.devices || []).length > 1 ? " +" + (g.devices.length - 1) : "")); return `<button class="phr" data-ph="go" data-s="gset" data-g="${esc(g.name)}"><span class="tt"><b>${esc(g.name || "(unnamed)")}</b><small>${esc(parts.join(" · "))}</small></span><span class="chev">${phIc.chev}</span></button>`; }).join("");
+  const sect = (k, t, s) => `<button class="phr" data-ph="go" data-s="sect" data-k="${k}"><span class="tt"><b>${t}</b><small>${s}</small></span><span class="chev">${phIc.chev}</span></button>`;
+  return { top, body: `<div class="phsec">VPN groups</div><div class="phlist">${rows}<button class="phr blue" data-ph="addgroup">${phIc.plus}<span class="tt">Add a VPN group</span></button></div><div class="phsec">Watchdog</div><div class="phlist">${sect("detection", "Detection", "how often it checks, when a tunnel counts as down")}${sect("switching", "Switching", "limits on how often it may switch")}${sect("notifications", "Notifications", "who is told, and when")}</div>`, bot: phTabs() };
+}
+function phSwitch(on, attrs) { return `<button class="phsw ${on ? "on" : ""}" role="switch" aria-checked="${on}" ${attrs}></button>`; }
+function phGset(name) {
+  const g = phVg(name), top = phTop(name, { sub: "Group settings" });
+  if (!V) { phNeedSettings(); return { top, body: phLoading("Loading settings") }; }
+  if (!g) return { top, body: '<div class="phpad muted">This group is gone.</div>' };
+  const live = phG(name), can = !!(status && status.can_control), job = V.jobs.find((j) => j.group === name);
+  const val = (v) => `<span class="val">${esc(v)}</span>`, go = (s, t, v) => `<button class="phr" data-ph="go" data-s="${s}" data-g="${esc(name)}"><span class="tt"><b>${t}</b></span>${val(v)}<span class="chev">${phIc.chev}</span></button>`;
+  const kr = Number(g.keep_ready) || 1;
+  return { top, body: `<div class="phlist" style="margin-top:10px"><div class="phr"><span class="tt"><b>Failover</b><small>switch to the next client when one fails</small></span>${phSwitch(!!live && !live.paused, `data-ph="failover" data-g="${esc(name)}" ${live && can ? "" : "disabled"}`)}</div>
+      <div class="phr"><span class="tt"><b>Routing</b><small>the watchdog keeps the UniFi policies</small></span>${phSwitch(!!g.manage_routing, `data-ph="routing" data-g="${esc(name)}"`)}</div></div>
+    <div class="phlist" style="margin-top:14px">${go("order", "Fallback order", g.order.length + " client" + (g.order.length === 1 ? "" : "s"))}${go("vlans", "VLANs", (g.networks || []).map((n) => n.name).join(", ") || "none")}${go("devices", "Devices", (g.devices || []).length ? (g.devices || []).length + "" : "none")}${go("standby", "Warm standbys", kr === 1 ? "only the active one" : "active + " + (kr - 1))}${go("rotation", "Rotation", job && job.enabled ? "on" : "off")}</div>
+    <button class="phbtn danger full" style="margin-top:14px;height:52px" data-ph="delgroup" data-g="${esc(name)}">Delete group</button>` };
+}
+function phOrder(name) {
+  const g = phVg(name), top = phTop("Fallback order", { sub: name + " · #1 is used first" });
+  if (!V) { phNeedSettings(); return { top, body: phLoading("Loading settings") }; }
+  if (!g) return { top, body: "" };
+  const act = ((phG(name) || {}).active) || "";
+  const rows = g.order.map((it, i) => `<div class="phcrow ${it.tunnel === act ? "act" : ""}"><span class="rk">#${i + 1}</span><div class="nm"><span class="phmono">${esc(phShort(it.tunnel))}</span>${it.tunnel === act ? "<small>carries the traffic</small>" : ""}</div>
+    <button class="phsq" data-ph="oup" data-g="${esc(name)}" data-i="${i}" aria-label="Move up" ${i === 0 ? "disabled" : ""}>${phIc.up}</button><button class="phsq" data-ph="odn" data-g="${esc(name)}" data-i="${i}" aria-label="Move down" ${i === g.order.length - 1 ? "disabled" : ""}>${phIc.down}</button><button class="phsq" data-ph="odel" data-g="${esc(name)}" data-i="${i}" aria-label="Remove">${phIc.x}</button></div>`).join("");
+  return { top, body: `<div class="phlist" style="margin-top:8px">${rows || '<div class="phpad muted" style="padding:14px">No VPN client in the order yet. The group only watches until you add one.</div>'}</div>`, bot: `<div class="phbar"><button class="phbtn primary" data-ph="sheet" data-t="addclient" data-g="${esc(name)}">Add a VPN client…</button></div>` };
+}
+function phVlans(name) {
+  const g = phVg(name), top = phTop("VLANs", { sub: name });
+  if (!V) { phNeedSettings(); return { top, body: phLoading("Loading settings") }; }
+  const has = (x, n) => (x.networks || []).some((y) => y.id === n.id || (!y.id && y.name === n.name)), other = (n) => { const o = V.groups.find((x) => x !== g && has(x, n)); return o ? o.name : null; };
+  const rows = (M.networks || []).map((n) => { const o = other(n), on = has(g, n); return `<button class="phr" data-ph="vlan" data-g="${esc(name)}" data-id="${esc(n.id)}" ${o ? "disabled" : ""}><span class="tt"><b>${esc(n.name)}</b><small>${n.vlan != null ? "VLAN " + n.vlan : ""}${o ? " · already in group " + esc(o) : ""}</small></span>${on ? `<span style="color:var(--accent);display:flex">${phIc.check}</span>` : ""}</button>`; }).join("");
+  return { top, body: `<div class="phnote" style="margin-top:8px"><p style="margin:0">The VLANs this group is for. With Routing on, the watchdog keeps its own policy for them and warns you when UniFi sends one somewhere else.</p></div><div class="phlist" style="margin-top:10px">${rows}</div>` };
+}
+function phDevices(name) {
+  const g = phVg(name), top = phTop("Devices", { sub: name });
+  if (!V) { phNeedSettings(); return { top, body: phLoading("Loading settings") }; }
+  const cl = M.clients || [], lab = (d) => { const c = cl.find((x) => x.mac === d.mac); return (c && c.name) || d.name || "unnamed device"; };
+  const rows = (g.devices || []).map((d, i) => { const c = cl.find((x) => x.mac === d.mac); return `<div class="phcrow"><div class="nm"><b style="font-size:15px;font-weight:600">${esc(lab(d))}</b><small class="phmono" style="font-size:12px">${esc([d.mac, c && c.ip, c && c.network, c && !c.online ? "offline" : null].filter(Boolean).join(" · "))}</small></div><button class="phsq" data-ph="ddel" data-g="${esc(name)}" data-i="${i}" aria-label="Remove ${esc(lab(d))}">${phIc.x}</button></div>`; }).join("");
+  return { top, body: `<div class="phnote" style="margin-top:8px"><p style="margin:0">Devices this group routes one by one (for example a TV). Their policy stays above every VLAN policy in UniFi. A device keeps one MAC address: a phone or laptop with a private (rotating) Wi-Fi address would not match.${(g.devices || []).length && !g.manage_routing ? " <b style='color:var(--warn)'>Routing is off, so devices are not routed yet.</b>" : ""}</p></div><div class="phlist" style="margin-top:10px">${rows || '<div class="phpad muted" style="padding:14px">No device in this group.</div>'}</div>`, bot: `<div class="phbar"><button class="phbtn primary" data-ph="sheet" data-t="adddev" data-g="${esc(name)}">Add a device…</button></div>` };
+}
+function phStandby(name) {
+  const g = phVg(name), top = phTop("Warm standbys", { sub: name });
+  if (!V) { phNeedSettings(); return { top, body: phLoading("Loading settings") }; }
+  const kr = Number(g.keep_ready) || 1;
+  return { top, body: `<div class="phnote" style="margin-top:8px"><p style="margin:0">Keep this many VPN clients switched on and connected: the active one plus the next ones in the fallback order, so a failover needs no waiting. A standby carries no traffic. More clients up means more VPN sessions.</p></div><div class="phlist" style="margin-top:10px">${[1, 2, 3, 4, 5].map((n) => `<button class="phr" data-ph="standby" data-g="${esc(name)}" data-n="${n}"><span class="tt"><b>${n === 1 ? "Only the active one" : "The active one + " + (n - 1) + " standby" + (n > 2 ? "s" : "")}</b></span>${n === kr ? `<span style="color:var(--accent);display:flex">${phIc.check}</span>` : ""}</button>`).join("")}</div>` };
+}
+function phRotation(name) {
+  const top = phTop("Rotation", { sub: name });
+  if (!V) { phNeedSettings(); return { top, body: phLoading("Loading settings") }; }
+  const ji = V.jobs.findIndex((j) => j.group === name), job = V.jobs[ji], on = !!(job && job.enabled), live = phG(name), rr = live && live.rotation;
+  const sched = job ? `${job.every === 1 ? "Every 1 " + job.unit.slice(0, -1) : "Every " + job.every + " " + job.unit}${job.unit === "hours" ? "" : " at " + job.at}` : "";
+  let body = `<div class="phlist" style="margin-top:10px"><div class="phr"><span class="tt"><b>Rotation</b><small>${on ? esc(sched) : "move to another client on a timer"}</small></span>${phSwitch(on, `data-ph="rot" data-g="${esc(name)}"`)}</div></div>`;
+  if (on) {
+    const same = rr && rr.summary === sched, info = !same ? "Starts after the change is saved." : rr.paused ? "Stopped." : `Next rotation ${rr.next_ts ? fmtWhen(rr.next_ts) : "..."} · in ${rr.next_in == null ? "..." : fmtIn(rr.next_in)}${rr.next_to ? " → " + phShort(rr.next_to) : ""}`;
+    body += `<div class="phnote"><p style="margin:0">${esc(info)}</p></div><div class="phlist phform" style="margin-top:10px">
+      <div class="phfield"><label for="phe">Rotate every</label><div class="in"><input id="phe" type="number" min="1" max="999" data-path="jobs.${ji}.every" data-t="num" value="${esc(job.every)}"><select data-path="jobs.${ji}.unit" data-t="str" aria-label="Unit">${["hours", "days", "weeks"].map((u) => `<option ${u === job.unit ? "selected" : ""}>${u}</option>`).join("")}</select></div></div>
+      <div class="phfield"><label for="pha">Start at</label><div class="in"><input id="pha" type="time" data-path="jobs.${ji}.at" data-t="str" value="${esc(job.at)}" ${job.unit === "hours" ? "disabled" : ""}></div></div>
+      <button class="phr" data-ph="rotgo" data-g="${esc(name)}" data-v="next"><span class="tt"><b>Go to the next in the fallback order</b></span>${job.go_to !== "random" ? `<span style="color:var(--accent);display:flex">${phIc.check}</span>` : ""}</button>
+      <button class="phr" data-ph="rotgo" data-g="${esc(name)}" data-v="random"><span class="tt"><b>Go to a random one of the order</b></span>${job.go_to === "random" ? `<span style="color:var(--accent);display:flex">${phIc.check}</span>` : ""}</button></div>
+      <div class="phnote"><p style="margin:0">Before it moves, the next tunnel is connected and tested; one that fails is skipped. While rotation is on, failback to a higher tunnel is paused for this group.</p></div>
+      <div style="display:flex;gap:10px;margin-top:12px">${same ? `<button class="phbtn" style="flex:1" data-ph="rotnow" data-g="${esc(name)}">Rotate now</button>` : ""}<button class="phbtn danger" style="flex:1" data-ph="rotdel" data-g="${esc(name)}">Remove rotation</button></div>`;
+  } else if (job) body += `<div style="margin-top:12px"><button class="phbtn danger full" data-ph="rotdel" data-g="${esc(name)}">Remove rotation</button></div>`;
+  return { top, body };
+}
+function phSect(k) {
+  const t = { detection: "Detection", switching: "Switching", notifications: "Notifications" }[k] || "Settings";
+  if (!V) { phNeedSettings(); return { top: phTop(t), body: phLoading("Loading settings") }; }
+  return { top: phTop(t), body: '<div class="phsect"><div id="phslot"></div></div>' };
+}
+function phSheetHtml() {
+  const sh = PH.sheet, g = sh.g ? phG(sh.g) : null, vg = sh.g ? phVg(sh.g) : null;
+  const head = (t) => `<div class="grab"></div><div class="hd"><b>${esc(t)}</b><button class="phsq" data-ph="sheetx" aria-label="Close">${phIc.close}</button></div>`;
+  let inner = "";
+  if (sh.t === "switch" && g) inner = head("Switch client · " + g.name) + `<div class="phlist" style="margin-top:8px">${(g.lane || []).filter((t) => !t.active).map((t) => `<button class="phr" data-ph="switchdo" data-g="${esc(g.name)}" data-t="${esc(t.id)}"><span class="tt"><b class="phmono" style="font-weight:500;font-size:15px">${esc(phShort(t.name))}</b><small>${t.standby ? (t.standby_ready ? "standby, connected" : "standby, connecting") : t.quarantined_for ? "cooling down " + t.quarantined_for + "s" : "ready"}</small></span><span class="phpill">Switch</span></button>`).join("")}</div>`;
+  else if (sh.t === "more" && g) { const r = g.rotation; inner = head(g.name) + `<div class="phlist" style="margin-top:8px">${r && r.enabled ? `<button class="phr" data-ph="rotnow" data-g="${esc(g.name)}"><span class="tt"><b>Rotate now</b></span></button><button class="phr" data-ph="${r.paused ? "rotresume" : "rotpause"}" data-g="${esc(g.name)}"><span class="tt"><b>${r.paused ? "Start rotation" : "Stop rotation"}</b></span></button>` : ""}<button class="phr" data-ph="gsettings" data-g="${esc(g.name)}"><span class="tt"><b>Group settings</b></span><span class="chev">${phIc.chev}</span></button></div>`; }
+  else if (sh.t === "addclient" && vg && V) { const used = new Set(V.groups.flatMap((x) => x.order.map((o) => o.id || o.tunnel))), pool = (M.tunnels || []).filter((t) => !used.has(t.id) && !used.has(t.name)); inner = head("Add a VPN client") + `<input class="phsearch" style="margin-top:10px" type="search" data-ph="filter" placeholder="Search" aria-label="Search clients"><div class="phlist" style="margin-top:10px">${pool.map((t) => `<button class="phr" data-fil="${esc(t.name.toLowerCase())}" data-ph="addclient" data-g="${esc(sh.g)}" data-t="${esc(t.id)}"><span class="tt"><b class="phmono" style="font-weight:500;font-size:15px">${esc(phShort(t.name))}</b></span><span class="phpill">Add</span></button>`).join("") || '<div class="phpad muted" style="padding:14px">Every VPN client is already in a group.</div>'}</div>`; }
+  else if (sh.t === "adddev" && vg && V) { const own = new Set((vg.devices || []).map((d) => d.mac)), owner = (mac) => { const o = V.groups.find((x) => x !== vg && (x.devices || []).some((d) => d.mac === mac)); return o ? o.name : null; };
+    inner = head("Add a device") + `<input class="phsearch" style="margin-top:10px" type="search" data-ph="filter" placeholder="Search by name, IP or MAC" aria-label="Search devices"><div class="phlist" style="margin-top:10px">${(M.clients || []).filter((c) => !own.has(c.mac)).map((c) => { const o = owner(c.mac); return `<button class="phr" data-fil="${esc([c.name, c.ip, c.mac, c.network].join(" ").toLowerCase())}" data-ph="adddevdo" data-g="${esc(sh.g)}" data-mac="${esc(c.mac)}" ${o ? "disabled" : ""}><span class="tt"><b>${esc(c.name || c.mac)}</b><small>${esc([c.ip, c.network, c.online ? null : "offline", o ? "in group " + o : null].filter(Boolean).join(" · "))}</small></span></button>`; }).join("")}</div>`; }
+  return `<div class="phscrim" data-ph="sheetx"></div><div class="phsheet" role="dialog" aria-modal="true">${inner}</div>`;
+}
+
+/* ---------------------------------------------------------------- render */
+function phScreen(sc) {
+  switch (sc.s) {
+    case "status": return phHome();
+    case "events": return phEvents();
+    case "settings": return phSettings();
+    case "group": return phGroupScreen(sc.g);
+    case "networks": return phNetworks();
+    case "gset": return phGset(sc.g);
+    case "order": return phOrder(sc.g);
+    case "vlans": return phVlans(sc.g);
+    case "devices": return phDevices(sc.g);
+    case "standby": return phStandby(sc.g);
+    case "rotation": return phRotation(sc.g);
+    case "sect": return phSect(sc.k);
+    default: return phHome();
+  }
+}
+function phRender(top) {
+  const root = $("#papp"); if (!root || !document.body.classList.contains("isphone")) return;
+  const st = $("#settings"); if (st && root.contains(st)) $("#tab-settings").appendChild(st);          // keep the desktop forms alive: they are only borrowed for a screen
+  const sc = phCur(), old = root.querySelector(".ph-body"), keep = old && !top ? old.scrollTop : 0;
+  let out;
+  try { out = phScreen(sc); } catch (e) { out = { top: phTop("VPN Watchdog", { root: true }), body: `<div class="phpad muted">Could not draw this screen: ${esc(e.message)}</div>`, bot: phTabs() }; }
+  root.innerHTML = `<div class="ph-top">${out.top}</div><div class="ph-body" id="phbody">${out.body}</div>${out.bot ? `<div class="ph-bot">${out.bot}</div>` : ""}${PH.sheet ? phSheetHtml() : ""}`;
+  if (sc.s === "sect" && V) { const slot = $("#phslot"); if (slot) { slot.appendChild($("#settings")); sset = sc.k; renderSettings(); } }
+  const b = $("#phbody"); if (b) b.scrollTop = keep;
+}
+function phApply() { document.body.classList.toggle("isphone", phone()); if (phone()) phRender(true); }
+function phTyping() { const a = document.activeElement; return !!(a && $("#papp") && $("#papp").contains(a) && a.matches("input, select, textarea")); }
+function phRefresh() { if (document.body.classList.contains("isphone") && !phTyping() && !PH.sheet) phRender(); }
+
+/* ---------------------------------------------------------------- actions */
+$("#papp").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-ph]"); if (!b || b.disabled) return;
+  const a = b.dataset.ph, d = b.dataset, enc = encodeURIComponent;
+  if (a === "tab") return phTab(d.t);
+  if (a === "back") return phBack();
+  if (a === "go") return phGo({ s: d.s, g: d.g, k: d.k });
+  if (a === "group") { PH.seg = d.seg || "clients"; if (d.seg === undefined) PH.seg = "clients"; return phGo({ s: "group", g: d.g }); }
+  if (a === "seg") { PH.seg = d.seg; return phRender(); }
+  if (a === "net") { PH.net = d.id; PH.q = ""; if (phCur().s !== "networks") return phGo({ s: "networks" }); return phRender(true); }
+  if (a === "evf") { PH.evf = d.f; return phRender(); }
+  if (a === "check") return act("check-now");
+  if (a === "pause") { const g = phG(d.g); return act(`groups/${enc(d.g)}/${g && g.paused ? "resume" : "pause"}`); }
+  if (a === "sheet") { PH.sheet = { t: d.t, g: d.g }; return phRender(); }
+  if (a === "sheetx") { PH.sheet = null; return phRender(); }
+  if (a === "switchdo") { const g = phG(d.g), t = g && (g.lane || []).find((x) => x.id === d.t); if (!t || !confirm(`Switch ${d.g} to ${phShort(t.name)}?\n\nIt is connected and tested first; the current client is switched off afterwards.`)) return; PH.sheet = null; phRender(); return act(`groups/${enc(d.g)}/switch`, { tunnel: d.t }); }
+  if (a === "rotnow") { PH.sheet = null; phRender(); await act(`groups/${enc(d.g)}/rotate`); return toast("Rotating " + d.g + "..."); }
+  if (a === "rotpause" || a === "rotresume") { PH.sheet = null; phRender(); return act(`groups/${enc(d.g)}/${a === "rotpause" ? "rotation-pause" : "rotation-resume"}`); }
+  if (a === "gsettings") { PH.sheet = null; PH.tab = "settings"; phNeedSettings(); PH.stack = [{ s: "gset", g: d.g }]; return phRender(true); }
+  if (a === "blk") return blockerAction(d.g, d.kind, d.r);
+  if (a === "addgroup") { let n = 1; const names = new Set(V.groups.map((x) => x.name)); while (names.has("Group " + n)) n++; V.groups.push({ name: "Group " + n, _orig: null, order: [], networks: [], devices: [], manage_routing: true }); markDirty(); return phGo({ s: "gset", g: "Group " + n }); }
+  const g = phVg(d.g), i = +d.i;
+  if (a === "failover") { const live = phG(d.g); return act(`groups/${enc(d.g)}/${live && !live.paused ? "pause" : "resume"}`); }
+  if (a === "routing" && g) {
+    if (!g.manage_routing) { const lv = phG(g.name), plan = (lv && lv.routing && lv.routing.plan) || []; if (!confirm(`Let the watchdog manage routing for "${g.name}"?\n\nIt will keep its own routing policy (named "vpnwd: ...") for each picked VLAN and device on the active VPN client, and move it on failover. It never edits or deletes any policy you made.\n\n${plan.length ? "Right now it would:\n- " + plan.join("\n- ") : "Nothing to change right now."}`)) return; }
+    g.manage_routing = !g.manage_routing; return phChanged();
+  }
+  if (a === "delgroup" && g) { if (!confirm(`Delete the group "${g.name}"? The watchdog stops managing it, and removes its own policies from UniFi. Your policies stay untouched.`)) return; V.jobs = V.jobs.filter((j) => j.group !== g.name); V.groups.splice(V.groups.indexOf(g), 1); PH.stack = []; PH.tab = "settings"; return phChanged(); }
+  if (a === "oup" && g && i > 0) { [g.order[i - 1], g.order[i]] = [g.order[i], g.order[i - 1]]; return phChanged(); }
+  if (a === "odn" && g && i < g.order.length - 1) { [g.order[i + 1], g.order[i]] = [g.order[i], g.order[i + 1]]; return phChanged(); }
+  if (a === "odel" && g) { g.order.splice(i, 1); return phChanged(); }
+  if (a === "addclient" && g) { const t = (M.tunnels || []).find((x) => x.id === d.t); if (t) g.order.push({ tunnel: t.name, id: t.id, expect_country: "" }); PH.sheet = null; return phChanged(); }
+  if (a === "vlan" && g) { const nm = (M.networks || []).find((x) => x.id === d.id); g.networks = g.networks || []; const k = g.networks.findIndex((y) => y.id === d.id || (!y.id && nm && y.name === nm.name)); if (k >= 0) g.networks.splice(k, 1); else if (nm) g.networks.push({ id: nm.id, name: nm.name }); return phChanged(); }
+  if (a === "adddevdo" && g) { const c = (M.clients || []).find((x) => x.mac === d.mac); g.devices = (g.devices || []).concat([{ mac: d.mac, name: (c && c.name) || "" }]); PH.sheet = null; return phChanged(); }
+  if (a === "ddel" && g) { g.devices = (g.devices || []).filter((_, j) => j !== i); return phChanged(); }
+  if (a === "standby" && g) { g.keep_ready = +d.n; return phChanged(); }
+  if (a === "rot" && g) { const j = V.jobs.find((x) => x.group === g.name); if (j) j.enabled = !j.enabled; else V.jobs.push({ kind: "rotation", group: g.name, enabled: true, every: 1, unit: "days", at: "03:00", go_to: "next" }); return phChanged(); }
+  if (a === "rotgo" && g) { const j = V.jobs.find((x) => x.group === g.name); if (j) j.go_to = d.v; return phChanged(); }
+  if (a === "rotdel" && g) { V.jobs = V.jobs.filter((x) => x.group !== g.name); return phChanged(); }
+});
+$("#papp").addEventListener("input", (e) => {
+  const t = e.target;
+  if (t.dataset.ph === "q") { PH.q = t.value; const cur = allNets(mapData()).find((x) => x.n.id === PH.net), el = $("#phlist"); if (cur && el) el.innerHTML = phDevRows(cur.n); return; }
+  if (t.dataset.ph === "filter") { const q = t.value.trim().toLowerCase(); document.querySelectorAll(".phsheet [data-fil]").forEach((r) => { r.style.display = !q || r.dataset.fil.includes(q) ? "" : "none"; }); return; }
+  if (t.dataset && t.dataset.path && !t.closest(".phsect")) handleField(t);
+});
+$("#papp").addEventListener("change", (e) => { const t = e.target; if (t.dataset && t.dataset.path && !t.closest(".phsect")) { handleField(t); phRender(); } });
+window.matchMedia("(max-width: 700px)").addEventListener("change", phApply);
+
+phApply();
 refresh(); setInterval(refresh, 5000);
 </script>
 </body>
