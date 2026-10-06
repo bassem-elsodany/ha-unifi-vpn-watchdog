@@ -126,6 +126,7 @@
   .pool { margin-top: 16px; border: 1px dashed var(--idle2); border-radius: 16px; padding: 0 14px; font-size: 13px; color: var(--chipink); }
   .pool summary { cursor: pointer; list-style: none; min-height: 30px; display: flex; align-items: center; justify-content: center; text-align: center; } .pool summary::-webkit-details-marker { display: none; }
   .pool:not(details) { min-height: 32px; display: flex; align-items: center; justify-content: center; } .pool[open] { padding-bottom: 8px; }
+  .lmore { margin-top: 16px; min-height: 32px; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--idle2); border-radius: 999px; padding: 0 14px; font-size: 13px; color: var(--chipink); cursor: pointer; } .lmore b { margin-left: 4px; color: var(--accentink); }
   .pchips { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 0 4px; }
   .pc { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line2); border-radius: 999px; padding: 3px 10px; font: 12px 'IBM Plex Mono', ui-monospace, Menlo, monospace; background: var(--card); cursor: pointer; color: var(--ink); }
   .pc.sel { border-color: var(--accent); background: var(--accentbg); }
@@ -377,20 +378,24 @@ function laneCard(g, t, can, behind) {
     <span class="dot ${c}"></span>
     <div class="lb">${head}<div class="sub">${sub}</div></div></div>`;
 }
+const laneOpen = new Set();       // groups whose long fallback order is shown in full
 function laneHtml(g, can, behind) {
   const parts = [];
-  g.lane.forEach((t, i) => {
+  const long = !g.unmanaged && g.lane.length > 5, open = laneOpen.has(g.name);
+  const shown = long && !open ? g.lane.filter((t) => t.active || (t.position != null && t.position <= 3)) : g.lane;      // a long order stays collapsed: the first three and the active one
+  shown.forEach((t, i) => {
     parts.push(laneCard(g, t, can, behind));
-    const nx = g.lane[i + 1];
-    if (nx) parts.push(`<div class="lgap">${nx.position != null && t.position != null ? `if #${t.position} fails` : ""}</div>`);
+    const nx = shown[i + 1];
+    if (nx) parts.push(`<div class="lgap">${nx.position != null && t.position != null && nx.position === t.position + 1 ? `if #${t.position} fails` : ""}</div>`);
   });
+  const more = long ? `<div class="lmore" data-lane-toggle="${esc(g.name)}" role="button" tabindex="0">${open ? "<b>Show fewer</b>" : `+ ${g.lane.length - shown.length} more in the fallback order · <b>Show all</b>`}</div>` : "";
   const empty = g.unmanaged || g.lane.some((t) => t.position != null) ? "" : '<div class="muted" style="padding:10px 4px">No fallback order yet. Press "Set the fallback order" above to build it in Settings.</div>';
   const pool = g.pool.length ? `<details class="pool" data-g="${esc(g.name)}" ${poolOpen.has(g.name) ? "open" : ""}><summary>+ ${g.pool.length} more tunnel${g.pool.length === 1 ? " is" : "s are"} ${g.unmanaged ? "have a policy for these networks" : "not in the fallback order"}</summary>
       <div class="pchips">${g.pool.map((p) => `<span class="pc ${selected && selected.name === p.id ? "sel" : ""}" data-g="${esc(g.name)}" data-tun="${esc(p.id)}" ><span class="dot ${tcolor(p)}"></span>${esc(p.name)}</span>`).join("")}</div></details>`
     : g.unmanaged ? "" : `<div class="pool" data-g="${esc(g.name)}"><span class="muted" style="font-size:13px">Every tunnel is in the fallback order.</span></div>`;
   return `<div class="colm"><div class="band"><div class="bhead">${g.unmanaged ? '<b>VPN CLIENT IN USE</b><div class="muted">UniFi sends these networks through the first routing policy that is switched on.</div>'
       : `<b>GROUP ${esc(g.name.toUpperCase())} \u00b7 FALLBACK ORDER</b><div class="muted">#1 carries the traffic. If it fails, #2 takes over, then #3.</div>`}</div>
-    <div class="lane" data-g="${esc(g.name)}">${parts.join("") + empty}</div>${pool}</div></div>`;
+    <div class="lane" data-g="${esc(g.name)}">${parts.join("") + empty}</div>${more}${pool}</div></div>`;
 }
 const legendHtml = (can) => `<div class="legend"><b>LEGEND</b><div><i style="background:var(--ok)"></i>connected / device active</div><div><i style="background:var(--warn)"></i>↗ own route: normal connection</div><div><i style="background:var(--own)"></i>↗ own route: another VPN client</div><div><i style="background:var(--idle2)"></i>idle / disconnected</div></div>
   <p class="hint">Click a device to light up its path through the map. Click a VPN client for its details panel.</p>`;
@@ -588,6 +593,7 @@ function openGroupOrder(name) {            // from the Status header: Settings >
 /* clicks and search on the map */
 const mapEl = $("#map");
 mapEl.addEventListener("click", (e) => {
+  const lt = e.target.closest("[data-lane-toggle]"); if (lt) { const n = lt.dataset.laneToggle; if (laneOpen.has(n)) laneOpen.delete(n); else laneOpen.add(n); renderMap(status); return; }
   const go = e.target.closest("[data-goorder]"); if (go) { openGroupOrder(go.dataset.goorder); return; }
   const gb = e.target.closest("[data-gact]"); if (gb) { act(`groups/${encodeURIComponent(gb.dataset.g)}/${gb.dataset.gact}`); return; }
   if (e.target.closest("#directToggle")) { directOpen = !directOpen; renderMap(status); return; }

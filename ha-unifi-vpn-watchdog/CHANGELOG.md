@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.15.1
+
+- Status: a long fallback order no longer fills the page. A group with more than five clients in its order shows the first three (and the active one) and one dashed line, "+ N more in the fallback order · Show all"; pressing it shows every client and reads "Show fewer". Short orders show in full as before.
+
 ## 0.15.0
 
 - **The watchdog now only switches VPN clients on and off.** It never creates, edits, enables or disables a routing policy, and the API client no longer has any way to write one. Which VLANs and devices use which VPN client is entirely your routing policies in UniFi.
