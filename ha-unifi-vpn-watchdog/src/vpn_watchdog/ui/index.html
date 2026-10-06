@@ -388,7 +388,7 @@ function laneHtml(g, can, behind) {
     const nx = g.lane[i + 1];
     if (nx) parts.push(`<div class="lgap">${nx.position != null && t.position != null ? `if #${t.position} fails` : ""}</div>`);
   });
-  const empty = g.unmanaged || g.lane.some((t) => t.position != null) ? "" : '<div class="muted" style="padding:10px 4px">No fallback order yet. Open the list below and drag tunnels up here.</div>';
+  const empty = g.unmanaged || g.lane.some((t) => t.position != null) ? "" : '<div class="muted" style="padding:10px 4px">No fallback order yet. Press "Set the fallback order" above to build it in Settings.</div>';
   const pool = g.pool.length ? `<details class="pool" data-g="${esc(g.name)}" ${poolOpen.has(g.name) ? "open" : ""}><summary>+ ${g.pool.length} more tunnel${g.pool.length === 1 ? " is" : "s are"} ${g.unmanaged ? "have a policy for these networks" : "not in the fallback order" + (can ? " \u00b7 add them" : "")}</summary>
       <div class="pchips">${g.pool.map((p) => `<span class="pc ${selected && selected.name === p.id ? "sel" : ""}" data-g="${esc(g.name)}" data-tun="${esc(p.id)}" ${can && !g.unmanaged ? 'draggable="true" data-drag="pool"' : ""}><span class="dot ${tcolor(p)}"></span>${esc(p.name)}</span>`).join("")}</div></details>`
     : g.unmanaged ? "" : `<div class="pool" data-g="${esc(g.name)}"><span class="muted" style="font-size:13px">Every tunnel is in the fallback order.</span></div>`;
@@ -961,7 +961,6 @@ setEl.addEventListener("click", async (e) => {
     renderSection(); return;
   }
   if (k === "addall") { const g = V.groups[selG]; (M.tunnels || []).filter((t) => !g.order.some((x) => x.id === t.id || (!x.id && x.tunnel === t.name))).forEach((t) => g.order.push({ tunnel: t.name, id: t.id, expect_country: "" })); renderSection(); return; }
-  if (k === "gostatus") { document.querySelector("nav button[data-tab=status]").click(); }
 });
 
 let saveTimer = null;

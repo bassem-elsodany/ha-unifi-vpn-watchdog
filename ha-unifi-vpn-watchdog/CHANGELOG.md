@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.1
+
+- Building a group's fallback order never sends you to another page: it is all in Settings > VPN groups. The old "Reorder on the Status page" button is gone for good, and the empty lane on Status now points to the Settings editor.
+
 ## 0.14.0
 
 - **VPN groups explained and easier to fill in** (Settings > VPN groups). The page now says in plain words what a group is, lists the three steps, and marks every section as required, optional or done. Each group shows whether it is Ready or Needs a fallback order, and says what is missing in one line.
