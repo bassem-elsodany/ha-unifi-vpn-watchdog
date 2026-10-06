@@ -1,9 +1,12 @@
 # HA UniFi VPN Watchdog
 
-Health-checks the WireGuard VPN clients on a UniFi gateway and, when the one in use stops carrying traffic, **switches on the
-next VPN client from your fallback order and switches the failed one off**. That is the only thing it ever changes in UniFi:
-**a VPN client's on/off switch. Routing policies are yours: the watchdog never edits one you made. Only if you switch on "manage routing" for a group does it keep its own policy (named `vpnwd: ...`) per picked VLAN pointed at the active client.** Runs as a Docker container or a Home Assistant add-on, has a
-web UI (status, jobs, start/stop, config editor), and is configured by one hot-reloaded YAML file.
+A **group** is a set of VLANs plus an ordered list of UniFi WireGuard VPN clients. The watchdog health-checks the client in use and,
+when it stops carrying traffic, **switches on the next client from your fallback order and switches the failed one off**. A group can
+also **rotate** to another client on a timer. By default that is all it changes in UniFi (a VPN client's on/off switch) and your routing
+policies are yours: it warns you when they do not match the group, and never edits one you made. If you switch on **Routing** for a
+group, it keeps its own policy (named `vpnwd: ...`) for each picked VLAN pointed at the active client, and moves it on failover.
+Runs as a Docker container or a Home Assistant add-on, has a web UI (status, settings per group, config editor), and is configured by
+one hot-reloaded YAML file.
 
 ```
             ┌────────────────────── ha-unifi-vpn-watchdog ──────────────────────┐

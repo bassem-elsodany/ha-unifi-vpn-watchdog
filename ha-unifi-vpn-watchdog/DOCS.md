@@ -1,16 +1,18 @@
 # HA UniFi VPN Watchdog
 
-Monitors your UniFi WireGuard VPN clients and switches on the next VPN client from your fallback order when a
-tunnel stops carrying traffic.
+A group is a set of VLANs plus an ordered list of your UniFi WireGuard VPN clients. The watchdog switches on the next client from
+your fallback order when the one in use stops carrying traffic, can rotate clients on a timer, and (only if you switch it on) keeps the
+routing policy of each picked VLAN pointed at the active client.
 
 ## First start
 1. **Configuration tab:** set `unifi_api_key` (UniFi > Settings > Integrations > API key) and, if needed, `unifi_url`.
 2. Start the add-on. It creates `config.yaml` in the add-on config folder.
-3. Open **VPN Watchdog** in the sidebar, go to **Settings > VPN groups** and add a group: tick the networks that should use the VPN, then
-   add your tunnels under **Fallback order** and number them 1, 2, 3 ... Until you do, the watchdog only watches.
-4. Open **VPN Watchdog** in the sidebar: status, events, start/stop per group, force switch, and a **Settings** form for
-   everything (check interval, thresholds, fallback order, alerts).
-5. When the decisions look right, press **Go live**.
+3. Open **VPN Watchdog** in the sidebar, go to **Settings > VPN groups** and add a group:
+   - tick the VLANs this group is for,
+   - add your VPN clients under **Fallback order** and number them 1, 2, 3 ... Until you do, the group only watches,
+   - optional: switch on **Rotation** (move to another client on a timer) and **Routing** (the watchdog keeps its own policy per
+     picked VLAN on the active client).
+4. The **Status** page shows each group with its VLANs, devices and fallback order; Settings saves by itself a moment after each change.
 
 ## Home Assistant integration
 - **Sidebar panel** (ingress): no extra login, controls are protected by your HA session.

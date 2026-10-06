@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.18.1
+
+- The add-on description (Home Assistant store) and the READMEs describe the current logic: groups of VLANs and VPN clients, failover, optional rotation and optional routing management.
+
 ## 0.18.0
 
 - **Jobs are part of the group.** The Jobs section is gone. Settings > VPN groups now has, for each group, a Failover switch (pause / resume) and a Rotation switch with its timing, "Rotate now" and "Remove rotation". Existing rotation jobs in your config keep working.
