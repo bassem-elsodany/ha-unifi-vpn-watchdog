@@ -53,28 +53,14 @@
   pre.err { white-space: pre-wrap; color: var(--bad); margin: 8px 0 0; }
 
   /* settings form */
-  .frow { display: grid; grid-template-columns: minmax(200px, 300px) 1fr; gap: 6px 18px; padding: 10px 0; border-top: 1px solid var(--line); align-items: start; }
-  .frow:first-of-type { border-top: 0; }
-  .flabel { font-weight: 600; } .help { color: var(--muted); font-weight: 400; font-size: 12.5px; margin-top: 2px; }
-  .summary { background: var(--accentbg); color: var(--accent); border-radius: 8px; padding: 8px 12px; margin-top: 8px; font-size: 13px; }
-  @media (max-width: 700px) { .frow { grid-template-columns: 1fr; } }
   .sw { position: relative; display: inline-block; width: 42px; height: 24px; }
   .sw input { opacity: 0; width: 0; height: 0; }
   .sw span { position: absolute; inset: 0; background: var(--line); border-radius: 24px; cursor: pointer; transition: .15s; }
   .sw span:before { content: ""; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .15s; }
   .sw input:checked + span { background: var(--accent); } .sw input:checked + span:before { transform: translateX(18px); }
-  .net { display: inline-flex; align-items: center; gap: 6px; margin: 0 14px 6px 0; }
-  .step { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px dashed var(--line); }
-  .step select { max-width: 340px; }
   #groups, #settings, #groupsForm { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 0 14px; align-items: start; }
   #groupsForm { grid-column: 1 / -1; }
   #groupsForm > .card:first-child, #notifyCard { grid-column: 1 / -1; }
-  .step .n { width: 22px; color: var(--muted); font-weight: 600; }
-  .chip { display: inline-block; background: var(--accentbg); color: var(--accent); border-radius: 6px; padding: 1px 7px; margin: 2px 4px 2px 0; font: 12px 'IBM Plex Mono', ui-monospace, Menlo, monospace; }
-  .alertgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); gap: 0 28px; }
-  .alert { padding: 10px 0; border-top: 1px solid var(--line); }
-  .alert .head { display: flex; gap: 10px; align-items: center; margin-bottom: 6px; }
-  .alert .grid { display: grid; grid-template-columns: 70px 1fr; gap: 6px 10px; align-items: center; }
   /* network map (design option A) */
   :root { --line2: #C5CFD9; --lane: #E8EDF2; }
   @media (prefers-color-scheme: dark) { :root { --line2: #3A4456; --lane: #1E2530; } }
@@ -146,6 +132,47 @@
   .kv { display: grid; grid-template-columns: 130px 1fr; gap: 4px 12px; margin: 12px 0; } .kv div:nth-child(odd) { color: var(--muted); }
   #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: var(--card); padding: 8px 16px; border-radius: 999px; font-size: 13px; z-index: 12; }
   @media (max-width: 1000px) { .gcols { grid-template-columns: 1fr; row-gap: 18px; } #links { display: none; } .lgap { padding-left: 24px; } .lgap::before { content: "\2193  "; } }
+  /* settings: one flat page per section (design: Settings 1-3) */
+  .sset { display: flex; gap: 40px; align-items: flex-start; }
+  .snav { flex: none; width: 220px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 16px; }
+  .snav button { display: flex; align-items: center; justify-content: space-between; text-align: left; background: none; border: 0; padding: 10px 14px; border-radius: 10px; font: inherit; font-size: 14px; color: var(--ink); cursor: pointer; }
+  .snav button:hover { background: var(--accentbg); } .snav button.on { background: var(--accentbg); color: var(--accent); font-weight: 600; }
+  .snav i { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); }
+  .spanel { flex: 1; min-width: 0; max-width: 1040px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 32px 40px; }
+  .spanel.flush { padding: 0; overflow: hidden; }
+  .spanel h1 { margin: 0; font-size: 24px; font-weight: 600; } .spanel h2 { margin: 26px 0 0; padding-top: 24px; border-top: 1px solid var(--line); font-size: 18px; font-weight: 600; }
+  .spanel .lead { margin: 6px 0 12px; font-size: 14px; line-height: 21px; color: var(--muted); }
+  .srow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 340px); gap: 24px; align-items: center; padding: 20px 0; border-top: 1px solid var(--line); }
+  .lead + .srow, h1 + .lead + .srow { border-top: 0; }
+  .slab b { display: block; font-size: 15px; font-weight: 600; } .slab span { display: block; font-size: 13px; line-height: 19px; color: var(--muted); margin-top: 3px; max-width: 480px; }
+  .srow.dim { opacity: .5; }
+  .num { display: flex; align-items: center; border: 1px solid var(--line2); border-radius: 10px; height: 40px; background: var(--card); overflow: hidden; width: 210px; }
+  .num input { border: 0; outline: 0; width: 76px; height: 100%; padding: 0 12px; font: inherit; font-size: 15px; background: transparent; color: var(--ink); border-radius: 0; }
+  .num span { flex: 1; padding-left: 2px; text-align: left; font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .fld { width: 100%; box-sizing: border-box; height: 40px; font: inherit; font-size: 14px; padding: 0 12px; border: 1px solid var(--line2); border-radius: 10px; background: var(--card); color: var(--ink); }
+  .seg { display: flex; border: 1px solid var(--line2); border-radius: 10px; overflow: hidden; min-height: 40px; background: var(--card); }
+  .seg span { flex: 1; display: flex; align-items: center; justify-content: center; padding: 6px 10px; font-size: 13px; text-align: center; border-left: 1px solid var(--line); cursor: pointer; color: var(--ink); }
+  .seg span:first-child { border-left: 0; } .seg span:hover { background: var(--accentbg); } .seg span.on { background: var(--accentbg); color: var(--accent); font-weight: 600; }
+  .note { margin: 8px 0 0; font-size: 13px; line-height: 19px; color: var(--muted); } .insight { margin: 6px 0 4px; font-size: 14px; line-height: 21px; color: var(--accent); }
+  .gm { display: flex; min-height: 520px; } .gl { flex: none; width: 280px; border-right: 1px solid var(--line); padding: 28px 0; display: flex; flex-direction: column; }
+  .gl .cap { padding: 0 28px 14px; font-size: 12px; font-weight: 600; letter-spacing: .06em; color: var(--muted); }
+  .gi { display: flex; flex-direction: column; gap: 2px; padding: 12px 28px; cursor: pointer; } .gi:hover { background: var(--accentbg); } .gi.on { background: var(--accentbg); box-shadow: inset 3px 0 var(--accent); }
+  .gi b { font-size: 15px; } .gi span { font-size: 13px; color: var(--muted); }
+  .gd { flex: 1; min-width: 0; padding: 28px 36px; }
+  .gd .gname { flex: 1; min-width: 0; font: inherit; font-size: 22px; font-weight: 600; border: 0; border-bottom: 1px solid var(--line2); padding: 4px 0; outline: 0; background: transparent; color: var(--ink); }
+  .gd .srow { grid-template-columns: minmax(0, 250px) minmax(0, 1fr); align-items: start; }
+  .chips2 { display: flex; flex-wrap: wrap; gap: 8px; } .tc { display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border: 1px solid var(--line2); border-radius: 999px; font-size: 13px; background: var(--card); color: var(--ink); cursor: pointer; }
+  .tc.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
+  .opill { display: inline-flex; align-items: center; gap: 6px; font: 12px 'IBM Plex Mono', ui-monospace, monospace; padding: 5px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); } .opill b { font-family: inherit; font-size: 11px; }
+  .btn { font: inherit; font-size: 13px; font-weight: 600; padding: 8px 14px; border: 1px solid var(--line2); border-radius: 10px; background: var(--card); color: var(--accent); cursor: pointer; } .btn.danger { color: var(--bad); font-weight: 400; }
+  .al { display: grid; grid-template-columns: 52px 230px minmax(0, 1fr) 110px; gap: 16px; align-items: center; padding: 14px 0; border-top: 1px solid var(--line); }
+  .al .nm { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; } .al .wh { font-size: 13px; line-height: 19px; color: var(--muted); } .al .ed { font-size: 13px; font-weight: 600; color: var(--accent); text-align: right; cursor: pointer; }
+  .al.head { border-top: 0; padding: 8px 0; font-size: 12px; font-weight: 600; letter-spacing: .06em; color: var(--muted); }
+  .lv { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; } .lv.info { background: var(--accentbg); color: var(--accent); } .lv.warning { background: var(--warnbg); color: var(--warn); } .lv.critical { background: var(--badbg); color: var(--bad); }
+  .ex { background: var(--bg); margin: 0 -40px; padding: 8px 40px 22px; border-top: 1px solid var(--line); } .ex + .al { border-top: 0; }
+  .exf { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 10px 16px; align-items: center; margin-left: 68px; } .exf label { font-size: 13px; color: var(--muted); }
+  .ph { display: inline-block; font: 12px 'IBM Plex Mono', ui-monospace, monospace; padding: 3px 8px; margin: 0 6px 6px 0; border: 1px solid var(--line2); border-radius: 6px; background: var(--card); color: var(--accent); cursor: pointer; }
+  @media (max-width: 900px) { .sset { flex-direction: column; gap: 16px; } .snav { width: auto; flex-direction: row; overflow-x: auto; position: static; } .srow, .gd .srow { grid-template-columns: 1fr; } .gm { flex-direction: column; } .gl { width: auto; border-right: 0; border-bottom: 1px solid var(--line); } .al { grid-template-columns: 52px 1fr; } .al .wh, .al .ed { grid-column: 2; text-align: left; } .spanel { padding: 22px 18px; } }
   .savebar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--line); padding: 10px 20px; display: flex; gap: 10px; align-items: center; z-index: 5; }
 </style>
 </head>
@@ -198,7 +225,7 @@
 <div id="toast" class="hide"></div>
 
 <div class="savebar hide" id="savebar">
-  <b>Unsaved changes</b><span class="muted">Applied within one check cycle after you save. Invalid values are rejected.</span>
+  <span class="dot warn"></span><b id="chgTitle">Unsaved changes</b><span class="muted" id="chg">Applied within one check cycle after you save.</span>
   <span class="grow"></span><span id="saveMsg"></span>
   <button class="act" id="discard">Discard</button><button class="act primary" id="saveSettings">Save &amp; apply</button>
 </div>
@@ -438,6 +465,10 @@ async function postOrder(g, order) {
   toast("Saving the new order...", 60000, true);
   const r = await api(`groups/${encodeURIComponent(g)}/order`, "POST", { order });
   if (!r.ok) alert(r.data.error || "The order could not be saved.");
+  if (r.ok && V) {   // keep an open Settings form in step with the new order instead of discarding unsaved edits
+    const grp = V.groups.find((x) => x.name === g), o = JSON.parse(orig), og = o.groups.find((x) => x.name === g);
+    if (grp) { const old = Object.fromEntries(grp.order.map((i) => [i.tunnel, i])); grp.order = order.map((n) => old[n] || { tunnel: n, expect_country: "" }); if (og) { og.order = JSON.parse(JSON.stringify(grp.order)); orig = JSON.stringify(o); } }
+  }
   toast(r.ok ? "Order saved. It takes effect within a few seconds." : "");
   setTimeout(refresh, 1500);
 }
@@ -518,12 +549,43 @@ function renderEvents(d) {
 
 async function act(path, body) { const r = await api(path, "POST", body); if (!r.ok) alert(r.data.error || "failed"); refresh(); }
 
-/* ------------------------------------------------------------------ settings form */
-const row = (label, help, ctl) => `<div class="frow"><div class="flabel">${label}${help ? `<div class="help">${help}</div>` : ""}</div><div>${ctl}</div></div>`;
-const numIn = (p, unit, min) => `<input type="number" min="${min}" data-path="${p}" data-t="num" value="${esc(get(V, p))}"> <span class="muted">${unit}</span>`;
+/* ------------------------------------------------------------------ settings: flat sections */
+let sset = "detection", selG = 0, lastField = null, notifyMsg = "";
+try { sset = localStorage.getItem("wd_sset") || "detection"; } catch (e) {}
+const openAlert = new Set();
+const SECTIONS = [["detection", "Detection"], ["switching", "Switching"], ["groups", "VPN groups"], ["notifications", "Notifications"]];
+const SECTION_OF = (path) => /^(interval_seconds|detection|probe)/.test(path) ? "detection" : /^(switching|failback)/.test(path) ? "switching" : /^groups/.test(path) ? "groups" : "notifications";
+const LABELS = { interval_seconds: ["Check every", "seconds"], "detection.failure_threshold": ["Declare down after", "failed checks"], "detection.probe_failure_threshold": ["Exit-IP test failures", "tests"], "detection.probe_interval_seconds": ["Exit-IP test every", "seconds"],
+  "detection.blackhole_enabled": ["Detect a silent tunnel"], "switching.min_hold_seconds": ["Wait between switches", "seconds"], "switching.max_switches_per_hour": ["Max switches per hour"], "switching.connect_timeout_seconds": ["Wait for a new tunnel", "seconds"],
+  "switching.on_exhausted": ["If nothing works"], "failback.enabled": ["Go back to a higher tunnel"], "failback.check_interval_seconds": ["Test the higher tunnel every", "seconds"], "failback.stable_seconds": ["It must stay healthy for", "seconds"],
+  "probe.mode": ["Exit-IP test"], "probe.check_country": ["Check the country too"], "probe.canary_mac": ["Canary MAC"], "probe.remote_url": ["Probe agent address"] };
+const show = (v, unit) => (v === true ? "on" : v === false ? "off" : v === null || v === "" ? "not set" : String(v));
+const change = (k, from, to) => { const [label, unit] = LABELS[k] || [k]; return `${label}: ${show(from)} → ${show(to)}${unit ? " " + unit : ""}`; };
+
+function leaves(o, pre = "", out = {}) { for (const [k, v] of Object.entries(o)) { const p = pre ? pre + "." + k : k; if (v && typeof v === "object" && !Array.isArray(v)) leaves(v, p, out); else out[p] = v; } return out; }
+function changes() {
+  if (!V) return [];
+  const o = JSON.parse(orig), out = [];
+  const a = leaves({ ...o, groups: undefined, alerts: undefined }), b = leaves({ ...V, groups: undefined, alerts: undefined });
+  for (const k of Object.keys(b)) if (k !== "groups" && k !== "alerts" && JSON.stringify(a[k]) !== JSON.stringify(b[k])) out.push({ path: k, text: change(k, a[k], b[k]) });
+  const gs = Math.max(o.groups.length, V.groups.length);
+  for (let i = 0; i < gs; i++) if (JSON.stringify(o.groups[i]) !== JSON.stringify(V.groups[i])) out.push({ path: "groups", text: V.groups[i] ? (o.groups[i] ? `group ${V.groups[i].name}: edited` : `group ${V.groups[i].name}: added`) : `group ${o.groups[i].name}: deleted` });
+  for (const k of Object.keys(V.alerts || {})) if (JSON.stringify(o.alerts[k]) !== JSON.stringify(V.alerts[k])) out.push({ path: "alerts", text: `${k} alert: ${o.alerts[k].enabled !== V.alerts[k].enabled ? (V.alerts[k].enabled ? "turned on" : "turned off") : "wording edited"}` });
+  return out;
+}
+function markDirty() {
+  const ch = changes(), d = ch.length > 0;
+  $("#savebar").classList.toggle("hide", !d || !$("#tab-settings") || $("#tab-settings").classList.contains("hide"));
+  if (d) { $("#chgTitle").textContent = ch.length === 1 ? "1 unsaved change" : ch.length + " unsaved changes"; $("#chg").textContent = ch.slice(0, 3).map((c) => c.text).join(" · ") + (ch.length > 3 ? ` · and ${ch.length - 3} more` : ""); }
+  const dirty = new Set(ch.map((c) => SECTION_OF(c.path)));
+  document.querySelectorAll(".snav button").forEach((b) => { const i = b.querySelector("i"); if (dirty.has(b.dataset.sec) && !i) b.insertAdjacentHTML("beforeend", "<i></i>"); else if (!dirty.has(b.dataset.sec) && i) i.remove(); });
+}
+
+const srow = (label, help, ctl, cls = "") => `<div class="srow ${cls}"><div class="slab"><b>${label}</b>${help ? `<span>${help}</span>` : ""}</div><div>${ctl}</div></div>`;
+const numf = (p, unit, min) => `<label class="num"><input type="number" min="${min}" data-path="${p}" data-t="num" value="${esc(get(V, p))}" aria-label="${esc(LABELS[p] || p)}"><span>${unit}</span></label>`;
 const tog = (p) => `<label class="sw"><input type="checkbox" data-path="${p}" data-t="bool" ${get(V, p) ? "checked" : ""}><span></span></label>`;
-const sel = (p, opts, t = "str") => `<select data-path="${p}" data-t="${t}">${opts.map(([v, l]) => `<option value="${esc(v)}" ${String(get(V, p)) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
-const txt = (p, ph, cls = "") => `<input type="text" class="${cls}" data-path="${p}" data-t="str" placeholder="${esc(ph || "")}" value="${esc(get(V, p))}">`;
+const seg = (p, opts, t = "str") => `<div class="seg" role="radiogroup">${opts.map(([v, l]) => `<span role="radio" tabindex="0" data-seg="${p}" data-t="${t}" data-val="${esc(v)}" class="${String(get(V, p)) === String(v) ? "on" : ""}" aria-checked="${String(get(V, p)) === String(v)}">${esc(l)}</span>`).join("")}</div>`;
+const textf = (p, ph) => `<input type="text" class="fld" data-path="${p}" data-t="str" placeholder="${esc(ph || "")}" value="${esc(get(V, p))}">`;
 
 async function loadSettings() {
   $("#settings").innerHTML = '<div class="card muted"><span class="spin"></span> Loading settings...</div>';
@@ -534,164 +596,138 @@ async function loadSettings() {
   if (!r.data.values) { $("#settings").innerHTML = '<div class="card bad">' + esc(r.data.error || "Settings unavailable") + "</div>"; return; }
   V = r.data.values; M = r.data.meta; orig = JSON.stringify(V);
   const n = await api("ha/notify-services"); notify = n.ok ? n.data : null;
+  if (selG >= V.groups.length) selG = 0;
   renderSettings(); markDirty();
 }
-
 function renderSettings() {
-  const modes = [["none", "Status checks only (no exit-IP test)"], ["canary", "Canary client (container with its own MAC)"], ["remote", "Remote probe agent (use with the Home Assistant add-on)"], ["direct", "Direct from this host"]];
-  $("#settings").innerHTML = `
-  <div class="card"><h3>How often it checks</h3><p class="sub">The watchdog wakes up on this schedule, reads every tunnel, and decides.</p>
-    ${row("Check every", "How often all tunnels are checked.", numIn("interval_seconds", "seconds", 5))}
-    ${row("Declare a tunnel down after", "Failed checks in a row. Prevents reacting to a single hiccup.", numIn("detection.failure_threshold", "failed checks", 1))}
-    ${row("Exit-IP test every", "Fetches the public IP through the tunnel to prove traffic really flows. Needs a probe (see Exit-IP test below).", numIn("detection.probe_interval_seconds", "seconds", 5))}
-    ${row("Exit-IP test failures before down", "", numIn("detection.probe_failure_threshold", "failed tests", 1))}
-    ${row("Detect a silent tunnel", "Tunnel says connected but receives nothing while sending.", tog("detection.blackhole_enabled"))}
-    <div class="summary" id="sum-detect"></div></div>
-
-  <div class="card"><h3>When it switches</h3><p class="sub">Limits that stop it flapping between servers.</p>
-    ${row("Wait between switches", "Minimum time after a switch. A tunnel that is fully down ignores this.", numIn("switching.min_hold_seconds", "seconds", 0))}
-    ${row("Maximum switches per hour", "After this it stops switching and alerts you.", numIn("switching.max_switches_per_hour", "switches", 1))}
-    ${row("Wait for a new tunnel to connect", "", numIn("switching.connect_timeout_seconds", "seconds", 5))}
-    ${row("If nothing works", "What to do when every candidate has failed.", sel("switching.on_exhausted", [["keep", "Stay on the current tunnel and alert me"], ["kill_switch", "Block the traffic so nothing leaks, and alert me"]]))}
-    <div class="summary" id="sum-switch"></div></div>
-
-  <div class="card"><h3>Going back up the list</h3><p class="sub">Return to a higher position once that tunnel recovers.</p>
-    ${row("Go back to a higher tunnel", "While running on a lower tunnel the watchdog briefly connects the higher one to test it, then disconnects it again. Only one tunnel carries traffic.", tog("failback.enabled"))}
-    ${row("Test the higher tunnel every", "", numIn("failback.check_interval_seconds", "seconds", 10))}
-    ${row("It must stay healthy for", "Only then traffic moves back.", numIn("failback.stable_seconds", "seconds", 0))}</div>
-
-  <div class="card"><h3>Exit-IP test</h3><p class="sub">Without it the watchdog only sees whether a tunnel says "connected".</p>
-    ${row("How to test", "Canary/remote use a device with its own MAC address that is steered through each tunnel under test.", sel("probe.mode", modes))}
-    <div id="p-canary">${row("Canary device MAC address", "The MAC of the container that is routed through the tunnel being tested.", txt("probe.canary_mac", "02:42:0a:00:3c:c8"))}</div>
-    <div id="p-remote">${row("Probe agent address", "Where the probe agent listens, e.g. http://10.0.60.200:8081", txt("probe.remote_url", "http://10.0.60.200:8081", "wide"))}</div>
-    <div id="p-country">${row("Check the country too", "Turn off if your IP-location services disagree about VPN addresses.", tog("probe.check_country"))}</div></div>
-
-  <div id="groupsForm"></div>
-
-  <div class="card" id="notifyCard"><h3>Notifications</h3><p class="sub">Who gets told, and what they are told.</p>
-    <div id="notifyBox"></div></div>`;
-  renderGroupsForm(); renderNotify(); updateSummary();
+  $("#settings").innerHTML = `<div class="sset"><div class="snav">${SECTIONS.map(([k, l]) => `<button data-sec="${k}" class="${k === sset ? "on" : ""}">${l}</button>`).join("")}</div><div class="spanel" id="spanel"></div></div>`;
+  renderSection(); markDirty();
+}
+function renderSection() {
+  const el = $("#spanel"); if (!el) return;
+  el.className = "spanel" + (sset === "groups" ? " flush" : "");
+  el.innerHTML = { detection: secDetection, switching: secSwitching, groups: secGroups, notifications: secNotify }[sset]();
+  document.querySelectorAll(".snav button").forEach((b) => b.classList.toggle("on", b.dataset.sec === sset));
+  updateSummary(); markDirty();
 }
 
-const tnames = () => (M.tunnels || []).map((t) => t.name);
-
-function orderRow(g, gi, it, ii) {
-  const names = tnames(), last = g.order.length - 1;
-  const known = !it.tunnel || names.includes(it.tunnel);
-  const opts = `<option value="">Choose a tunnel...</option>` + names.map((n) => `<option value="${esc(n)}" ${n === it.tunnel ? "selected" : ""}>${esc(n)}</option>`).join("")
-    + (known ? "" : `<option value="${esc(it.tunnel)}" selected>${esc(it.tunnel)} (not found in UniFi)</option>`);
-  const at = `data-gi="${gi}" data-ii="${ii}"`;
-  return `<div class="step"><input type="number" min="1" max="${g.order.length}" value="${ii + 1}" ${at} data-f="pos" title="Type a position to move this tunnel" style="width:64px">
-    <select ${at} data-f="tunnel" style="min-width:260px">${opts}</select>
-    <span class="muted">expect exit country (optional)</span><input type="text" maxlength="2" placeholder="e.g. IT" ${at} data-f="expect" value="${esc(it.expect_country)}" style="width:60px">
-    <span class="grow"></span>
-    <button class="act" data-act="up" ${at} ${ii === 0 ? "disabled" : ""}>&uarr;</button>
-    <button class="act" data-act="down" ${at} ${ii === last ? "disabled" : ""}>&darr;</button>
-    <button class="act" data-act="del" ${at}>Remove</button></div>`;
+function secDetection() {
+  const mode = V.probe.mode, off = mode === "none";
+  const desc = { none: "Status checks only: the watchdog only sees whether a tunnel says connected.", canary: "A container with its own MAC address is steered through each tunnel and asked for its public IP.", remote: "Like canary, but the probe runs on a separate agent (use this with the Home Assistant add-on).", direct: "The probe runs from this host's own connection." }[mode];
+  return `<h1>Detection</h1><p class="lead">How often the watchdog looks at your tunnels, and when it decides one is down.</p>
+    ${srow("Check every", "How often every tunnel is checked.", numf("interval_seconds", "seconds", 5))}
+    ${srow("Declare a tunnel down after", "Failed checks in a row. Stops it reacting to a single hiccup.", numf("detection.failure_threshold", "failed checks", 1))}
+    ${srow("Detect a silent tunnel", "A tunnel that says connected but receives nothing while sending.", tog("detection.blackhole_enabled"))}
+    <p class="insight" id="sum-detect"></p>
+    <h2>Exit-IP test</h2><p class="lead">Without it the watchdog only sees whether a tunnel says "connected". The test proves that traffic really flows.</p>
+    ${srow("How to test", `<span>${esc(desc)}</span>`.replace(/<\/?span>/g, ""), seg("probe.mode", [["none", "Off"], ["canary", "Canary"], ["remote", "Remote"], ["direct", "Direct"]]))}
+    ${mode === "canary" || mode === "remote" ? srow("Canary device MAC address", "The MAC of the container that is routed through the tunnel being tested.", textf("probe.canary_mac", "02:42:0a:00:3c:c8")) : ""}
+    ${mode === "remote" ? srow("Probe agent address", "Where the probe agent listens, for example http://10.0.60.200:8081.", textf("probe.remote_url", "http://10.0.60.200:8081")) : ""}
+    ${srow("Test every", "How often the exit IP is fetched through the tunnel.", numf("detection.probe_interval_seconds", "seconds", 5), off ? "dim" : "")}
+    ${srow("Failed tests before down", "", numf("detection.probe_failure_threshold", "failed tests", 1), off ? "dim" : "")}
+    ${srow("Check the country too", "Turn off if your IP-location services disagree about VPN addresses.", tog("probe.check_country"), off ? "dim" : "")}`;
 }
-
-function renderGroupsForm() {
-  const intro = `<div class="card"><h3>VPN groups</h3><p class="sub">A group is a set of networks that share one VPN, with its own fallback order of tunnels. Create one per purpose; a network can belong to one group.</p>
-    <button class="act primary" data-act="addgroup">Add a VPN group</button>
-    ${V.groups.length ? "" : '<p class="muted" style="margin-top:10px">No group yet. Until you add one the watchdog only watches.</p>'}</div>`;
-  $("#groupsForm").innerHTML = intro + V.groups.map((g, gi) => {
-    const nets = (M.networks || []).map((n) => `<label class="net"><input type="checkbox" data-gi="${gi}" data-net="${esc(n)}" ${g.networks.includes(n) ? "checked" : ""}> ${esc(n)}</label>`).join("");
-    const extra = g.networks.filter((n) => !(M.networks || []).includes(n)).map((n) => `<label class="net"><input type="checkbox" data-gi="${gi}" data-net="${esc(n)}" checked> ${esc(n)} <span class="muted">(not found)</span></label>`).join("");
-    const used = new Set(g.order.map((x) => x.tunnel));
-    const free = tnames().filter((n) => !used.has(n));
-    const addopts = free.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join("");
-    const empty = g.order.length ? "" : '<div class="banner warn" style="margin:0 0 8px">No order yet. Until you add tunnels here the watchdog only watches and never switches.</div>';
-    return `<div class="card"><div class="row"><b>Group</b><input type="text" data-path="groups.${gi}.name" data-t="str" value="${esc(g.name)}" placeholder="Group name" style="width:260px"><span class="grow"></span>
-      <button class="act" data-act="delgroup" data-gi="${gi}">Delete group</button></div><p class="sub" style="margin-top:6px">Which networks use the VPN, and which tunnels to use, in order.</p>
-      ${row("Networks that use this VPN", "Their internet traffic goes through the active tunnel.", (nets + extra) || '<span class="muted">Waiting for the first UniFi check...</span>')}
-      ${row("If the tunnel dies", "", sel(`groups.${gi}.kill_switch`, [["null", "Leave the UniFi setting as it is"], ["true", "Block traffic (no leak) until a new tunnel is ready"], ["false", "Let traffic use the normal internet connection"]], "tri"))}
-      ${row("Fallback order", "You decide the sequence. #1 is used when it works; if it fails the watchdog tries #2, then #3, and so on. It moves back up the list when a higher tunnel recovers. Tunnels not in the list are never used.",
-        empty + g.order.map((it, ii) => orderRow(g, gi, it, ii)).join("") +
-        `<div class="row" style="margin-top:10px"><select id="add-${gi}"><option value="">Add a tunnel at the end...</option>${addopts}</select>
-         <button class="act" data-act="add" data-gi="${gi}">Add</button>
-         <button class="act" data-act="addall" data-gi="${gi}" ${free.length ? "" : "disabled"}>Add all remaining tunnels (${free.length})</button></div>`)}</div>`;
-  }).join("");
+function secSwitching() {
+  return `<h1>Switching</h1><p class="lead">Limits that stop it flapping between tunnels, and what happens when none works.</p>
+    ${srow("Wait between switches", "Minimum time after a switch. A tunnel that is completely down ignores this.", numf("switching.min_hold_seconds", "seconds", 0))}
+    ${srow("Maximum switches per hour", "After this it stops switching and alerts you.", numf("switching.max_switches_per_hour", "switches", 1))}
+    ${srow("Wait for a new tunnel to connect", "How long a candidate gets to come up before the next one is tried.", numf("switching.connect_timeout_seconds", "seconds", 5))}
+    ${srow("If nothing works", "What to do when every tunnel in the order has failed.", seg("switching.on_exhausted", [["keep", "Stay on the current tunnel"], ["kill_switch", "Block traffic"]]))}
+    <p class="insight" id="sum-switch"></p>
+    <h2>Going back up the list</h2><p class="lead">Return to a higher position once that tunnel recovers. While running on a lower tunnel the watchdog briefly connects the higher one to test it, then disconnects it again, so only one tunnel ever carries traffic.</p>
+    ${srow("Go back to a higher tunnel", "", tog("failback.enabled"))}
+    ${srow("Test the higher tunnel every", "", numf("failback.check_interval_seconds", "seconds", 10), V.failback.enabled ? "" : "dim")}
+    ${srow("It must stay healthy for", "Only then does traffic move back.", numf("failback.stable_seconds", "seconds", 0), V.failback.enabled ? "" : "dim")}`;
 }
-
-function renderNotify() {
-  const info = M.alert_info || { events: {}, placeholders: {} };
-  let svc = '<p class="muted">Not connected to Home Assistant (this works inside the add-on).</p>';
+function secGroups() {
+  const list = V.groups.map((x, i) => `<div class="gi ${i === selG ? "on" : ""}" data-gsel="${i}"><b>${esc(x.name || "(unnamed)")}</b><span>${x.networks.length} network${x.networks.length === 1 ? "" : "s"} · ${x.order.length ? x.order.length + " tunnel" + (x.order.length === 1 ? "" : "s") + " in the order" : "no order yet"}</span></div>`).join("");
+  const left = `<div class="gl"><div class="cap">VPN GROUPS</div>${list}<div style="padding:16px 28px"><button class="btn" data-act="addgroup" style="width:100%;border-style:dashed">+ Add a VPN group</button></div>
+    <div class="note" style="padding:0 28px">A group is a set of networks that share one VPN and one fallback order. Create one per purpose.</div></div>`;
+  const g = V.groups[selG];
+  if (!g) return `<div class="gm">${left}<div class="gd"><p class="lead">No group yet. Until you add one the watchdog only watches.</p></div></div>`;
+  const known = new Set(M.networks || []);
+  const chips = (M.networks || []).concat(g.networks.filter((n) => !known.has(n))).map((n) => `<span class="tc ${g.networks.includes(n) ? "on" : ""}" role="checkbox" tabindex="0" aria-checked="${g.networks.includes(n)}" data-chip="${esc(n)}">${g.networks.includes(n) ? "✓ " : ""}${esc(n)}${known.has(n) ? "" : " (not found)"}</span>`).join("") || '<span class="muted">Waiting for the first UniFi check...</span>';
+  const names = g.order.map((i) => i.tunnel), all = (M.tunnels || []).map((t) => t.name), pool = all.filter((n) => !names.includes(n));
+  const order = names.length ? names.slice(0, 4).map((n, i) => `<span class="opill"><b>#${i + 1}</b>${esc(n)}</span>`).join('<span class="muted">→</span>') + (names.length > 4 ? `<span class="muted">+${names.length - 4} more</span>` : "") : '<span class="muted">No order yet.</span>';
+  return `<div class="gm">${left}<div class="gd">
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:6px"><input class="gname" data-path="groups.${selG}.name" data-t="str" value="${esc(g.name)}" placeholder="Group name" aria-label="Group name"><button class="btn danger" data-act="delgroup">Delete group</button></div>
+    ${srow("Networks that use this VPN", "Their internet traffic goes through the active tunnel. A network can belong to one group.", `<div class="chips2">${chips}</div>`)}
+    ${srow("If the tunnel dies", "What the networks do in the seconds before a new tunnel is ready.", seg(`groups.${selG}.kill_switch`, [["null", "Leave UniFi as it is"], ["true", "Block traffic, no leak"], ["false", "Use the normal connection"]], "tri"))}
+    ${srow("Fallback order", "#1 is used first. Tunnels not in the list are never used.", `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">${order}</div>
+      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:12px"><span class="note" style="margin:0">${pool.length} more tunnel${pool.length === 1 ? " is" : "s are"} not in the order.</span>
+      <button class="btn" data-act="gostatus">Reorder on the Status page</button>${pool.length ? `<button class="btn" data-act="addall">Add all ${pool.length}</button>` : ""}</div>`)}
+  </div></div>`;
+}
+const SAMPLE = { group: "iot-and-vpn", tunnel: "DE__BERLIN__1552", previous: "IT__ROME__418", position: "#3", previous_position: "#1", reason: "no replies for 45s", tried: "2", groups: "1", mode: "ACTIVE", error: "invalid value" };
+const preview = (t) => String(t || "").replace(/\{(\w+)\}/g, (m, k) => (k in SAMPLE ? SAMPLE[k] : m));
+function secNotify() {
+  const info = (M && M.alert_info) || { events: {}, placeholders: {} };
+  let svc = '<span class="muted">Not connected to Home Assistant (this works inside the add-on).</span>';
   if (notify && notify.available) {
     const opts = notify.services.slice();
     if (notify.current && !opts.some((o) => o.service === notify.current)) opts.unshift({ service: notify.current, label: notify.current + " (current)" });
-    svc = row("Send alerts to", "Pick a phone or the Home Assistant sidebar.", `<div class="row"><select id="notifySel">${opts.map((o) => `<option value="${esc(o.service)}" ${o.service === notify.current ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select>
-      <button class="act" id="notifySave">Use this</button><button class="act" id="notifyTest">Send test</button><span id="notifyMsg"></span></div>`);
+    svc = `<select id="notifySel" class="fld" style="width:340px" aria-label="Notification service">${opts.map((o) => `<option value="${esc(o.service)}" ${o.service === notify.current ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select>
+      <button class="btn" id="notifyTest">Send test</button><span id="notifyMsg" class="note" style="margin:0">${esc(notifyMsg)}</span>`;
   }
-  const ph = Object.entries(info.placeholders).map(([k, v]) => `<span class="chip" title="${esc(v)}">{${k}}</span>`).join("");
-  const alerts = Object.entries(V.alerts || {}).map(([name, a]) => `<div class="alert">
-      <div class="head"><label class="sw"><input type="checkbox" data-path="alerts.${name}.enabled" data-t="bool" ${a.enabled ? "checked" : ""}><span></span></label>
-        <b>${esc(name)}</b> <span class="pill ${(info.events[name] || {}).level === "critical" ? "bad" : (info.events[name] || {}).level === "warning" ? "warn" : "info"}">${esc((info.events[name] || {}).level || "")}</span></div>
-      <div class="muted" style="margin-bottom:6px">Sent when: ${esc((info.events[name] || {}).when || "")}</div>
-      <div class="grid"><span class="muted">Title</span>${txt(`alerts.${name}.title`, "", "wide")}<span class="muted">Message</span>${txt(`alerts.${name}.message`, "", "wide")}</div></div>`).join("");
-  $("#notifyBox").innerHTML = svc + `<div style="margin-top:12px"><b>Alerts</b><p class="muted" style="margin:2px 0 6px">Turn each alert on or off and edit its wording. Placeholders (hover for meaning): ${ph}</p><div class="alertgrid">${alerts}</div></div>`;
+  const rows = Object.entries(V.alerts || {}).map(([name, a]) => {
+    const ev = info.events[name] || {}, open = openAlert.has(name);
+    const head = `<div class="al"><label class="sw"><input type="checkbox" data-path="alerts.${name}.enabled" data-t="bool" ${a.enabled ? "checked" : ""}><span></span></label>
+      <div class="nm">${esc(name)} <span class="lv ${esc(ev.level || "info")}">${esc(ev.level || "")}</span></div><div class="wh">${esc(ev.when || "")}</div><div class="ed" data-edit="${esc(name)}" tabindex="0" role="button">${open ? "Close ▲" : "Edit wording"}</div></div>`;
+    if (!open) return head;
+    const ph = Object.entries(info.placeholders).map(([k, v]) => `<span class="ph" data-ph="${k}" title="${esc(v)}">{${k}}</span>`).join("");
+    return head + `<div class="ex"><div class="exf"><label for="t_${name}">Title</label><input class="fld" id="t_${name}" data-path="alerts.${name}.title" data-t="str" value="${esc(a.title)}">
+      <label for="m_${name}">Message</label><input class="fld" id="m_${name}" data-path="alerts.${name}.message" data-t="str" value="${esc(a.message)}"></div>
+      <div class="note" style="margin-left:68px">Click a placeholder to insert it where the cursor is:</div><div style="margin:6px 0 0 68px">${ph}</div>
+      <div class="note" style="margin-left:68px" id="pv_${name}">Preview: <b style="color:var(--ink)">${esc(preview(a.title))}</b> · ${esc(preview(a.message))}</div></div>`;
+  }).join("");
+  return `<h1>Notifications</h1><p class="lead">Who gets told, when, and in what words.</p>
+    <div class="row" style="padding:6px 0 22px;gap:14px;align-items:center"><b style="width:150px;font-size:15px">Send alerts to</b>${svc}</div>
+    <div class="al head"><span>ON</span><span>ALERT</span><span>SENT WHEN</span><span></span></div>${rows}`;
 }
-
 function updateSummary() {
   if (!V) return;
+  const a = $("#sum-detect"), b = $("#sum-switch");
   const iv = Number(V.interval_seconds) || 0, ft = Number(V.detection.failure_threshold) || 0;
-  $("#sum-detect").textContent = `A tunnel that stops being connected is declared down after ${ft} failed checks x ${iv}s = about ${ft * iv} seconds. Then it switches within a few seconds.`;
-  $("#sum-switch").textContent = `At most ${V.switching.max_switches_per_hour} switches per hour, at least ${V.switching.min_hold_seconds}s apart (unless the tunnel is completely down).`;
-  const m = V.probe.mode;
-  $("#p-canary").classList.toggle("hide", !(m === "canary" || m === "remote"));
-  $("#p-remote").classList.toggle("hide", m !== "remote");
-  $("#p-country").classList.toggle("hide", m === "none");
+  if (a) a.innerHTML = `With these values a tunnel that stops being connected is declared down after about <b>${ft * iv} seconds</b> (${ft} checks × ${iv} s), then it switches within a few seconds.`;
+  if (b) b.innerHTML = `At most <b>${V.switching.max_switches_per_hour}</b> switches per hour, at least <b>${V.switching.min_hold_seconds}s</b> apart (unless the tunnel is completely down).`;
 }
 
-function markDirty() {
-  const d = V && JSON.stringify(V) !== orig;
-  $("#savebar").classList.toggle("hide", !d);
-}
-
-/* one delegated handler for every settings control */
-$("#settings").addEventListener("input", (e) => handleField(e.target, "input"));
-$("#settings").addEventListener("change", (e) => handleField(e.target, "change"));
-function handleField(t, type) {
-  if (t.dataset.path) {
-    const k = t.dataset.t; let v;
-    if (k === "bool") v = t.checked; else if (k === "num") { v = t.value === "" ? "" : Number(t.value); }
-    else if (k === "tri") v = t.value === "null" ? null : t.value === "true"; else v = t.value;
-    set(V, t.dataset.path, v);
-  } else if (t.dataset.net !== undefined) {
-    const g = V.groups[+t.dataset.gi]; g.networks = g.networks.filter((n) => n !== t.dataset.net); if (t.checked) g.networks.push(t.dataset.net);
-  } else if (t.dataset.f) {
-    const gi = +t.dataset.gi, ii = +t.dataset.ii, g = V.groups[gi], f = t.dataset.f;
-    if (f === "tunnel") { g.order[ii].tunnel = t.value; renderGroupsForm(); }
-    else if (f === "expect") g.order[ii].expect_country = t.value.toUpperCase();
-    else if (f === "pos") {
-      if (type !== "change") return;
-      const to = Math.max(1, Math.min(g.order.length, Math.round(Number(t.value) || ii + 1))) - 1;
-      const [it] = g.order.splice(ii, 1); g.order.splice(to, 0, it); renderGroupsForm();
-    }
-  } else return;
+/* one delegated handler for the whole settings area */
+const setEl = $("#settings");
+setEl.addEventListener("input", (e) => handleField(e.target));
+setEl.addEventListener("change", (e) => { if (e.target.id === "notifySel") return saveNotifyService(e.target.value); handleField(e.target); });
+setEl.addEventListener("focusin", (e) => { if (e.target.matches && e.target.matches("input[data-path^='alerts.']")) lastField = e.target; });
+function handleField(t) {
+  if (!t.dataset || !t.dataset.path) return;
+  const k = t.dataset.t; let v;
+  if (k === "bool") v = t.checked; else if (k === "num") v = t.value === "" ? "" : Number(t.value);
+  else if (k === "tri") v = t.value === "null" ? null : t.value === "true"; else v = t.value;
+  set(V, t.dataset.path, v);
+  const m = t.dataset.path.match(/^alerts\.(\w+)\.(title|message)$/);
+  if (m) { const pv = $("#pv_" + m[1]); const a = V.alerts[m[1]]; if (pv) pv.innerHTML = `Preview: <b style="color:var(--ink)">${esc(preview(a.title))}</b> · ${esc(preview(a.message))}`; }
+  if (t.dataset.path === "failback.enabled" || t.dataset.path.startsWith("groups.") && t.dataset.path.endsWith(".name")) { if (t.dataset.path === "failback.enabled") renderSection(); else { const gi = document.querySelector(".gi.on b"); if (gi) gi.textContent = t.value || "(unnamed)"; } }
   updateSummary(); markDirty();
 }
-$("#settings").addEventListener("click", async (e) => {
-  const b = e.target.closest("button"); if (!b) return;
-  if (b.id === "notifySave") { const r = await api("notify/service", "POST", { service: $("#notifySel").value }); $("#notifyMsg").innerHTML = r.ok ? '<span class="pill ok">saved</span>' : '<span class="pill bad">' + esc(r.data.error || "failed") + "</span>"; return; }
-  if (b.id === "notifyTest") { const r = await api("notify/test", "POST", { service: $("#notifySel").value }); $("#notifyMsg").innerHTML = r.ok ? '<span class="pill ok">sent: check your phone</span>' : '<span class="pill bad">' + esc(r.data.error || "failed") + "</span>"; return; }
-  if (!b.dataset.act) return;
-  if (b.dataset.act === "addgroup") {
-    let n = 1; const names = new Set(V.groups.map((x) => x.name)); while (names.has("Group " + n)) n++;
-    V.groups.push({ name: "Group " + n, _orig: null, networks: [], kill_switch: null, order: [] });
-    renderGroupsForm(); markDirty(); return;
-  }
-  if (b.dataset.act === "delgroup") {
-    const dg = V.groups[+b.dataset.gi];
-    if (!confirm(`Delete the group "${dg.name}"? The watchdog stops managing it. Its routing policies stay in UniFi untouched.`)) return;
-    V.groups.splice(+b.dataset.gi, 1); renderGroupsForm(); markDirty(); return;
-  }
-  const g = V.groups[+b.dataset.gi], ii = +b.dataset.ii, L = g.order;
-  if (b.dataset.act === "up" && ii > 0) [L[ii - 1], L[ii]] = [L[ii], L[ii - 1]];
-  if (b.dataset.act === "down" && ii < L.length - 1) [L[ii + 1], L[ii]] = [L[ii], L[ii + 1]];
-  if (b.dataset.act === "del") L.splice(ii, 1);
-  if (b.dataset.act === "add") { const v = $("#add-" + b.dataset.gi).value; if (!v) return; L.push({ tunnel: v, expect_country: "" }); }
-  if (b.dataset.act === "addall") { const used = new Set(L.map((x) => x.tunnel)); tnames().filter((n) => !used.has(n)).forEach((n) => L.push({ tunnel: n, expect_country: "" })); }
-  renderGroupsForm(); markDirty();
+async function saveNotifyService(service) {
+  const r = await api("notify/service", "POST", { service });
+  notifyMsg = r.ok ? "Saved" : (r.data.error || "failed"); if (notify) notify.current = service;
+  const m = $("#notifyMsg"); if (m) m.textContent = notifyMsg;
+}
+setEl.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches("[data-seg],[data-chip],[data-edit]")) { e.preventDefault(); e.target.click(); } });
+setEl.addEventListener("click", async (e) => {
+  const sec = e.target.closest("[data-sec]"); if (sec) { sset = sec.dataset.sec; try { localStorage.setItem("wd_sset", sset); } catch (x) {} renderSection(); return; }
+  const sg = e.target.closest("[data-seg]"); if (sg) { const t = sg.dataset.t, v = sg.dataset.val; set(V, sg.dataset.seg, t === "tri" ? (v === "null" ? null : v === "true") : v); renderSection(); return; }
+  const ch = e.target.closest("[data-chip]"); if (ch) { const g = V.groups[selG], n = ch.dataset.chip; g.networks = g.networks.includes(n) ? g.networks.filter((x) => x !== n) : g.networks.concat([n]); renderSection(); return; }
+  const gs = e.target.closest("[data-gsel]"); if (gs) { selG = +gs.dataset.gsel; renderSection(); return; }
+  const ed = e.target.closest("[data-edit]"); if (ed) { const n = ed.dataset.edit; if (openAlert.has(n)) openAlert.delete(n); else openAlert.add(n); renderSection(); return; }
+  const ph = e.target.closest("[data-ph]"); if (ph && lastField) { const f = lastField, s0 = f.selectionStart ?? f.value.length, e0 = f.selectionEnd ?? s0, tok = "{" + ph.dataset.ph + "}"; f.value = f.value.slice(0, s0) + tok + f.value.slice(e0); f.setSelectionRange(s0 + tok.length, s0 + tok.length); f.focus(); handleField(f); return; }
+  if (e.target.id === "notifyTest") { const r = await api("notify/test", "POST", { service: $("#notifySel").value }); notifyMsg = r.ok ? "Sent: check your phone" : (r.data.error || "failed"); const m = $("#notifyMsg"); if (m) m.textContent = notifyMsg; return; }
+  const b = e.target.closest("button[data-act]"); if (!b) return;
+  const k = b.dataset.act;
+  if (k === "addgroup") { let n = 1; const names = new Set(V.groups.map((x) => x.name)); while (names.has("Group " + n)) n++; V.groups.push({ name: "Group " + n, _orig: null, networks: [], kill_switch: null, order: [] }); selG = V.groups.length - 1; renderSection(); return; }
+  if (k === "delgroup") { const dg = V.groups[selG]; if (!dg || !confirm(`Delete the group "${dg.name}"? The watchdog stops managing it. Its routing policies stay in UniFi untouched.`)) return; V.groups.splice(selG, 1); selG = 0; renderSection(); return; }
+  if (k === "addall") { const g = V.groups[selG], used = new Set(g.order.map((x) => x.tunnel)); (M.tunnels || []).map((t) => t.name).filter((n) => !used.has(n)).forEach((n) => g.order.push({ tunnel: n, expect_country: "" })); renderSection(); return; }
+  if (k === "gostatus") { document.querySelector("nav button[data-tab=status]").click(); }
 });
 
 let saveTimer = null;
@@ -702,7 +738,7 @@ $("#saveSettings").onclick = async () => {
   if (r.ok) { await loadSettings(); $("#saveMsg").innerHTML = '<span class="pill ok">Saved and applied</span>'; $("#savebar").classList.remove("hide"); saveTimer = setTimeout(() => { $("#saveMsg").textContent = ""; markDirty(); }, 4000); }
   else $("#saveMsg").innerHTML = '<span class="pill bad">' + esc(r.data.error || "failed").replace(/\n/g, "<br>") + "</span>";
 };
-$("#discard").onclick = () => { V = JSON.parse(orig); renderSettings(); markDirty(); $("#saveMsg").textContent = ""; };
+$("#discard").onclick = () => { V = JSON.parse(orig); renderSettings(); $("#saveMsg").textContent = ""; };
 
 /* ------------------------------------------------------------------ header, tabs, advanced */
 $("#checkNow").onclick = () => act("check-now");

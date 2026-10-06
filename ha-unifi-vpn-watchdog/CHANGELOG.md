@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.0
+- **Settings redesigned** (approved design): a section list on the left (Detection, Switching, VPN groups, Notifications) and one flat page per section,
+  with no boxes inside boxes. Rows put the label and help on the left and the control on the right, with units inside the fields and the plain-sentence
+  explanation ("declared down after about 45 seconds") underneath. Segmented controls replace dropdowns for short choices.
+- **VPN groups** is a list plus detail: networks are toggle chips, "If the tunnel dies" is a three-way selector, and the fallback order is a one-line preview
+  with "Reorder on the Status page" (and "Add all N" for first-time setup). Group names are edited in place.
+- **Notifications**: "Send alerts to" with a test button, then one compact row per alert (switch, level, when it fires). "Edit wording" opens the title and message
+  inline with click-to-insert placeholders and a live preview.
+- The save bar lists what changed ("Check every: 30 → 20 seconds"), and a dot marks the sections that have unsaved edits.
+- Reordering on the Status page no longer discards unsaved Settings edits.
+
 ## 0.8.1
 - Status page brought back in line with the approved design: IBM Plex Sans/Mono, the column headings (VLANs and their devices / Internet via the VPN),
   "GROUP <name> · FALLBACK ORDER", the active card reading "#1 ACTIVE · N devices behind it", the group strip "Active: ... · exit-IP test passed Ns ago",
