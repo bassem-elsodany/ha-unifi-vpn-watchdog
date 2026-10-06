@@ -65,7 +65,7 @@
   #map { position: relative; }
   #links { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; z-index: 3; }
   .lk { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-width: 3; }
-  .lk.on { stroke: var(--ok); } .lk.off { stroke: var(--idle2); stroke-width: 2; stroke-dasharray: 5 6; } .lk.byp { stroke: var(--warn); stroke-width: 3; stroke-dasharray: 8 8; }
+  .lk.on { stroke: var(--ok); } .lk.idle { stroke: var(--idle2); } .lk.off { stroke: var(--idle2); stroke-width: 2; stroke-dasharray: 5 6; } .lk.byp { stroke: var(--warn); stroke-width: 3; stroke-dasharray: 8 8; }
   .lk.live { stroke-dasharray: 8 8; animation: dashmove .9s linear infinite; } .lk.hot { stroke-width: 6; opacity: .9; }
   @keyframes dashmove { to { stroke-dashoffset: -16; } }
   .gblock { margin-bottom: 30px; position: relative; z-index: 2; }
@@ -128,8 +128,6 @@
   .legend b { font-size: 12px; letter-spacing: .06em; color: var(--muted); } .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
   .hint { margin: 16px 0 0; font-size: 13px; line-height: 20px; color: var(--muted); }
   .dlabel { position: absolute; width: 300px; text-align: center; font-size: 13px; line-height: 16px; color: var(--muted); }
-  .dsec { border-top: 1px solid var(--hair); padding-top: 10px; margin-top: 6px; } .dsh b { font-size: 14px; } .dsh small { display: block; font-size: 12px; line-height: 18px; color: var(--muted); margin-bottom: 4px; }
-  .dl { max-height: 252px; overflow: auto; }
   .dsum .dev { cursor: default; } .dsum .dev:hover { background: none; } .dsum .vf { margin-top: 2px; }
   .mono { font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; }
   .spin { display: inline-block; flex: none; width: 14px; height: 14px; border: 2px solid var(--line2); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; }
@@ -368,13 +366,10 @@ const legendHtml = (can) => `<div class="legend"><b>LEGEND</b><div><i style="bac
   <p class="hint">Click a device to light up its path through the map. Click a VPN client for its details panel.${can ? " Drag a client up or down to change the order." : ""}</p>`;
 function directBox(m) {
   const total = m.direct.reduce((a, n) => a + n.count, 0), plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
-  const head = `<div class="vh"><span class="dot idle"></span><b style="font-size:14px">No VPN policy · ${plural(total, "device")}</b></div>`;
-  if (!directOpen) return `<div class="vc direct dsum">${head}
+  if (directOpen) return m.direct.map((n) => vlanCard(n, true)).join("") + '<div class="vf" id="directToggle">Show fewer</div>';
+  return `<div class="vc direct dsum"><div class="vh"><span class="dot idle"></span><b style="font-size:14px">No VPN policy · ${plural(total, "device")}</b></div>
     ${m.direct.slice(0, 3).map((n) => `<div class="dev"><i class="idle"></i><span>${esc(n.name)}</span><span>${plural(n.count, "device")}</span><span></span></div>`).join("")}
     <div class="vf" id="directToggle">Show all ${plural(m.direct.length, "VLAN")} and devices</div></div>`;
-  return `<div class="vc direct dsum">${head}${m.direct.map((n) => `<div class="dsec"><div class="dsh"><b>${esc(n.name)}</b><small>${esc([n.vlan != null ? "VLAN " + n.vlan : null, netAddr(n.subnet), plural(n.count, "device")].filter(Boolean).join(" · "))}</small></div>
-      <div class="dl">${n.devices.map(devRow).join("") || '<div class="muted" style="padding:2px 0 4px">No devices connected right now.</div>'}</div></div>`).join("")}
-    <div class="vf" id="directToggle">Show fewer</div></div>`;
 }
 const normalNode = (m) => `<div class="inet normal" data-role="inet"><span class="dot idle"></span><div><b>Internet</b> · normal connection<div>exit <span class="mono">${esc(m.wan_ip || "your WAN address")}</span></div></div></div>`;
 function groupBlock(g, can, first, last, m) {
@@ -427,10 +422,12 @@ function drawLinks() {
       const want = cy(act) - inet.getBoundingClientRect().height / 2, have = inet.getBoundingClientRect().top;
       hd.style.marginTop = Math.max(0, Math.round(want - have)) + "px";
     }
-    if (box && nn && cols) {                  // straight-to-internet line runs under the fallback panel
-      const pb = panel ? panel.getBoundingClientRect().bottom : 0, bb = box.getBoundingClientRect().bottom - 20;
+    const dcards = [...blk.querySelectorAll(".colv > .vc.direct:not(.dsum)")], first = box || dcards[0];
+    if (first && vcs.length) first.style.marginTop = "32px";
+    if (first && nn && cols) {                // the straight-to-internet path runs under the fallback panel
+      const pb = panel ? panel.getBoundingClientRect().bottom : 0, bb = box ? box.getBoundingClientRect().bottom - 20 : 0;
       const nnc = cy(nn), want = Math.max(bb, pb + 22, nnc);
-      if (want > bb) box.style.marginTop = Math.round(want - bb) + "px";
+      if (box && want > bb) first.style.marginTop = (vcs.length ? 32 : 0) + Math.round(want - bb) + "px";
       if (want > nnc) nn.style.marginTop = (24 + Math.round(want - nnc)) + "px";
       if (lbl) { const cr = cols.getBoundingClientRect(), pr = (panel || blk.querySelector(".colm")).getBoundingClientRect(); lbl.style.left = Math.round(pr.left + pr.width / 2 - 150 - cr.left) + "px"; lbl.style.top = Math.round(cy(nn) + 16 - cr.top) + "px"; }
     }
@@ -443,7 +440,13 @@ function drawLinks() {
   const hotNet = selected && selected.kind === "dev" ? (mapData().groups.flatMap((g) => g.networks).find((n) => n.devices.some((x) => x.mac === selected.mac)) || {}).id : null;
   document.querySelectorAll("#map .gblock").forEach((blk) => {
     const inet = blk.querySelector(".colr > .inet:not(.normal)"), nn = blk.querySelector(".inet.normal"), box = blk.querySelector(".dsum");
-    if (box && nn) { const a = R(box), b = R(nn); segs.push({ d: `M ${a.r} ${b.cy} H ${b.l - 3}`, cls: "lk off", head: "off" }); }
+    const dcards = [...blk.querySelectorAll(".colv > .vc.direct:not(.dsum)")];
+    if (box && nn) { const a = R(box), b = R(nn); segs.push({ d: `M ${a.r} ${b.cy} H ${b.l - 3}`, cls: "lk idle live", head: "off" }); }
+    else if (dcards.length && nn) {           // every listed VLAN gets its own line into the Internet node
+      const b = R(nn), right = Math.max(...dcards.map((v) => R(v).r)), bx = right + 60;
+      dcards.forEach((v) => { const h = R(v.querySelector(".vh")); segs.push({ d: `M ${R(v).r} ${h.cy} H ${bx} V ${b.cy}`, cls: "lk idle" }); });
+      segs.push({ d: `M ${bx} ${b.cy} H ${b.l - 3}`, cls: "lk idle live", head: "off" });
+    }
     const act = blk.querySelector(".lc.active"), vcs = [...blk.querySelectorAll(".colv > .vc:not(.direct)")];
     if (act && inet && vcs.length) {
       const a = R(act), e = R(inet), right = Math.max(...vcs.map((v) => R(v).r)), bx = right + 40;

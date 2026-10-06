@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.6
+- When you expand "No VPN policy" each VLAN is its own box again, and **every VLAN box has its own connector** into the "normal connection" Internet node (a short line from the box to a shared line, then the arrow). Expanding no longer repeats the summary rows.
+- The arrow into the "normal connection" node is now dashed and moving, like the arrows into the active tunnel and the VPN Internet node.
+
 ## 0.9.5
 - Expanding "No VPN policy" now turns that one box into a single list: each VLAN is a section with its devices. Before, the three summary rows stayed and every VLAN was repeated underneath as its own box (boxes inside boxes). Long device lists scroll inside their section.
 - Devices without a name show "unnamed" instead of repeating their IP address twice.
