@@ -28,6 +28,8 @@ def test_keep_ready_keeps_the_next_clients_on_and_connected(make_engine):
     assert on(un) == {"Home-Primary", "Home-Backup", "Cousin vpn 2"}
     g = eng.status()["map"]["groups"][0]
     assert g["active"] == "Home-Primary" and [w["name"] for w in g["warm"]] == ["Home-Backup", "Cousin vpn 2"] and all(w["connected"] for w in g["warm"])
+    tags = {t["name"]: (t["standby"], t["standby_ready"]) for t in g["lane"]}              # what the Status page tags in the fallback order
+    assert tags["Home-Backup"] == (True, True) and tags["Cousin vpn 2"] == (True, True) and tags["Home-Primary"][0] is False and tags["office/frankfurt"][0] is False
 
 
 def test_a_failover_goes_to_a_standby_at_once_and_a_new_standby_is_brought_up(make_engine):

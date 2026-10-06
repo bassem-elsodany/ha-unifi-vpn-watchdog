@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.20.1
+
+- Status: the warm standbys are tagged **STANDBY** in the group's fallback order (green when connected, amber while connecting) with "connected, takes over at once if the active one fails", and a collapsed long order always shows them.
+
 ## 0.20.0
 
 - **Warm standbys (optional, per group).** Settings > VPN groups > Warm standbys: keep the active VPN client plus N-1 standbys switched on and connected. The standbys are the next clients in the fallback order, so a failover to one needs no waiting. A standby carries no traffic: UniFi sends a VLAN through one client only (with Routing on, the one the watchdog's policy points to). Default is 1 (only the active one, as before).

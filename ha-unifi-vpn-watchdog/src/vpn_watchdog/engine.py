@@ -780,7 +780,8 @@ class Engine:
                     "policy": pol.description if pol else None,
                     "quarantined_for": max(0, int((ts.quarantined_until if ts else 0) - now)),
                     "last_reason": ts.last_reason if ts else "", "expect_country": item.expect_country if item else None,
-                    "carries": carriers.get(t.name, [])}
+                    "carries": carriers.get(t.name, []),
+                    "standby": bool(g and t.id in self._warm.get(g.name, ())), "standby_ready": bool(c and c.connected)}
 
         used: set[str] = set()
         out_groups: list[dict[str, Any]] = []

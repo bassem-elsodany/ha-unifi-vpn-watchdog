@@ -365,10 +365,11 @@ function laneCard(g, t, can, behind) {
   const sel = selected && selected.kind === "tun" && selected.name === t.id ? "sel" : "";
   const sub = t.active ? `connected · ${bps(t.rx_bps || 0)} ↓ · ${bps(t.tx_bps || 0)} ↑ · policy on`
     : t.quarantined_for ? `cooling down ${t.quarantined_for}s · ${esc(t.last_reason || "failed")}`
+    : t.standby ? (t.standby_ready ? "standby · connected, takes over at once if the active one fails" : "standby · connecting...")
     : (t.carries || []).length ? `${tlabel(t)} · carries ${t.carries.length} device${t.carries.length === 1 ? "" : "s"} with its own route` : `${tlabel(t)} · ready to take over`;
   const num = inOrder ? `<span class="num">#${t.position}</span>` : g.unmanaged ? "" : '<span class="num" title="Not in the fallback order">--</span>';
   const head = t.active ? `<div class="l1">${num}<b>ACTIVE · ${behind} device${behind === 1 ? "" : "s"} behind it</b></div><div class="mono">${esc(t.name)}</div>`
-    : `<div class="l1">${num}<span class="mono">${esc(t.name)}</span></div>`;
+    : `<div class="l1">${num}<span class="mono">${esc(t.name)}</span>${t.standby ? ` <span class="pill ${t.standby_ready ? "ok" : "warn"}" style="margin-left:6px">STANDBY</span>` : ""}</div>`;
   return `<div class="lc ${t.active ? "active" : ""} ${(t.carries || []).length ? "own" : ""} ${sel}" data-g="${esc(g.name)}" data-tun="${esc(t.id)}" ${inOrder ? `data-pos="${t.position}"` : ""}
       tabindex="0" aria-label="${esc(t.name)}${inOrder ? ", position " + t.position : ", not in the order"}">
     <span class="dot ${c}"></span>
@@ -378,7 +379,7 @@ const laneOpen = new Set();       // groups whose long fallback order is shown i
 function laneHtml(g, can, behind) {
   const parts = [];
   const long = !g.unmanaged && g.lane.length > 5, open = laneOpen.has(g.name);
-  const shown = long && !open ? g.lane.filter((t) => t.active || (t.position != null && t.position <= 3)) : g.lane;      // a long order stays collapsed: the first three and the active one
+  const shown = long && !open ? g.lane.filter((t) => t.active || t.standby || (t.position != null && t.position <= 3)) : g.lane;      // a long order stays collapsed: the first three, the active one and the standbys
   shown.forEach((t, i) => {
     parts.push(laneCard(g, t, can, behind));
     const nx = shown[i + 1];
