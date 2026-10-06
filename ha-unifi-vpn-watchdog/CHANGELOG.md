@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.18.0
+
+- **Jobs are part of the group.** The Jobs section is gone. Settings > VPN groups now has, for each group, a Failover switch (pause / resume) and a Rotation switch with its timing, "Rotate now" and "Remove rotation". Existing rotation jobs in your config keep working.
+- The page introduction and the row descriptions are rewritten for the current logic: a group is its VLANs plus an ordered list of VPN clients, with optional Rotation and Routing.
+- For a group with picked VLANs the "Carrying now" line is gone (it could list VLANs that are not really routed through the active client); the warnings cover any mismatch.
+
 ## 0.17.0
 
 - **Manage routing (optional, off by default, per group).** Settings > VPN groups > Routing. When on, the watchdog keeps ONE routing policy of its own per picked VLAN, named `vpnwd: <group> › <VLAN>`, pointed at the group's active VPN client, and moves it when a failover happens. Turning it on shows what will be written and asks first.

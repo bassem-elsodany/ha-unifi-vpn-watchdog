@@ -122,7 +122,7 @@ See [config/config.example.yaml](config/config.example.yaml); every key is docum
 - **Renames are safe.** Groups store each tunnel of the fallback order by its UniFi id, with the name only as a label. Renaming a
   VPN client in UniFi changes nothing (the label in `config.yaml` follows). The Status page is drawn from UniFi's own state on every check
   (default every 15 s, or press *Check now*): which policy applies to which VLAN, and to which device, is read, never remembered.
-- **Jobs.** Failover is every group's first job. A group can also have a **rotation** job (Settings > Jobs): every N hours, days or weeks
+- **Jobs.** Failover is every group's first job. A group can also have a **rotation** job (Settings > VPN groups > Rotation): every N hours, days or weeks
   (days and weeks at a time of day) the group moves to the next tunnel in its fallback order, or to a random one from the order. The
   new tunnel is connected and tested first; one that fails is skipped. Each job has its own switch; "Rotate now" and "Stop rotation"
   are on the Status page. Failover keeps working between rotations; failback to a higher tunnel is paused while a rotation job is on.
