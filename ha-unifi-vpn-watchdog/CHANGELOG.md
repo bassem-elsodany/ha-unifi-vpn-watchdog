@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.20.0
+
+- **Warm standbys (optional, per group).** Settings > VPN groups > Warm standbys: keep the active VPN client plus N-1 standbys switched on and connected. The standbys are the next clients in the fallback order, so a failover to one needs no waiting. A standby carries no traffic: UniFi sends a VLAN through one client only (with Routing on, the one the watchdog's policy points to). Default is 1 (only the active one, as before).
+- A standby that does not connect within three connect timeouts is given up (quarantined with the usual back-off, switched off) and the next client takes its place. A paused group keeps its standbys as they are. The Status page lists the standbys with a check mark when connected.
+- With Routing off, the settings warn that one of your own policies for a standby could take traffic ahead of the active one; turn Routing on to avoid that.
+
 ## 0.19.0
 
 - **Your older policy blocks a picked VLAN? The warning now has a button.** For a group with Routing on, the watchdog finds your own routing policies that UniFi reads before its own policy and that take a picked VLAN somewhere else (switched on, all internet traffic, not for a single device, not already going to the active client). The Status page and the group's settings show them with **Switch it off...**.

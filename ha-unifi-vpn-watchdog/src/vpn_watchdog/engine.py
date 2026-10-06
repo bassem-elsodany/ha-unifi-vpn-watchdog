@@ -64,6 +64,8 @@ class Engine:
         self._overlap_warned: set[str] = set()
         self._owners: dict[str, str] = {}           # VPN client id -> the group it belongs to (a client belongs to one group)
         self._noted: dict[str, str] = {}
+        self._warm: dict[str, set[str]] = {}         # group -> the standby VPN clients kept on and connected (keep_ready)
+        self._warm_since: dict[str, float] = {}      # standby id -> when it was switched on as a standby (to give up on one that never connects)
         self._route_fail: dict[str, float] = {}     # group -> when its routing last failed to apply (retried after a pause, not every cycle)
         self._busy = False
         self._blocked_notified: dict[str, float] = {}
@@ -129,6 +131,8 @@ class Engine:
                 log.exception("group %s: unexpected error", g.name)
         try:
             after = self.unifi.snapshot()
+            for g in self.cfg.groups:
+                self._maintain_warm(g, after)
             self._disconnect_unused(after)
             if self._reconcile_routing(after):
                 self._snap = snap = self.unifi.snapshot()
@@ -150,6 +154,39 @@ class Engine:
         lans = {nid for nid, i in snap.network_info.items() if i.get("purpose") in ("corporate", "guest")}
         vlans = [n.id for n in g.networks if n.id in lans]
         return routing.plan(g.name, vlans, t, snap)
+
+    def _maintain_warm(self, g: GroupCfg, snap: Snapshot) -> None:
+        """keep_ready > 1: keep the next (keep_ready - 1) VPN clients of the fallback order switched on and connected, so a failover to
+        one of them needs no waiting. They carry no traffic of the group: the routing policy decides that, and it points at the active one."""
+        self._warm[g.name] = set()
+        gs = self.store.group(g.name)
+        cur = snap.tunnels.get(gs.current_id or "")
+        if g.keep_ready <= 1 or cur is None or not cur.enabled:
+            return
+        if gs.paused:                                        # failover is paused: leave the standbys as they are
+            self._warm[g.name] = {t.id for t in self._pool(g, snap) if t.enabled and t.id != cur.id}
+            return
+        st, now, keep = self.cfg.settings_for(g), self.clock.now(), set()
+        for t in candidates(g, list(snap.tunnels.values()), cur):
+            if len(keep) >= g.keep_ready - 1:
+                break
+            if self._owners.get(t.id) not in (None, g.name) or self.store.tunnel(t.id).quarantined_until > now:
+                continue
+            conn = snap.connections.get(t.id)
+            if t.enabled and conn and conn.connected:
+                self._warm_since.pop(t.id, None)
+                keep.add(t.id)
+                continue
+            since = self._warm_since.setdefault(t.id, now)
+            if not t.enabled:
+                self.unifi.set_tunnel_enabled(t.id, True)
+                self._warm_since[t.id] = now
+            elif now - since > st.switching.connect_timeout_seconds * 3:
+                self._quarantine(t, "did not connect as a standby", st)       # left out of `keep`: it is switched off and the next one takes its place
+                self._warm_since.pop(t.id, None)
+                continue
+            keep.add(t.id)
+        self._warm[g.name] = keep
 
     def _blockers(self, g: GroupCfg, snap: Snapshot) -> list[dict[str, Any]]:
         """Your own policies that stop the group's picked VLANs from using the watchdog's policy (groups with routing management on)."""
@@ -541,9 +578,10 @@ class Engine:
 
     # ------------------------------------------------------------------ one connected tunnel
     def _disconnect_unused(self, snap: Snapshot) -> None:
-        """Only the tunnel in use stays connected. Every other tunnel in a fallback order is disconnected, because several
-        tunnels up at once for the same VLAN lets traffic leave through different exit IPs. The only exception is the
-        higher-up tunnel being tested for failback, for as long as that test runs."""
+        """Only the tunnel in use stays connected, plus the warm standbys of a group that asked for them (keep_ready > 1). Every other
+        tunnel in a fallback order is disconnected, because several tunnels up at once for the same VLAN can let traffic leave through
+        a different exit IP when your own routing policies are in play. The only other exception is the higher-up tunnel being tested
+        for failback, for as long as that test runs."""
         keep: set[str] = set()
         managed: set[str] = set()
         for g in self.cfg.groups:
@@ -553,6 +591,7 @@ class Engine:
                 keep.add(gs.current_id)
             if gs.failback_target:
                 keep.add(gs.failback_target)
+            keep.update(self._warm.get(g.name, ()))              # the warm standbys of a group with keep_ready > 1
         in_use = {r.network_id for r in snap.routes if r.enabled and r.target_macs and r.network_id}   # clients that carry a device's own route (and the exit-IP test device)
         for tid in managed:
             t = snap.tunnels[tid]
@@ -821,6 +860,9 @@ class Engine:
             gaps += [f"{t.name} has no routing policy for {snap.networks[n]}, so a failover to it would leave that VLAN on the normal internet"
                      for t in order for n in nets if not any(r.network_id == t.id and covers(r, n) for r in vpn_pols)]
             out_groups.append({
+                "keep_ready": g.keep_ready,
+                "warm": [{"name": snap.tunnels[i].name, "connected": bool(snap.connections.get(i) and snap.connections[i].connected)}
+                         for i in sorted(self._warm.get(g.name, ()), key=lambda i: next((k for k, t in enumerate(order) if t.id == i), 99)) if i in snap.tunnels],
                 "routing": {"manage": g.manage_routing, "plan": [a.text for a in self._routing_plan(g, snap)], "blockers": self._blockers(g, snap),
                             "switched_off": [x for x in gs.switched_off if any(r.id == x["id"] and not r.enabled for r in snap.routes)]},
                 "gaps": gaps, "declared": bool(declared[g.name]), "name": g.name, "paused": gstat.get("paused", False), "healthy": gstat.get("healthy"), "decision": gstat.get("decision", ""),

@@ -440,7 +440,8 @@ function groupBlock(g, can, first, last, m) {
   const ex = g.exit || {}, act = g.lane.find((t) => t.active);
   const behind = g.networks.reduce((a, n) => a + n.count - n.bypass_count, 0);
   const probe = ex.ip && ex.age != null ? ` · exit-IP test passed ${ex.age}s ago` : "";
-  const note = act ? `Active: <b class="mono" style="color:var(--ink);font-weight:500">${esc(act.name)}</b>${act.position ? " · #" + act.position : g.unmanaged ? "" : " · not in the order"}${probe}${g.decision && g.decision !== "healthy" ? " · " + esc(g.decision) : ""}` : esc(g.decision || "no VPN client is switched on");
+  const warm = g.keep_ready > 1 ? ` · standbys: ${(g.warm || []).length ? g.warm.map((w) => esc(w.name) + (w.connected ? " ✓" : " …")).join(", ") : "none yet"}` : "";
+  const note = act ? `Active: <b class="mono" style="color:var(--ink);font-weight:500">${esc(act.name)}</b>${act.position ? " · #" + act.position : g.unmanaged ? "" : " · not in the order"}${probe}${warm}${g.decision && g.decision !== "healthy" ? " · " + esc(g.decision) : ""}` : esc(g.decision || "no VPN client is switched on");
   const conflict = (g.conflict ? `<br><span style="color:var(--warn)">⚠ ${esc(g.conflict)}.</span>` : "") + (g.gaps || []).map((x) => `<br><span style="color:var(--warn)">⚠ ${esc(x)}.</span>`).join("") + blockerLines(g, can, "div");
   const exline = ex.ip ? `exit <span class="mono">${esc(ex.ip)}</span>${ex.age != null ? `<br>exit-IP test OK ${ex.age}s ago` : ""}` : ex.server ? `VPN server <span class="mono">${esc(ex.server)}</span>` : "";
   const inet = act ? `<div class="inet" data-role="inet"><span class="dot ok"></span><div><b>Internet</b><div>${exline}</div></div></div>`
@@ -777,6 +778,10 @@ function secGroups() {
       <div class="note" style="margin:0">Before it moves, the next tunnel is connected and tested (the same exit-IP test as failover); one that fails is skipped. If none works, nothing moves and you get an alert. While rotation is on, failback to a higher tunnel is paused for this group.</div>
       <div style="display:flex;gap:12px">${same ? `<button class="btn" data-act="rotatenow" data-g="${esc(g.name)}">Rotate now</button>` : ""}<button class="btn danger" data-act="deljob" data-g="${esc(g.name)}">Remove rotation</button></div></div>`;
   })();
+  const kr = Number(g.keep_ready) || 1, warmNow = (live2 && live2.warm) || [];
+  const keepCtl = `<div style="display:flex;flex-direction:column;gap:8px"><div style="display:flex;align-items:center;gap:12px"><select class="fld" style="width:260px" data-path="groups.${selG}.keep_ready" data-t="num" aria-label="VPN clients kept ready">${[1, 2, 3, 4, 5].map((n) => `<option value="${n}" ${n === kr ? "selected" : ""}>${n === 1 ? "Only the active one" : "The active one + " + (n - 1) + " standby" + (n > 2 ? "s" : "")}</option>`).join("")}</select></div>
+    ${kr > 1 ? `<div class="note" style="margin:0">${warmNow.length ? "Standbys now: " + warmNow.map((w) => esc(w.name) + (w.connected ? " (connected)" : " (connecting)")).join(", ") : "No standby yet."}${g.order.length < kr ? " Your fallback order has only " + g.order.length + " client" + (g.order.length === 1 ? "" : "s") + "." : ""}</div>` : ""}
+    ${kr > 1 && !g.manage_routing ? '<div class="note" style="margin:0;color:var(--warn)">Routing is off: if one of your own policies for a standby sits above the active one\'s in UniFi, traffic can leave through the standby. Turn Routing on to keep it on the active client.</div>' : ""}</div>`;
   const rplan = (live2 && live2.routing && live2.routing.plan) || [];
   const routeCtl = `<div style="display:flex;flex-direction:column;gap:8px"><div style="display:flex;align-items:center;gap:12px">${(g.networks || []).length ? tog(`groups.${selG}.manage_routing`) : '<span class="muted">Pick at least one VLAN first.</span>'}<span style="font-size:14px">${g.manage_routing ? "The watchdog manages routing for this group" : "You manage routing in UniFi"}</span></div>${g.manage_routing && rplan.length ? `<div class="note" style="margin:0">Applying now: ${rplan.map(esc).join("; ")}.</div>` : ""}</div>`;
   const badge = (ok, missing) => ok ? '<span class="bdg ok">done</span>' : `<span class="bdg ${missing}">${missing === "req" ? "required" : "optional"}</span>`;
@@ -788,6 +793,7 @@ function secGroups() {
     ${sr("Routing", '<span class="bdg opt">optional</span>', "Off: you keep the routing policies in UniFi yourself. On: the watchdog keeps its own policy for each picked VLAN pointed at the active VPN client. It only ever edits policies named \"vpnwd: ...\".", routeCtl)}
     ${sr("Failover", '<span class="bdg opt">built in</span>', "If the active VPN client stops working, traffic moves to the next one in the fallback order.", foCtl)}
     ${sr("Rotation", '<span class="bdg opt">optional</span>', "Move to another VPN client on a timer, every few hours, days or weeks.", rotCtl)}
+    ${sr("Warm standbys", '<span class="bdg opt">optional</span>', "Keep this many VPN clients switched on and connected: the active one plus the next ones in the fallback order, so a failover needs no waiting. A standby carries no traffic. More clients up means more VPN sessions.", keepCtl)}
     ${sr("Fallback order", badge(g.order.length > 0, "req"), "#1 is used first. If it stops working the watchdog moves to #2, then #3. VPN clients that are not in the list are never switched on or off. A VPN client can be in one group only.", orderCtl)}
   </div></div>`;
 }
@@ -862,6 +868,7 @@ function handleField(t) {
   if (oldName !== null) V.jobs.forEach((j) => { if (j.group === oldName) j.group = v; }), openJob.has(oldName) && (openJob.delete(oldName), openJob.add(v));      // a renamed group keeps its jobs
   const m = t.dataset.path.match(/^alerts\.(\w+)\.(title|message)$/);
   if (m) { const pv = $("#pv_" + m[1]); const a = V.alerts[m[1]]; if (pv) pv.innerHTML = `Preview: <b style="color:var(--ink)">${esc(preview(a.title))}</b> · ${esc(preview(a.message))}`; }
+  if (/^groups\.\d+\.keep_ready$/.test(t.dataset.path)) { markDirty(); renderSection(); return; }
   const jm = t.dataset.path.match(/^jobs\.(\d+)\.(unit|group)$/); if (jm) { renderSection(); return; }
   if (t.dataset.path === "failback.enabled" || t.dataset.path.startsWith("groups.") && t.dataset.path.endsWith(".name")) { if (t.dataset.path === "failback.enabled") renderSection(); else { const gi = document.querySelector(".gi.on b"); if (gi) gi.textContent = t.value || "(unnamed)"; } }
   updateSummary(); markDirty();

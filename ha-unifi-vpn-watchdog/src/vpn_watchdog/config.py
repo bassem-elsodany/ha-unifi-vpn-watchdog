@@ -147,6 +147,7 @@ class GroupCfg(_M):
     networks: list[NetRef] = Field(default_factory=list)   # the VLANs this group is for (read-only: the watchdog only checks UniFi's routing policies against them)
     order: list[OrderItem] = Field(default_factory=list)   # fallback sequence: #1 is the most preferred, then #2, #3, ...
     kill_switch: bool | None = None      # ignored (it was a routing-policy setting)
+    keep_ready: int = Field(1, ge=1, le=10)   # VPN clients kept switched on and connected: the active one plus (this - 1) standbys, the next ones in the fallback order
     manage_routing: bool = False         # off by default: when on, the watchdog keeps its own routing policy per picked VLAN pointed at the active client
     overrides: dict[str, Any] = Field(default_factory=dict)  # deep-merged over detection/switching/failback
 
