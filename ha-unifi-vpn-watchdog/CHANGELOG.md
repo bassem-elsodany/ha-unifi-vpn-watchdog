@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.22.0
+
+- **Status page: one VLAN list, one flow that follows your pick.** All VLANs of all groups are boxes in one list on the left, each tagged with its group (or "no VPN" / "no group"). Click a VLAN and the group (active client, standbys, fallback order, warnings, buttons) and the egress on the right change to that VLAN's; the connector lines go from the picked VLAN only. A VLAN with no VPN shows the normal connection.
+- The devices of the picked VLAN are listed under the flow, with a search box. Selecting a device picks its VLAN. The page remembers your last pick, and the search box above the list filters VLANs and devices.
+- Replaces the compact rows and the "Show all" cap of 0.21.0.
+
 ## 0.21.0
 
 - **Status: many VLANs no longer make the page long.** Each VLAN is one compact row (name, VLAN number, device count). Click a row to open its devices; one row is open at a time, and the VLAN of a device you select opens by itself.
