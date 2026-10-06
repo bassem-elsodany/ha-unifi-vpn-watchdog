@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.10.0
+- **Devices with their own route** (approved design "Status page with device routes"). A routing policy that targets individual devices (not a whole network) is now shown on the Status page: a small card "Devices with their own route" lists each device, its VLAN and where it goes, and draws a line from there to the normal connection (amber) or to the VPN client that carries it (violet). The device stays in its VLAN list, marked with an arrow. The tunnel that carries it shows "carries N devices with its own route" even when it is not in a fallback order. The watchdog still never changes these policies.
+
 ## 0.9.6
 - When you expand "No VPN policy" each VLAN is its own box again, and **every VLAN box has its own connector** into the "normal connection" Internet node (a short line from the box to a shared line, then the arrow). Expanding no longer repeats the summary rows.
 - The arrow into the "normal connection" node is now dashed and moving, like the arrows into the active tunnel and the VPN Internet node.

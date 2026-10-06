@@ -337,3 +337,27 @@ def test_status_map_lists_only_unifi_vlans(make_engine):
     m = eng.status()["map"]
     shown = [n["name"] for g in m["groups"] for n in g["networks"]] + [n["name"] for n in m["direct"]]
     assert sorted(shown) == ["vlan20-iot", "vlan50-vpn"]
+
+
+def test_status_map_lists_devices_with_their_own_route(make_engine):
+    """A device-targeted policy that is switched on is listed on its own, with where it goes; its tunnel gets a lane card."""
+    from vpn_watchdog.models import Route
+    eng, un, *_ = make_engine(active="Home-Primary")
+    orig = un.snapshot
+
+    def snap():
+        sn = orig()
+        sn.clients = {"aa:aa": {"name": "tv-bedroom", "ip": "10.0.20.77", "network": "vlan20-iot", "rate_bps": 820_000, "wired": False},
+                      "bb:bb": {"name": "ac_energy", "ip": "10.0.20.142", "network": "vlan20-iot", "rate_bps": 9_000, "wired": False}}
+        sn.networks["net-wan"] = "Internet 1"
+        return sn
+    un.snapshot = snap
+    un.routes.append(Route("r-tv", "tv", tid("zzz-last-resort"), True, False, frozenset(), frozenset({"aa:aa"}), {}))
+    un.routes.append(Route("r-ac", "ac", "net-wan", True, False, frozenset(), frozenset({"bb:bb"}), {}))
+    eng.tick()
+    m = eng.status()["map"]
+    assert [(d["name"], d["kind"], d["tunnel"]) for d in m["own"]] == [("tv-bedroom", "vpn", "zzz-last-resort"), ("ac_energy", "normal", None)]
+    lane = {t["name"]: t for t in m["groups"][0]["lane"]}
+    assert lane["zzz-last-resort"]["carries"] == ["tv-bedroom"] and lane["Home-Primary"]["carries"] == []
+    iot = next(n for n in m["groups"][0]["networks"] if n["name"] == "vlan20-iot")
+    assert {d["name"]: d["bypass"]["kind"] for d in iot["devices"] if d["bypass"]} == {"tv-bedroom": "vpn", "ac_energy": "normal"}

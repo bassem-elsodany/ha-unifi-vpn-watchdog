@@ -510,16 +510,32 @@ class Engine:
         byp: dict[str, dict[str, Any]] = {}
         for r in snap.routes:
             for mac in r.target_macs:
+                to_vpn = r.network_id in snap.tunnels
                 byp[mac] = {"goes_to": snap.networks.get(r.network_id or "", "the normal internet connection"),
-                            "policy": r.description, "on": r.enabled}
+                            "policy": r.description, "on": r.enabled, "kind": "vpn" if to_vpn else "normal",
+                            "tunnel": snap.tunnels[r.network_id].name if to_vpn else None}
         devs: dict[str, list[dict[str, Any]]] = {}
         for mac, c in snap.clients.items():
             b = byp.get(mac)
             devs.setdefault(c.get("network") or "", []).append({
                 "mac": mac, "name": c.get("name") or "", "ip": c.get("ip"), "rate_bps": c.get("rate_bps"),
                 "active": (c.get("rate_bps") or 0) > 800, "wired": c.get("wired", False),
-                "bypass": ({"goes_to": b["goes_to"], "policy": b["policy"]} if b and b["on"] else None),
+                "bypass": ({"goes_to": b["goes_to"], "policy": b["policy"], "kind": b["kind"], "tunnel": b["tunnel"]} if b and b["on"] else None),
             })
+
+        own: list[dict[str, Any]] = []
+        carriers: dict[str, list[str]] = {}
+        for r in snap.routes:
+            if not r.enabled or not r.target_macs:
+                continue
+            tun = snap.tunnels.get(r.network_id or "")
+            for mac in sorted(r.target_macs):
+                c = snap.clients.get(mac, {})
+                own.append({"mac": mac, "name": c.get("name") or "", "ip": c.get("ip"), "network": c.get("network") or "",
+                            "kind": "vpn" if tun else "normal", "tunnel": tun.name if tun else None, "policy": r.description})
+                if tun:
+                    carriers.setdefault(tun.name, []).append(c.get("name") or mac)
+        own.sort(key=lambda d: (d["kind"] != "vpn", d["tunnel"] or "", (d["name"] or d["mac"]).lower()))
 
         def card(nid: str) -> dict[str, Any]:
             name = snap.networks.get(nid, nid)
@@ -538,7 +554,8 @@ class Engine:
                     "server": c.remote_ip if c else None, "has_policy": pol is not None, "policy_on": bool(pol and pol.enabled),
                     "policy": pol.description if pol else None, "kill_switch": bool(pol and pol.kill_switch),
                     "quarantined_for": max(0, int((ts.quarantined_until if ts else 0) - now)),
-                    "last_reason": ts.last_reason if ts else "", "expect_country": item.expect_country if item else None}
+                    "last_reason": ts.last_reason if ts else "", "expect_country": item.expect_country if item else None,
+                    "carries": carriers.get(t.name, [])}
 
         used: set[str] = set()
         out_groups: list[dict[str, Any]] = []
@@ -603,10 +620,16 @@ class Engine:
                 "pool": [{"name": t.name, "status": (snap.connections.get(t.id).status if snap.connections.get(t.id) else None), "enabled": t.enabled} for t in rest],
                 "exit": {"ip": None, "country": None, "server": ac.remote_ip if ac else None, "age": None},
             })
+        if out_groups:                       # a tunnel that only carries devices with their own route still needs a card to draw the line to
+            lane = out_groups[-1]["lane"]
+            for name in carriers:
+                tun = snap.tunnel_by_name(name)
+                if tun and all(t["name"] != name for t in lane):
+                    lane.append(tinfo(None, tun, None, {}))
         direct = [card(nid) for nid, name in snap.networks.items()
                   if nid in lans and nid not in used]
         direct.sort(key=lambda n: (n["vlan"] is None, n["vlan"] if n["vlan"] is not None else 0, n["name"].lower()))
-        return {"groups": out_groups, "direct": direct, "wan_ip": snap.wan_ip}
+        return {"groups": out_groups, "direct": direct, "own": own, "wan_ip": snap.wan_ip}
 
     def _record(self, event: str, message: str, level: str = "info") -> None:
         rec = getattr(self.notifier, "record", None)
@@ -671,7 +694,7 @@ class Engine:
         status = {
             "last_tick": self.last_tick, "error": self.last_error,
             "groups": groups, "tunnels": tunnels, "direct_routes": direct,
-            "map": self._map(snap, groups) if snap is not None else {"groups": [], "direct": [], "wan_ip": None},
+            "map": self._map(snap, groups) if snap is not None else {"groups": [], "direct": [], "own": [], "wan_ip": None},
             "events": list(getattr(self.notifier, "history", []))[:60],
             "interval_seconds": self.cfg.interval_seconds,
         }

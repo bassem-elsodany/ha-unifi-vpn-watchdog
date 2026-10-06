@@ -10,13 +10,13 @@
   :root {
     --bg: #F2F5F8; --card: #FFFFFF; --ink: #16202A; --muted: #55616E; --line: #D9E0E7; --hair: #E3E8EE; --line2: #C5CFD9; --lane: #E8EDF2;
     --ok: #0E8A5C; --okbg: #E2F4EA; --okink: #0B6B48; --warn: #B86E00; --warnbg: #FDF4E2; --warnink: #5A3A00; --bad: #B42318; --badbg: #FBE7E5;
-    --accent: #2457D6; --accentbg: #E4ECFB; --accentink: #1D45B0; --idle2: #8A96A3; --chip: #E4E9EE; --chipink: #3A4652; --sub: #3F4B57; --dbg: #F7F9FB; --dline: #B3BEC9;
+    --accent: #2457D6; --accentbg: #E4ECFB; --accentink: #1D45B0; --own: #6B4FD8; --ownbg: #EFEAFB; --ownink: #3B2A8A; --idle2: #8A96A3; --chip: #E4E9EE; --chipink: #3A4652; --sub: #3F4B57; --dbg: #F7F9FB; --dline: #B3BEC9;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #12151b; --card: #1a1f28; --ink: #e6e9ef; --muted: #98a2b3; --line: #2a3140; --hair: #252c3a; --line2: #3A4456; --lane: #1E2530;
       --ok: #4cc38a; --okbg: #12301f; --okink: #4cc38a; --warn: #f0b24b; --warnbg: #332710; --warnink: #f0b24b; --bad: #ff8a80; --badbg: #3a1714;
-      --accent: #7aa2ff; --accentbg: #1b2745; --accentink: #8fb0ff; --idle2: #667085; --chip: #2a3140; --chipink: #cbd2de; --sub: #cbd2de; --dbg: #171b22; --dline: #3A4456;
+      --accent: #7aa2ff; --accentbg: #1b2745; --accentink: #8fb0ff; --own: #a592ff; --ownbg: #251f45; --ownink: #c9bdff; --idle2: #667085; --chip: #2a3140; --chipink: #cbd2de; --sub: #cbd2de; --dbg: #171b22; --dline: #3A4456;
     }
   }
   * { box-sizing: border-box; }
@@ -65,7 +65,7 @@
   #map { position: relative; }
   #links { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; z-index: 3; }
   .lk { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-width: 3; }
-  .lk.on { stroke: var(--ok); } .lk.idle { stroke: var(--idle2); } .lk.off { stroke: var(--idle2); stroke-width: 2; stroke-dasharray: 5 6; } .lk.byp { stroke: var(--warn); stroke-width: 3; stroke-dasharray: 8 8; }
+  .lk.on { stroke: var(--ok); } .lk.idle { stroke: var(--idle2); } .lk.own { stroke: var(--own); } .lk.amber { stroke: var(--warn); } .lk.jn { stroke: var(--warn); stroke-width: 9px; } .lk.off { stroke: var(--idle2); stroke-width: 2; stroke-dasharray: 5 6; } .lk.byp { stroke: var(--warn); stroke-width: 3; stroke-dasharray: 8 8; }
   .lk.live { stroke-dasharray: 8 8; animation: dashmove .9s linear infinite; } .lk.hot { stroke-width: 6; opacity: .9; }
   @keyframes dashmove { to { stroke-dashoffset: -16; } }
   .gblock { margin-bottom: 30px; position: relative; z-index: 2; }
@@ -89,6 +89,7 @@
   .dev { display: flex; align-items: center; gap: 8px; height: 28px; font-size: 13px; cursor: pointer; border-radius: 6px; }
   .dev:hover { background: var(--accentbg); } .dev.sel { outline: 2px solid var(--accent); }
   .dev.byp { background: var(--warnbg); margin: 0 -6px; padding: 0 6px; } .dev.byp span:nth-child(2) { color: var(--warnink); }
+  .dev.byp.ownv { background: var(--ownbg); } .dev.byp.ownv span:nth-child(2) { color: var(--ownink); }
   .dev i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); } .dev i.idle { background: var(--idle2); }
   .dev span:nth-child(2) { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .dev span:nth-child(3) { flex: none; font: 12px 'IBM Plex Mono', ui-monospace, Menlo, monospace; color: var(--muted); }
@@ -102,6 +103,10 @@
   .lane.dropend { box-shadow: 0 6px 0 0 var(--accent); }
   .lc { position: relative; display: flex; align-items: center; gap: 12px; min-height: 76px; padding: 10px 18px; background: var(--card); border: 1px solid var(--line2); border-radius: 12px; font-size: 13px; line-height: 22px; color: var(--muted); }
   .lc[draggable=true] { cursor: grab; } .lc.active { min-height: 104px; padding: 14px 18px; border: 2px solid var(--ok); background: var(--okbg); color: var(--sub); }
+  .lc.own { border-color: var(--own); } .lc.own > .dot { background: var(--own); }
+  .ownc { padding: 12px 14px; gap: 0; } .ownc .vh { min-height: 28px; } .orow { height: 44px; display: flex; flex-direction: column; justify-content: center; font-size: 13px; }
+  .orow .o1 { display: flex; justify-content: space-between; gap: 8px; } .orow .o1 span:last-child { font: 12px 'IBM Plex Mono', ui-monospace, Menlo, monospace; color: var(--muted); }
+  .orow .o2 { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .orow .o2 b { font-weight: 600; } .orow .o2 .tv { color: var(--ownink); } .orow .o2 .tn { color: var(--warnink); }
   .lc.sel { outline: 2px solid var(--accent); outline-offset: 2px; } .lc.dragging { opacity: .35; } .lc.dropbefore { box-shadow: 0 -6px 0 0 var(--accent); }
   .lc:focus-visible { outline: 2px solid var(--accent); }
   .lc > .dot { flex: none; width: 12px; height: 12px; }
@@ -300,9 +305,10 @@ function toast(msg, ms = 4000, spin = false) { const el = $("#toast"); clearTime
 
 function devRow(d) {
   const sel = selected && selected.kind === "dev" && selected.mac === d.mac ? "sel" : "";
-  const tip = d.bypass ? `bypasses the VPN and goes to ${d.bypass.goes_to}` : `${d.mac}${d.wired ? ", wired" : ""}`;
-  return `<div class="dev ${d.bypass ? "byp" : ""} ${sel}" data-mac="${esc(d.mac)}" title="${esc(tip)}"><i class="${d.active ? "" : "idle"}" ${d.bypass ? 'style="background:var(--warn)"' : ""}></i>
-    <span>${d.name && d.name !== d.ip ? esc(d.name) : '<span class="muted">unnamed</span>'}${d.bypass ? " · bypasses the VPN" : ""}</span><span>${esc(d.ip || "")}</span><span>${rate(d.rate_bps)}</span></div>`;
+  const tip = d.bypass ? `has its own route: ${d.bypass.kind === "vpn" ? "through " + d.bypass.tunnel : "the normal connection"}` : `${d.mac}${d.wired ? ", wired" : ""}`;
+  const vpn = d.bypass && d.bypass.kind === "vpn";
+  return `<div class="dev ${d.bypass ? "byp" : ""} ${vpn ? "ownv" : ""} ${sel}" data-mac="${esc(d.mac)}" title="${esc(tip)}"><i class="${d.active ? "" : "idle"}" ${d.bypass ? `style="background:var(${vpn ? "--own" : "--warn"})"` : ""}></i>
+    <span>${d.name && d.name !== d.ip ? esc(d.name) : '<span class="muted">unnamed</span>'}${d.bypass ? " ↗" : ""}</span><span>${esc(d.ip || "")}</span><span>${rate(d.rate_bps)}</span></div>`;
 }
 function devList(n) {
   const q = (vsearch[n.id] || "").trim().toLowerCase(), exp = !!vexp[n.id];
@@ -338,11 +344,12 @@ function laneCard(g, t, can, behind) {
   const inOrder = t.position != null, c = tcolor(t);
   const sel = selected && selected.kind === "tun" && selected.name === t.name ? "sel" : "";
   const sub = t.active ? `connected · ${bps(t.rx_bps || 0)} ↓ · ${bps(t.tx_bps || 0)} ↑ · policy on`
-    : t.quarantined_for ? `cooling down ${t.quarantined_for}s · ${esc(t.last_reason || "failed")}` : `${tlabel(t)} · ready to take over`;
+    : t.quarantined_for ? `cooling down ${t.quarantined_for}s · ${esc(t.last_reason || "failed")}`
+    : (t.carries || []).length ? `${tlabel(t)} · carries ${t.carries.length} device${t.carries.length === 1 ? "" : "s"} with its own route` : `${tlabel(t)} · ready to take over`;
   const num = inOrder ? `<span class="num">#${t.position}</span>` : g.unmanaged ? "" : '<span class="num" title="Not in the fallback order">--</span>';
   const head = t.active ? `<div class="l1">${num}<b>ACTIVE · ${behind} device${behind === 1 ? "" : "s"} behind it</b></div><div class="mono">${esc(t.name)}</div>`
     : `<div class="l1">${num}<span class="mono">${esc(t.name)}</span></div>`;
-  return `<div class="lc ${t.active ? "active" : ""} ${sel}" data-g="${esc(g.name)}" data-tun="${esc(t.name)}" ${inOrder ? `data-pos="${t.position}"` : ""} ${inOrder && can ? 'draggable="true" data-drag="lane"' : ""}
+  return `<div class="lc ${t.active ? "active" : ""} ${(t.carries || []).length ? "own" : ""} ${sel}" data-g="${esc(g.name)}" data-tun="${esc(t.name)}" ${inOrder ? `data-pos="${t.position}"` : ""} ${inOrder && can ? 'draggable="true" data-drag="lane"' : ""}
       tabindex="0" aria-label="${esc(t.name)}${inOrder ? ", position " + t.position : ", not in the order"}${can && inOrder ? ". Alt plus arrow up or down moves it." : ""}">
     ${inOrder && can ? '<span class="grip" aria-hidden="true"></span>' : ""}<span class="dot ${c}"></span>
     <div class="lb">${head}<div class="sub">${sub}</div></div></div>`;
@@ -362,7 +369,7 @@ function laneHtml(g, can, behind) {
       : `<b>GROUP ${esc(g.name.toUpperCase())} \u00b7 FALLBACK ORDER</b><div class="muted">#1 carries the traffic. If it fails, #2 takes over, then #3.</div>`}</div>
     <div class="lane" data-g="${esc(g.name)}">${parts.join("") + empty}</div>${pool}</div></div>`;
 }
-const legendHtml = (can) => `<div class="legend"><b>LEGEND</b><div><i style="background:var(--ok)"></i>connected / device active</div><div><i style="background:var(--warn)"></i>bypasses the VPN</div><div><i style="background:var(--muted)"></i>idle / disconnected</div></div>
+const legendHtml = (can) => `<div class="legend"><b>LEGEND</b><div><i style="background:var(--ok)"></i>connected / device active</div><div><i style="background:var(--warn)"></i>↗ own route: normal connection</div><div><i style="background:var(--own)"></i>↗ own route: another VPN client</div><div><i style="background:var(--idle2)"></i>idle / disconnected</div></div>
   <p class="hint">Click a device to light up its path through the map. Click a VPN client for its details panel.${can ? " Drag a client up or down to change the order." : ""}</p>`;
 function directBox(m) {
   const total = m.direct.reduce((a, n) => a + n.count, 0), plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
@@ -370,6 +377,13 @@ function directBox(m) {
   return `<div class="vc direct dsum"><div class="vh"><span class="dot idle"></span><b style="font-size:14px">No VPN policy · ${plural(total, "device")}</b></div>
     ${m.direct.slice(0, 3).map((n) => `<div class="dev"><i class="idle"></i><span>${esc(n.name)}</span><span>${plural(n.count, "device")}</span><span></span></div>`).join("")}
     <div class="vf" id="directToggle">Show all ${plural(m.direct.length, "VLAN")} and devices</div></div>`;
+}
+function ownCard(m) {
+  if (!m.own || !m.own.length) return "";
+  const n = m.own.length;
+  return `<div class="vc ownc"><div class="vh"><span class="dot" style="background:var(--own)"></span><b style="font-size:14px">Devices with their own route · ${n}</b></div>
+    ${m.own.map((d) => `<div class="orow" data-mac="${esc(d.mac)}" data-kind="${d.kind}" ${d.tunnel ? `data-tun="${esc(d.tunnel)}"` : ""}><div class="o1"><span>${d.name && d.name !== d.ip ? esc(d.name) : '<span class="muted">unnamed</span>'}</span><span>${esc(d.ip || "")}</span></div>
+      <div class="o2" title="${esc(d.kind === "vpn" ? d.tunnel : "normal connection")}">${esc(d.network || "")}${d.network ? " · " : ""}${d.kind === "vpn" ? `<b class="tv">\u2192 ${esc(d.tunnel)}</b>` : '<b class="tn">\u2192 normal connection</b>'}</div></div>`).join("")}</div>`;
 }
 const normalNode = (m) => `<div class="inet normal" data-role="inet"><span class="dot idle"></span><div><b>Internet</b> · normal connection<div>exit <span class="mono">${esc(m.wan_ip || "your WAN address")}</span></div></div></div>`;
 function groupBlock(g, can, first, last, m) {
@@ -381,21 +395,21 @@ function groupBlock(g, can, first, last, m) {
   const exline = ex.ip ? `exit <span class="mono">${esc(ex.ip)}</span>${ex.age != null ? `<br>exit-IP test OK ${ex.age}s ago` : ""}` : ex.server ? `VPN server <span class="mono">${esc(ex.server)}</span>` : "";
   const inet = act ? `<div class="inet" data-role="inet"><span class="dot ok"></span><div><b>Internet</b><div>${exline}</div></div></div>`
     : `<div class="inet bad" data-role="inet"><span class="dot bad"></span><div><b>Internet</b><div>no VPN client is switched on</div></div></div>`;
-  const withDirect = last && m.direct.length;
+  const withDirect = last && m.direct.length, showNormal = last && (m.direct.length || (m.own || []).some((d) => d.kind === "normal"));
   return `<section class="gblock" data-g="${esc(g.name)}"><div class="gstrip"><b class="gname">${esc(g.name)}</b><span class="pill ${st[0]}">${st[1]}</span>
       <span class="muted grow">${note}</span>
       ${g.unmanaged ? "" : `<button class="act" data-gact="${g.paused ? "resume" : "pause"}" data-g="${esc(g.name)}" ${can ? "" : "disabled"}>${g.paused ? "Start automatic failover" : "Stop automatic failover"}</button>`}</div>
-    <div class="gcols"><div class="colv"><div class="colh">VLANs and their devices</div>${g.networks.map((n) => vlanCard(n, false)).join("") || '<div class="muted">No VLAN is selected for this group.</div>'}${withDirect ? directBox(m) : ""}</div>${laneHtml(g, can, behind)}
-    <div class="colr"><div class="colh">Internet via the VPN</div>${inet}${first ? legendHtml(can && !g.unmanaged) : ""}${withDirect ? normalNode(m) : ""}</div>${withDirect ? '<div class="dlabel">straight to the internet, no VPN</div>' : ""}</div></section>`;
+    <div class="gcols"><div class="colv"><div class="colh">VLANs and their devices</div>${g.networks.map((n) => vlanCard(n, false)).join("") || '<div class="muted">No VLAN is selected for this group.</div>'}${last ? ownCard(m) : ""}${withDirect ? directBox(m) : ""}</div>${laneHtml(g, can, behind)}
+    <div class="colr"><div class="colh">Internet via the VPN</div>${inet}${first ? legendHtml(can && !g.unmanaged) : ""}${showNormal ? normalNode(m) : ""}</div>${showNormal ? '<div class="dlabel">straight to the internet, no VPN</div>' : ""}</div></section>`;
 }
 let directOpen = false;
 function plainBlock(m, can) {
-  return `<section class="gblock" data-nogroup="1"><div class="gcols"><div class="colv"><div class="colh">VLANs and their devices</div>${directBox(m)}</div>
+  return `<section class="gblock" data-nogroup="1"><div class="gcols"><div class="colv"><div class="colh">VLANs and their devices</div>${ownCard(m)}${m.direct.length ? directBox(m) : ""}</div>
     <div class="colm"></div><div class="colr">${normalNode(m)}${legendHtml(false)}</div><div class="dlabel">straight to the internet, no VPN</div></div></section>`;
 }
 function renderMap(d) {
   const m = d.map || { groups: [], direct: [] }, can = !!d.can_control;
-  let html = m.groups.map((g, i) => groupBlock(g, can, i === 0, i === m.groups.length - 1, m)).join("") + (!m.groups.length && m.direct.length ? plainBlock(m, can) : "");
+  let html = m.groups.map((g, i) => groupBlock(g, can, i === 0, i === m.groups.length - 1, m)).join("") + (!m.groups.length && (m.direct.length || (m.own || []).length) ? plainBlock(m, can) : "");
   if (!html) html = d.loading || !d.last_tick ? '<div class="loading"><span class="spin big"></span><div>Loading from UniFi...</div></div>'
     : '<div class="card muted">UniFi reported no networks to show.</div>';
   $("#map").innerHTML = '<svg id="links"></svg>' + html;
@@ -409,7 +423,7 @@ function drawLinks() {
   const narrow = window.innerWidth < 1000;
   document.querySelectorAll("#map .gblock").forEach((blk) => {
     const cy = (el) => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; };
-    const lane = blk.querySelector(".lane"), act = blk.querySelector(".lc.active") || blk.querySelector(".lane .lc"), vcs = [...blk.querySelectorAll(".colv > .vc:not(.direct)")];
+    const lane = blk.querySelector(".lane"), act = blk.querySelector(".lc.active") || blk.querySelector(".lane .lc"), vcs = [...blk.querySelectorAll(".colv > .vc:not(.direct):not(.ownc)")];
     const hd = blk.querySelector(".colr > .colh"), inet = blk.querySelector(".colr > .inet:not(.normal)"), box = blk.querySelector(".dsum"), nn = blk.querySelector(".inet.normal");
     const lbl = blk.querySelector(".dlabel"), panel = blk.querySelector(".band"), cols = blk.querySelector(".gcols");
     if (lane) lane.style.marginTop = ""; if (hd) hd.style.marginTop = ""; if (box) box.style.marginTop = ""; if (nn) nn.style.marginTop = "";
@@ -422,12 +436,13 @@ function drawLinks() {
       const want = cy(act) - inet.getBoundingClientRect().height / 2, have = inet.getBoundingClientRect().top;
       hd.style.marginTop = Math.max(0, Math.round(want - have)) + "px";
     }
-    const dcards = [...blk.querySelectorAll(".colv > .vc.direct:not(.dsum)")], first = box || dcards[0];
-    if (first && vcs.length) first.style.marginTop = "32px";
-    if (first && nn && cols) {                // the straight-to-internet path runs under the fallback panel
+    const own = blk.querySelector(".ownc"), dcards = [...blk.querySelectorAll(".colv > .vc.direct:not(.dsum)")], low = own || box || dcards[0];
+    if (own) own.style.marginTop = "";
+    if (low && vcs.length && !own) low.style.marginTop = "32px";
+    if ((box || dcards.length || own) && nn && cols) {      // the straight-to-internet path runs under the fallback panel
       const pb = panel ? panel.getBoundingClientRect().bottom : 0, bb = box ? box.getBoundingClientRect().bottom - 20 : 0;
       const nnc = cy(nn), want = Math.max(bb, pb + 22, nnc);
-      if (box && want > bb) first.style.marginTop = (vcs.length ? 32 : 0) + Math.round(want - bb) + "px";
+      if (box && want > bb) box.style.marginTop = (own ? 0 : vcs.length ? 32 : 0) + Math.round(want - bb) + "px";
       if (want > nnc) nn.style.marginTop = (24 + Math.round(want - nnc)) + "px";
       if (lbl) { const cr = cols.getBoundingClientRect(), pr = (panel || blk.querySelector(".colm")).getBoundingClientRect(); lbl.style.left = Math.round(pr.left + pr.width / 2 - 150 - cr.left) + "px"; lbl.style.top = Math.round(cy(nn) + 16 - cr.top) + "px"; }
     }
@@ -440,16 +455,35 @@ function drawLinks() {
   const hotNet = selected && selected.kind === "dev" ? (mapData().groups.flatMap((g) => g.networks).find((n) => n.devices.some((x) => x.mac === selected.mac)) || {}).id : null;
   document.querySelectorAll("#map .gblock").forEach((blk) => {
     const inet = blk.querySelector(".colr > .inet:not(.normal)"), nn = blk.querySelector(".inet.normal"), box = blk.querySelector(".dsum");
-    const dcards = [...blk.querySelectorAll(".colv > .vc.direct:not(.dsum)")];
+    const dcards = [...blk.querySelectorAll(".colv > .vc.direct:not(.dsum)")], own = blk.querySelector(".ownc");
+    let slot = null, lim = 0;                 // x of the next free vertical in the gutter between the left column and the panel
+    const next = () => { const x = slot; slot = Math.min(slot + 8, lim); return x; };
+    if (own) {                                // devices with their own route: one line each, from the card to where the device goes
+      const o = R(own), by = {}; slot = o.r + 46; lim = o.r + 74; let amberX = null;
+      [...own.querySelectorAll(".orow")].forEach((row) => {
+        const a = R(row);
+        if (row.dataset.kind === "vpn") {
+          const lc = blk.querySelector(`.lane .lc[data-tun="${CSS.escape(row.dataset.tun)}"]`);
+          if (!lc) return;
+          const L = R(lc), x = by[row.dataset.tun] ?? (by[row.dataset.tun] = next());
+          segs.push({ d: `M ${o.r} ${a.cy} H ${x} V ${L.cy} H ${L.l - 3}`, cls: "lk own live", head: "own" });
+        } else if (nn) {
+          const b = R(nn); if (amberX == null) amberX = next();
+          segs.push({ d: `M ${o.r} ${a.cy} H ${amberX} V ${b.cy}`, cls: "lk amber live" });
+          segs.push({ d: `M ${amberX} ${b.cy} h 0.1`, cls: "lk jn" });
+          if (!box && !dcards.length) segs.push({ d: `M ${amberX} ${b.cy} H ${b.l - 3}`, cls: "lk amber live", head: "amb" });
+        }
+      });
+    }
     if (box && nn) { const a = R(box), b = R(nn); segs.push({ d: `M ${a.r} ${b.cy} H ${b.l - 3}`, cls: "lk idle live", head: "off" }); }
     else if (dcards.length && nn) {           // every listed VLAN gets its own line into the Internet node
-      const b = R(nn), right = Math.max(...dcards.map((v) => R(v).r)), bx = right + 60;
+      const b = R(nn), right = Math.max(...dcards.map((v) => R(v).r)), bx = slot != null ? slot : right + 46;
       dcards.forEach((v) => { const h = R(v.querySelector(".vh")); segs.push({ d: `M ${R(v).r} ${h.cy} H ${bx} V ${b.cy}`, cls: "lk idle" }); });
       segs.push({ d: `M ${bx} ${b.cy} H ${b.l - 3}`, cls: "lk idle live", head: "off" });
     }
-    const act = blk.querySelector(".lc.active"), vcs = [...blk.querySelectorAll(".colv > .vc:not(.direct)")];
+    const act = blk.querySelector(".lc.active"), vcs = [...blk.querySelectorAll(".colv > .vc:not(.direct):not(.ownc)")];
     if (act && inet && vcs.length) {
-      const a = R(act), e = R(inet), right = Math.max(...vcs.map((v) => R(v).r)), bx = right + 40;
+      const a = R(act), e = R(inet), right = Math.max(...vcs.map((v) => R(v).r)), bx = right + 36;
       vcs.forEach((v) => { const h = R(v.querySelector(".vh")); segs.push({ d: `M ${R(v).r} ${h.cy} H ${bx} V ${a.cy}`, cls: "lk on" + (hotNet === v.dataset.net ? " hot" : "") }); });
       segs.push({ d: `M ${bx} ${a.cy} H ${a.l - 3}`, cls: "lk on live", head: "on" });
       const mx = a.r + (e.l - a.r) / 2;
@@ -458,13 +492,8 @@ function drawLinks() {
     const cards = [...blk.querySelectorAll(".lane .lc[data-pos]")];
     for (let i = 0; i + 1 < cards.length; i++) { const a = R(cards[i]), b = R(cards[i + 1]); segs.push({ d: `M ${a.cx} ${a.b} V ${b.t - 3}`, cls: "lk off", head: "off" }); }
   });
-  if (selected && selected.kind === "dev") {
-    const row = document.querySelector(`.dev[data-mac="${CSS.escape(selected.mac)}"]`), nn = document.querySelector(".inet.normal");
-    const dev = mapData().groups.flatMap((g) => g.networks).flatMap((n) => n.devices).find((x) => x.mac === selected.mac);
-    if (row && nn && dev && dev.bypass) { const a = R(row), b = R(nn), vc = R(row.closest(".vc")); segs.push({ d: `M ${a.r} ${a.cy} H ${vc.r + 20} V ${b.cy} H ${b.l - 3}`, cls: "lk byp live", head: "byp" }); }
-  }
   const mk = (id, v) => `<marker id="ah-${id}" orient="auto" markerWidth="4" markerHeight="4" refX="3" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" style="fill:var(${v});stroke:none"/></marker>`;
-  svg.innerHTML = `<defs>${mk("on", "--ok")}${mk("off", "--idle2")}${mk("byp", "--warn")}</defs>` + segs.map((s) => `<path class="${s.cls}" d="${s.d}" ${s.head ? `marker-end="url(#ah-${s.head})"` : ""}/>`).join("");
+  svg.innerHTML = `<defs>${mk("on", "--ok")}${mk("off", "--idle2")}${mk("byp", "--warn")}${mk("own", "--own")}${mk("amb", "--warn")}</defs>` + segs.map((s) => `<path class="${s.cls}" d="${s.d}" ${s.head ? `marker-end="url(#ah-${s.head})"` : ""}/>`).join("");
 }
 let linkTimer = null;
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => drawLinks());
