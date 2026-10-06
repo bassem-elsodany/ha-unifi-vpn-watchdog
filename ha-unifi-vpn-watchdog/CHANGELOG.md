@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.22.2
+
+- **A new group manages its own routing by default** (the Routing switch starts on): once it has picked VLANs and a client is active, the watchdog creates its one policy per VLAN and moves it on failover. You don't create any route per VPN client.
+- Fixed a wrong warning: a group with Routing on no longer says "X has no routing policy for <VLAN>, so a failover would leave that VLAN on the normal internet". That warning only applies when you manage the policies yourself (Routing off).
+- **Deleting a group also removes its own `vpnwd:` policies** (only after the group has been missing for 3 cycles in a row, and never when no group is configured at all, so a config that fails to load cannot wipe them). Policies of yours are never touched.
+
 ## 0.22.1
 
 - Status: the devices of a VLAN are shown **inside the VLAN's own box** again, as before: click a VLAN and its box opens with its devices (the first few, "Show all N devices", a search box when there are many), while the group and the egress on the right follow it. The separate devices panel at the bottom of the page is gone.

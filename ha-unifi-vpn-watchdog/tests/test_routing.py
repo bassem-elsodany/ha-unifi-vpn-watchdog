@@ -136,3 +136,23 @@ def test_it_refuses_to_switch_off_a_policy_that_is_not_a_blocker_or_to_switch_on
     run(eng, clock, 1)
     assert [(r.id, r.enabled) for r in un.routes] == before
     assert [h["event"] for h in eng.notifier.history].count("routing_refused") == 2 if hasattr(eng.notifier, "history") else True
+
+
+def test_a_deleted_groups_own_policies_are_removed_but_not_when_no_group_is_configured(make_engine):
+    from vpn_watchdog.config import GroupCfg
+    eng, un, _, _, clock = make_engine()
+    managed(eng)
+    run(eng, clock, 2)
+    own = lambda: sorted(r.description for r in un.routes if r.description.startswith("vpnwd:"))
+    assert own() == ["vpnwd: g1 › vlan20-iot", "vpnwd: g1 › vlan50-vpn"]
+    g1 = eng.cfg.groups[0]
+    eng.cfg = eng.cfg.model_copy(update={"groups": []})                    # a config that lost all its groups must not wipe the policies
+    run(eng, clock, 6)
+    assert len(own()) == 2
+    other = GroupCfg(name="g2", order=[{"tunnel": "Home-Primary"}])
+    eng.cfg = eng.cfg.model_copy(update={"groups": [other]})               # g1 was deleted, another group exists
+    run(eng, clock, 1)
+    assert len(own()) == 2                                                  # one cycle is not enough (it may be a glitch)
+    run(eng, clock, 4)
+    assert own() == []
+    assert all(c[0] != "route-enabled" for c in un.calls)                  # nobody else's policy was touched

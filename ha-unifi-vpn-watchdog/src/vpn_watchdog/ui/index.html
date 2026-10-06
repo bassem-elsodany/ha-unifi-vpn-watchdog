@@ -912,7 +912,7 @@ setEl.addEventListener("click", async (e) => {
   const bk = e.target.closest("[data-gblk]"); if (bk) { blockerAction(bk.dataset.g, bk.dataset.gblk, bk.dataset.r); return; }
   const b = e.target.closest("button[data-act], a[data-act]"); if (!b) return;
   const k = b.dataset.act;
-  if (k === "addgroup") { let n = 1; const names = new Set(V.groups.map((x) => x.name)); while (names.has("Group " + n)) n++; V.groups.push({ name: "Group " + n, _orig: null, order: [] }); selG = V.groups.length - 1; renderSection(); return; }
+  if (k === "addgroup") { let n = 1; const names = new Set(V.groups.map((x) => x.name)); while (names.has("Group " + n)) n++; V.groups.push({ name: "Group " + n, _orig: null, order: [], networks: [], manage_routing: true }); selG = V.groups.length - 1; renderSection(); return; }
   if (k === "delgroup") { const dg = V.groups[selG]; if (!dg || !confirm(`Delete the group "${dg.name}"? The watchdog stops managing it. Its routing policies stay in UniFi untouched.`)) return; V.jobs = V.jobs.filter((j) => j.group !== dg.name); V.groups.splice(selG, 1); selG = 0; renderSection(); return; }
   if (k === "deljob") { const n = b.dataset.g; V.jobs = V.jobs.filter((j) => j.group !== n); openJob.delete(n); renderSection(); return; }
   if (k === "rotatenow") { await act(`groups/${encodeURIComponent(b.dataset.g)}/rotate`); toast("Rotating " + b.dataset.g + "..."); return; }

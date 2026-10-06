@@ -91,3 +91,14 @@ def test_a_picked_vlan_with_no_live_vpn_policy_is_flagged_and_stays_in_the_group
     g = eng.status()["map"]["groups"][0]
     assert g["declared"] and {n["name"] for n in g["networks"]} == {"vlan20-iot", "vlan50-vpn"}
     assert any("vlan20-iot is not routed through any VPN client" in x for x in g["gaps"])
+
+
+def test_a_group_that_manages_its_routing_is_not_warned_about_clients_without_a_policy(make_engine):
+    """With routing management on, the watchdog moves its own policy on failover, so a client needs no policy of its own."""
+    eng, un, *_ = make_engine(order="[Home-Primary, Home-Backup]")
+    un.routes = [r for r in un.routes if r.network_id != tid("Home-Backup")]
+    eng.tick()
+    assert eng.status()["map"]["groups"][0]["gaps"]                       # routing off: the warning is right
+    eng.cfg = eng.cfg.model_copy(update={"groups": [eng.cfg.groups[0].model_copy(update={"manage_routing": True})]})
+    eng.tick()
+    assert not any("has no routing policy" in x for x in eng.status()["map"]["groups"][0]["gaps"])

@@ -66,6 +66,7 @@ class Engine:
         self._noted: dict[str, str] = {}
         self._warm: dict[str, set[str]] = {}         # group -> the standby VPN clients kept on and connected (keep_ready)
         self._warm_since: dict[str, float] = {}      # standby id -> when it was switched on as a standby (to give up on one that never connects)
+        self._orphan_seen: dict[str, int] = {}       # policy id -> consecutive cycles its group has been missing from the config
         self._route_fail: dict[str, float] = {}     # group -> when its routing last failed to apply (retried after a pause, not every cycle)
         self._busy = False
         self._blocked_notified: dict[str, float] = {}
@@ -247,6 +248,26 @@ class Engine:
                 wrote = True
                 self._record("routing_changed", f"group {g.name}: {a.text}")
                 log.info("group %s: %s", g.name, a.text)
+        return self._clean_orphans(snap) or wrote
+
+    def _clean_orphans(self, snap: Snapshot) -> bool:
+        """A deleted group takes its own policies with it. Only after its group has been missing for 3 cycles in a row, and never when
+        no group is configured at all (a config that failed to load must not wipe the policies)."""
+        names = {g.name for g in self.cfg.groups}
+        found = {r.id: r for r in routing.orphans(snap, names)} if names else {}
+        self._orphan_seen = {i: self._orphan_seen.get(i, 0) + 1 for i in found}
+        wrote = False
+        for i, r in found.items():
+            if self._orphan_seen[i] < 3 or self.clock.now() - self._route_fail.get("*orphans", -1e9) < 300:
+                continue
+            try:
+                self.unifi.delete_own_route(i)
+            except UniFiError as e:
+                self._route_fail["*orphans"] = self.clock.now()
+                self._record("routing_failed", f"could not delete the orphaned policy \"{r.description}\": {e}", "warning")
+                break
+            wrote = True
+            self._record("routing_changed", f"deleted the watchdog's policy \"{r.description}\" (its group no longer exists)")
         return wrote
 
     def _claims(self, snap: Snapshot) -> dict[str, str]:
@@ -858,8 +879,9 @@ class Engine:
                     gaps.append(f"{snap.networks[n]} is not routed through any VPN client right now, so it goes straight to the internet")
                 elif w.network_id not in in_order:
                     gaps.append(f"{snap.networks[n]} is routed through {snap.tunnels[w.network_id].name}, which is not in this group")
-            gaps += [f"{t.name} has no routing policy for {snap.networks[n]}, so a failover to it would leave that VLAN on the normal internet"
-                     for t in order for n in nets if not any(r.network_id == t.id and covers(r, n) for r in vpn_pols)]
+            if not g.manage_routing:           # you manage the policies: a client without one for the VLAN would leave it on the normal internet after a failover
+                gaps += [f"{t.name} has no routing policy for {snap.networks[n]}, so a failover to it would leave that VLAN on the normal internet"
+                         for t in order for n in nets if not any(r.network_id == t.id and covers(r, n) for r in vpn_pols)]
             out_groups.append({
                 "keep_ready": g.keep_ready,
                 "warm": [{"name": snap.tunnels[i].name, "connected": bool(snap.connections.get(i) and snap.connections[i].connected)}

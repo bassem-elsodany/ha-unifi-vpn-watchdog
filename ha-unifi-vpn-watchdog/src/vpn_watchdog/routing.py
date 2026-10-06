@@ -6,6 +6,7 @@ creates, edits or deletes any other policy: a policy is its own only if its name
 every other write)."""
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from .models import Route, Snapshot, Tunnel
@@ -90,3 +91,13 @@ def blockers(vlans: list[str], tunnel: Tunnel | None, snap: Snapshot) -> list[di
             covered = lans if r.all_clients else (r.target_networks & lans)
             b["others"] = sorted(snap.networks.get(n, n) for n in covered if snap.networks.get(n, n) not in b["vlans"])
     return list(found.values())
+
+
+def orphans(snap: Snapshot, groups: set[str]) -> list[Route]:
+    """The watchdog's own policies (named `vpnwd: <group> › ...`) whose group no longer exists."""
+    out = []
+    for r in snap.routes:
+        m = re.match(rf"^{re.escape(PREFIX)} (.+?) › ", r.description)
+        if m and m.group(1) not in groups:
+            out.append(r)
+    return out
