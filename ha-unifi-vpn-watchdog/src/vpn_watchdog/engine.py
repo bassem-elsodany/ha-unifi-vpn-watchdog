@@ -923,6 +923,7 @@ class Engine:
                          for t in order for n in nets if not any(r.network_id == t.id and covers(r, n) for r in vpn_pols)]
 
             owner_of_vlan = {n: gn for gn, lst in declared.items() for n in lst}
+            notes: list[str] = []                 # facts worth knowing that are not a problem (shown, never counted as a warning)
             dev_rows: list[dict[str, Any]] = []
             for d in g.devices:
                 c, k = snap.clients.get(d.mac) or {}, snap.known.get(d.mac) or {}
@@ -931,11 +932,13 @@ class Engine:
                     gaps.append(f"{label} is already in group {self._dev_owners[d.mac]}, so this group does not route it")
                     continue
                 dn = snap.client_network(c or k) if (c or k) else None
-                if dn and owner_of_vlan.get(dn) not in (None, g.name):
-                    gaps.append(f"{label} is in {snap.networks.get(dn, dn)}, which group {owner_of_vlan[dn]} routes; this group's policy takes priority for {label}")
+                if dn and owner_of_vlan.get(dn) not in (None, g.name) and g.manage_routing:
+                    notes.append(f"{label} is in {snap.networks.get(dn, dn)}, which group {owner_of_vlan[dn]} routes; this group's policy takes priority for {label}")
                 dev_rows.append({"mac": d.mac, "name": label if label != d.mac else "", "ip": c.get("ip") or k.get("ip"), "rate_bps": c.get("rate_bps"),
                                  "active": (c.get("rate_bps") or 0) > 800, "wired": c.get("wired", False), "bypass": None, "overridden": False,
                                  "online": d.mac in snap.clients})
+            gdevs = set(self._group_devices(g))
+            dev_live = bool(act and any(routing.owned_dev(r) and r.enabled and r.network_id == act.id and (set(r.target_macs) & gdevs) for r in snap.routes))
             if g.devices and not g.manage_routing:
                 gaps.append("this group has devices but Routing is off: the watchdog only routes devices (or VLANs) when Routing is on")
             device_net = {"id": f"grp-dev:{g.name}", "name": f"{g.name} · devices", "vlan": None, "subnet": None, "count": len(dev_rows),
@@ -948,7 +951,8 @@ class Engine:
                             "switched_off": [x for x in gs.switched_off if any(r.id == x["id"] and not r.enabled for r in snap.routes)]},
                 "device_net": device_net, "gaps": gaps, "declared": bool(declared[g.name]), "name": g.name, "paused": gstat.get("paused", False), "healthy": gstat.get("healthy"), "decision": gstat.get("decision", ""),
                 "exhausted": gstat.get("exhausted", False), "jobs": gstat.get("jobs", {}), "has_order": bool(order), "rotation": gstat.get("rotation"),
-                "conflict": "No routing policy in UniFi sends traffic through this VPN client right now, so nothing is using it" if act and not live_nets else None,
+                "conflict": "No routing policy in UniFi sends traffic through this VPN client right now, so nothing is using it" if act and not live_nets and not dev_live else None,
+                "notes": notes,
                 "active": act.name if act else None, "networks": [card(n) for n in nets],
                 "lane": [tinfo(g, t, active_id, pol_of) for t in order],
                 "pool": [{"id": t.id, "name": t.name, "status": (snap.connections.get(t.id).status if snap.connections.get(t.id) else None),

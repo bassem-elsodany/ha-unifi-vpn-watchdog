@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.25.3
+
+- Fixed a false "No routing policy … nothing is using it" warning on groups that route only devices (like TV): the check now counts the group's device policy.
+- A device that also sits in a VLAN routed by another group is now shown as a note, not counted as a warning.
+
 ## 0.25.2
 
 - Phone app: removed the extra space above the title and under the tab bar (inside the Home Assistant app the page already sits below the phone's notch, so the safe-area padding doubled it), and tightened the top of every screen.

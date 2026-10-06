@@ -119,7 +119,8 @@ def test_the_overlap_with_a_vlan_of_another_group_is_explained(make_engine):
     eng.cfg = eng.cfg.model_copy(update={"groups": [eng.cfg.groups[0], other]})
     run(eng, clock, 3)
     g1 = next(g for g in eng.status()["map"]["groups"] if g["name"] == "g1")
-    assert any("livingTv is in vlan20-iot, which group g2 routes" in x for x in g1["gaps"])
+    assert any("livingTv is in vlan20-iot, which group g2 routes" in x for x in g1["notes"])        # worth knowing, but not a problem
+    assert not any("which group g2 routes" in x for x in g1["gaps"]) and g1["conflict"] is None
 
 
 def test_a_group_with_devices_but_routing_off_says_so_and_changes_nothing(make_engine):
@@ -152,3 +153,11 @@ def test_the_settings_form_round_trips_the_devices_and_lists_the_known_clients(m
     assert out == [{"mac": TV}, {"mac": CAM, "name": "cam"}]
     m = settings.meta(un.snapshot())
     assert m["clients"][0]["mac"] == TV and m["clients"][0]["name"] == "livingTv" and m["clients"][0]["online"]
+
+
+def test_a_device_only_group_with_its_policy_on_the_active_client_is_not_reported_as_unused(make_engine):
+    eng, un, _, _, clock = make_engine()
+    setup(eng, un, vlans=False)
+    run(eng, clock, 3)
+    g = eng.status()["map"]["groups"][0]
+    assert g["conflict"] is None and g["gaps"] == []                    # the device policy carries the traffic
