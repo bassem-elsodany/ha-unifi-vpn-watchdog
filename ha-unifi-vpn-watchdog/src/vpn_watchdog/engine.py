@@ -505,6 +505,7 @@ class Engine:
         """What the Status page draws: per group its VLANs (with their devices), the fallback lane (the user's order, with
         live status), the tunnels not in the order, and the VPN exit; plus the VLANs that have no VPN policy."""
         vpn_ids = set(snap.tunnels)
+        lans = {nid for nid, i in snap.network_info.items() if i.get("purpose") in ("corporate", "guest")}      # UniFi's own type: LANs/VLANs only, never WAN, VPN or remote-user networks
         now = self.clock.now()
         byp: dict[str, dict[str, Any]] = {}
         for r in snap.routes:
@@ -577,7 +578,7 @@ class Engine:
         for r in snap.routes:
             if r.id in managed or r.target_macs or r.network_id not in snap.tunnels:
                 continue
-            covered = {n for n in r.target_networks if n in snap.networks and n not in snap.tunnels}
+            covered = {n for n in r.target_networks if n in lans}
             if not covered:
                 continue
             hit = [c for c in comps if c[0] & covered]
@@ -603,7 +604,7 @@ class Engine:
                 "exit": {"ip": None, "country": None, "server": ac.remote_ip if ac else None, "age": None},
             })
         direct = [card(nid) for nid, name in snap.networks.items()
-                  if nid not in vpn_ids and nid not in used and not name.startswith("Internet") and name != "One-Click VPN"]
+                  if nid in lans and nid not in used]
         direct.sort(key=lambda n: (n["vlan"] is None, n["vlan"] if n["vlan"] is not None else 0, n["name"].lower()))
         return {"groups": out_groups, "direct": direct, "wan_ip": snap.wan_ip}
 

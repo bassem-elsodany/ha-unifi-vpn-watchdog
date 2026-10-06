@@ -87,7 +87,7 @@ class UniFiClient:
         network_info = {}
         for n in nets:
             networks[n["_id"]] = n.get("name", "")
-            network_info[n["_id"]] = {"name": n.get("name", ""), "vlan": n.get("vlan"), "subnet": n.get("ip_subnet")}
+            network_info[n["_id"]] = {"name": n.get("name", ""), "vlan": n.get("vlan"), "subnet": n.get("ip_subnet"), "purpose": n.get("purpose")}
             if n.get("purpose") == "vpn-client":
                 t = parse_tunnel(n)
                 tunnels[t.id] = t

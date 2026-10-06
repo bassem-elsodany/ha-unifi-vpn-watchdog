@@ -60,8 +60,8 @@ def test_status_map_has_devices_the_fallback_lane_the_pool_and_direct_vlans(make
     def snap_with_devices():
         s = orig()
         s.networks = {**s.networks, "net-cam": "vlan30-cameras"}
-        s.network_info = {"net-iot": {"name": "vlan20-iot", "vlan": 20, "subnet": "10.0.20.1/24"}, "net-vpn": {"name": "vlan50-vpn", "vlan": 50, "subnet": "10.0.50.1/24"},
-                          "net-cam": {"name": "vlan30-cameras", "vlan": 30, "subnet": "10.0.30.1/24"}}
+        s.network_info = {"net-iot": {"name": "vlan20-iot", "vlan": 20, "subnet": "10.0.20.1/24", "purpose": "corporate"}, "net-vpn": {"name": "vlan50-vpn", "vlan": 50, "subnet": "10.0.50.1/24", "purpose": "corporate"},
+                          "net-cam": {"name": "vlan30-cameras", "vlan": 30, "subnet": "10.0.30.1/24", "purpose": "corporate"}}
         s.clients = {"aa:aa": {"name": "TV", "ip": "10.0.50.5", "network": "vlan50-vpn", "rate_bps": 1_400_000, "wired": True},
                      "bb:bb": {"name": "Meter", "ip": "10.0.20.9", "network": "vlan20-iot", "rate_bps": 9_000, "wired": False},
                      "cc:cc": {"name": "Phone", "ip": "10.0.20.10", "network": "vlan20-iot", "rate_bps": 50_000, "wired": False},

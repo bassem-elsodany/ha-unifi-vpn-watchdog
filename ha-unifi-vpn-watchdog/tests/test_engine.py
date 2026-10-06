@@ -317,3 +317,23 @@ def test_status_map_shows_unifi_routing_without_any_group(make_engine):
     assert [n["name"] for n in g["networks"]] == ["vlan20-iot", "vlan50-vpn"]
     assert [t["name"] for t in g["lane"]] == ["Home-Backup"] and g["lane"][0]["position"] is None
     assert len(g["pool"]) == 5                       # every other tunnel that has a policy for these networks
+
+
+def test_status_map_lists_only_unifi_vlans(make_engine):
+    """Only networks UniFi types as LAN/VLAN are drawn on the left; WAN and VPN-type networks never are, whatever they are called."""
+    eng, un, *_ = make_engine()
+    eng.cfg = eng.cfg.model_copy(update={"groups": []})
+    orig = un.snapshot
+
+    def snap():
+        sn = orig()
+        sn.networks.update({"net-wan": "Home-Primary", "net-ru": "Anything"})
+        sn.network_info.update({"net-wan": {"name": "Home-Primary", "purpose": "wan"}, "net-ru": {"name": "Anything", "purpose": "remote-user-vpn"}})
+        for r in sn.routes:
+            r.target_networks = r.target_networks | {"net-wan", "net-ru"}
+        return sn
+    un.snapshot = snap
+    eng.tick()
+    m = eng.status()["map"]
+    shown = [n["name"] for g in m["groups"] for n in g["networks"]] + [n["name"] for n in m["direct"]]
+    assert sorted(shown) == ["vlan20-iot", "vlan50-vpn"]

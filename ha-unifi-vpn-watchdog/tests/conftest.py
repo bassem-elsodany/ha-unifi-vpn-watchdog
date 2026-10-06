@@ -68,7 +68,8 @@ class FakeUniFi:
                 bad = i in self.dead
                 conns[i] = Connection(i, "CONNECTING" if bad else "CONNECTED", None if bad else "9.9.9.9",
                                       None if bad else (0 if i in self.muted else 5000), None if bad else 6000)
-        return Snapshot(tunnels, conns, list(self.routes), dict(NETS), "92.0.0.1")
+        info = {i: {"name": n, "vlan": None, "subnet": None, "purpose": "corporate"} for i, n in NETS.items()}
+        return Snapshot(tunnels, conns, list(self.routes), dict(NETS), "92.0.0.1", info)
 
     def set_tunnel_enabled(self, i, en):
         self.calls.append(("enable", i, en))

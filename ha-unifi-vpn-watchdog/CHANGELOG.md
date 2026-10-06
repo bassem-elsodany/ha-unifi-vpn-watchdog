@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.4
+- The Status map decides what is a VLAN from UniFi's own network type (LAN/VLAN and guest networks only). The name checks it used before ("Internet...", "One-Click VPN") are gone; WAN, VPN-client and remote-user networks are excluded by type, never by what they are called.
+
 ## 0.9.3
 - The app now has an icon and a logo in Home Assistant (`icon.png`, `logo.png`); before, the Apps list showed a blank placeholder. A test checks that both files ship.
 
