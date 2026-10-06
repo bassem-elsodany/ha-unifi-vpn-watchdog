@@ -67,7 +67,7 @@ The project folder **is** the add-on (`config.yaml`, `Dockerfile`, `DOCS.md`).
    Store → ⋮ → Check for updates* and install **HA UniFi VPN Watchdog** from *Local add-ons*. (Requires HA OS or Supervised;
    on a Container install run the Docker image next to HA and use the MQTT + REST pieces below.)
 2. **Configuration** tab: `unifi_api_key`, optionally `notify_service` (e.g. `notify.mobile_app_myphone`).
-3. Start. A `config.yaml` is created in the add-on config folder. Open **VPN Watchdog** in the sidebar and set **Settings > Fallback order**.
+3. Start. A `config.yaml` is created in the add-on config folder. Open **VPN Watchdog** in the sidebar and add a group under **Settings > VPN groups**.
 
 | HA feature | How |
 |---|---|

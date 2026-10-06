@@ -15,7 +15,7 @@ def test_options_become_env_and_config_is_seeded(tmp_path, monkeypatch):
     monkeypatch.setattr("vpn_watchdog.cli.main", lambda argv: captured.setdefault("argv", argv) and 0)
     assert ha_entry.main() == 0
     assert captured["argv"] == ["run", "--config", str(cfg)]
-    assert cfg.exists() and "order: []" in cfg.read_text()
+    assert cfg.exists() and "groups: []" in cfg.read_text() and "vlan" not in cfg.read_text()
     import os
     from vpn_watchdog.config import parse_config
     c = parse_config(cfg.read_text(), dict(os.environ))

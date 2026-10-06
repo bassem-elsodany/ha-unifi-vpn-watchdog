@@ -28,7 +28,7 @@ def main() -> int:
         CONFIG.parent.mkdir(parents=True, exist_ok=True)
         with resources.as_file(resources.files("vpn_watchdog").joinpath("templates/ha_config.yaml")) as tpl:
             shutil.copy(tpl, CONFIG)
-        print(f"created {CONFIG} from the template; open the add-on panel and set the fallback order")
+        print(f"created {CONFIG} from the template; open the add-on panel and add a VPN group")
     from .cli import main as cli_main
 
     return cli_main(["run", "--config", str(CONFIG)])

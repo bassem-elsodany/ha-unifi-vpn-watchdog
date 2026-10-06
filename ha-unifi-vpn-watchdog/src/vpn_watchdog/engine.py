@@ -378,7 +378,7 @@ class Engine:
                 self.unifi.set_tunnel_enabled(tid, True)
             elif tid not in keep and t.enabled and disable_unused and tid not in in_use:
                 self.unifi.set_tunnel_enabled(tid, False)
-        cap = min(self.cfg.settings_for(g).standby.max_enabled for g in self.cfg.groups)
+        cap = min((self.cfg.settings_for(g).standby.max_enabled for g in self.cfg.groups), default=10)
         if len(keep) > cap:
             log.warning("standby set (%d) exceeds max_enabled (%d); lower standby.warm", len(keep), cap)
 

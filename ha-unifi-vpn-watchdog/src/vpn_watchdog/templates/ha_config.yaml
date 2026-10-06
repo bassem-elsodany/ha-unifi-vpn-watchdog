@@ -16,13 +16,9 @@ probe:
   # canary: {mac: "02:42:0a:00:3c:c8"}
   # remote_url: http://10.0.60.200:8081
 
-groups:
-  - name: iot-and-vpn
-    networks: [vlan20-iot, vlan50-vpn]
-    kill_switch: false
-    # Fallback order: #1 is used first; if it fails #2, then #3 ... Set it in the panel: Settings > Fallback order.
-    # Until at least one tunnel is listed the watchdog only watches and never switches.
-    order: []
+# VPN groups are created in the panel: Settings > VPN groups > Add. A group = the networks that should use the VPN
+# plus the numbered fallback order of tunnels. With no group the watchdog only watches.
+groups: []
 
 notifications:
   - {type: home_assistant, supervisor: true, service: "${NOTIFY_SERVICE:-persistent_notification.create}"}

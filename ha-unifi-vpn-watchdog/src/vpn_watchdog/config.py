@@ -148,8 +148,11 @@ class GroupCfg(_M):
 
     @model_validator(mode="after")
     def _valid(self) -> "GroupCfg":
+        self.name = self.name.strip()
+        if not self.name:
+            raise ValueError("a group needs a name")
         if not self.networks:
-            raise ValueError(f"group {self.name!r} needs at least one network")
+            raise ValueError(f"group {self.name!r} needs at least one network: tick the networks that should use the VPN")
         names = [i.tunnel for i in self.order]
         dup = sorted({n for n in names if names.count(n) > 1})
         if dup:
@@ -227,7 +230,7 @@ class Config(_M):
     switching: SwitchingCfg = SwitchingCfg()
     failback: FailbackCfg = FailbackCfg()
     standby: StandbyCfg = StandbyCfg()
-    groups: list[GroupCfg]
+    groups: list[GroupCfg] = Field(default_factory=list)   # created by the user in the UI; none on a fresh install
     notifications: list[NotifyCfg] = Field(default_factory=list)
     alerts: dict[str, AlertCfg] = Field(default_factory=dict)    # per event: on/off, title, message
     mqtt: MqttCfg = MqttCfg()
@@ -256,8 +259,6 @@ class Config(_M):
         names = [g.name for g in self.groups]
         if len(set(names)) != len(names):
             raise ValueError("group names must be unique")
-        if not self.groups:
-            raise ValueError("at least one group is required")
         return self
 
     def settings_for(self, group: GroupCfg) -> GroupSettings:

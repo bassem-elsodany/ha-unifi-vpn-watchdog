@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1
+- **Groups are yours to create.** Settings > VPN groups: add, rename and delete groups, and tick each group's networks. A fresh install
+  starts with no group at all (nothing from the author's network is built in) and only watches until you add one.
+
 ## 0.5.0
 - **Every tunnel keeps its own routing policy.** A switch turns the new tunnel's policy on and then the old one off (make before
   break). Before, one policy was re-pointed and renamed, so the previous tunnel's policy vanished. Policies are never renamed or

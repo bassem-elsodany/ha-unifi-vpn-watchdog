@@ -302,14 +302,18 @@ function orderRow(g, gi, it, ii) {
 }
 
 function renderGroupsForm() {
-  $("#groupsForm").innerHTML = V.groups.map((g, gi) => {
+  const intro = `<div class="card"><h3>VPN groups</h3><p class="sub">A group is a set of networks that share one VPN, with its own fallback order of tunnels. Create one per purpose; a network can belong to one group.</p>
+    <button class="act primary" data-act="addgroup">Add a VPN group</button>
+    ${V.groups.length ? "" : '<p class="muted" style="margin-top:10px">No group yet. Until you add one the watchdog only watches.</p>'}</div>`;
+  $("#groupsForm").innerHTML = intro + V.groups.map((g, gi) => {
     const nets = (M.networks || []).map((n) => `<label class="net"><input type="checkbox" data-gi="${gi}" data-net="${esc(n)}" ${g.networks.includes(n) ? "checked" : ""}> ${esc(n)}</label>`).join("");
     const extra = g.networks.filter((n) => !(M.networks || []).includes(n)).map((n) => `<label class="net"><input type="checkbox" data-gi="${gi}" data-net="${esc(n)}" checked> ${esc(n)} <span class="muted">(not found)</span></label>`).join("");
     const used = new Set(g.order.map((x) => x.tunnel));
     const free = tnames().filter((n) => !used.has(n));
     const addopts = free.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join("");
     const empty = g.order.length ? "" : '<div class="banner warn" style="margin:0 0 8px">No order yet. Until you add tunnels here the watchdog only watches and never switches.</div>';
-    return `<div class="card"><h3>Group: ${esc(g.name)}</h3><p class="sub">Which networks use the VPN, and which tunnels to use, in order.</p>
+    return `<div class="card"><div class="row"><b>Group</b><input type="text" data-path="groups.${gi}.name" data-t="str" value="${esc(g.name)}" placeholder="Group name" style="width:260px"><span class="grow"></span>
+      <button class="act" data-act="delgroup" data-gi="${gi}">Delete group</button></div><p class="sub" style="margin-top:6px">Which networks use the VPN, and which tunnels to use, in order.</p>
       ${row("Networks that use this VPN", "Their internet traffic goes through the active tunnel.", (nets + extra) || '<span class="muted">Waiting for the first UniFi check...</span>')}
       ${row("If the tunnel dies", "", sel(`groups.${gi}.kill_switch`, [["null", "Leave the UniFi setting as it is"], ["true", "Block traffic (no leak) until a new tunnel is ready"], ["false", "Let traffic use the normal internet connection"]], "tri"))}
       ${row("Fallback order", "You decide the sequence. #1 is used when it works; if it fails the watchdog tries #2, then #3, and so on. It moves back up the list when a higher tunnel recovers. Tunnels not in the list are never used.",
@@ -382,6 +386,16 @@ $("#settings").addEventListener("click", async (e) => {
   if (b.id === "notifySave") { const r = await api("notify/service", "POST", { service: $("#notifySel").value }); $("#notifyMsg").innerHTML = r.ok ? '<span class="pill ok">saved</span>' : '<span class="pill bad">' + esc(r.data.error || "failed") + "</span>"; return; }
   if (b.id === "notifyTest") { const r = await api("notify/test", "POST", { service: $("#notifySel").value }); $("#notifyMsg").innerHTML = r.ok ? '<span class="pill ok">sent: check your phone</span>' : '<span class="pill bad">' + esc(r.data.error || "failed") + "</span>"; return; }
   if (!b.dataset.act) return;
+  if (b.dataset.act === "addgroup") {
+    let n = 1; const names = new Set(V.groups.map((x) => x.name)); while (names.has("Group " + n)) n++;
+    V.groups.push({ name: "Group " + n, _orig: null, networks: [], kill_switch: null, order: [] });
+    renderGroupsForm(); markDirty(); return;
+  }
+  if (b.dataset.act === "delgroup") {
+    const dg = V.groups[+b.dataset.gi];
+    if (!confirm(`Delete the group "${dg.name}"? The watchdog stops managing it. Its routing policies stay in UniFi untouched.`)) return;
+    V.groups.splice(+b.dataset.gi, 1); renderGroupsForm(); markDirty(); return;
+  }
   const g = V.groups[+b.dataset.gi], ii = +b.dataset.ii, L = g.order;
   if (b.dataset.act === "up" && ii > 0) [L[ii - 1], L[ii]] = [L[ii], L[ii - 1]];
   if (b.dataset.act === "down" && ii < L.length - 1) [L[ii + 1], L[ii]] = [L[ii], L[ii + 1]];

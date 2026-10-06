@@ -126,3 +126,42 @@ def test_save_settings_works_when_the_file_uses_inline_env_references(tmp_path):
     form["interval_seconds"] = 1
     assert "interval_seconds" in a.save_settings(form)             # rejected, file untouched
     assert parse_config(f.read_text(), {"UNIFI_API_KEY": "k"}).interval_seconds == 45
+
+
+def test_groups_are_created_renamed_and_deleted_from_the_form():
+    raw = load_raw(RAW)
+    form = settings.extract(cfg_of(RAW))
+    assert form["groups"][0]["_orig"] == "g1"
+    # rename keeps the per-group overrides, add a second group, nothing about the author's network names is built in
+    form["groups"][0]["name"] = "Renamed"
+    form["groups"].append({"name": "Second", "_orig": None, "networks": ["lan-a"], "kill_switch": None, "order": []})
+    new = settings.apply(raw, form)
+    assert [g["name"] for g in new["groups"]] == ["Renamed", "Second"]
+    assert new["groups"][0]["overrides"] == {"detection": {"failure_threshold": 9}}
+    assert [g.name for g in cfg_of(yaml.safe_dump(new)).groups] == ["Renamed", "Second"]
+    form["groups"] = [form["groups"][1]]                                  # delete the first
+    assert [g["name"] for g in settings.apply(raw, form)["groups"]] == ["Second"]
+    form["groups"] = []                                                   # delete all: a valid, watch-only config
+    assert cfg_of(yaml.safe_dump(settings.apply(raw, form))).groups == []
+
+
+def test_a_group_needs_a_name_and_networks_and_unique_names():
+    raw = load_raw(RAW)
+    form = settings.extract(cfg_of(RAW))
+    form["groups"].append({"name": "Empty", "_orig": None, "networks": [], "kill_switch": None, "order": []})
+    with pytest.raises(ConfigError, match="at least one network"):
+        cfg_of(yaml.safe_dump(settings.apply(raw, form)))
+    form["groups"][1] = {"name": "g1", "_orig": None, "networks": ["x"], "kill_switch": None, "order": []}
+    with pytest.raises(ConfigError, match="unique"):
+        cfg_of(yaml.safe_dump(settings.apply(raw, form)))
+    form["groups"][1] = {"name": "   ", "_orig": None, "networks": ["x"], "kill_switch": None, "order": []}
+    with pytest.raises(ConfigError, match="needs a name"):
+        cfg_of(yaml.safe_dump(settings.apply(raw, form)))
+
+
+def test_the_engine_runs_with_no_groups_at_all(make_engine):
+    eng, un, _, _, clock = make_engine()
+    eng.cfg.groups.clear()
+    eng.tick()
+    st = eng.status()
+    assert st["groups"] == {} and st["error"] is None and un.calls == []
