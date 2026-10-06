@@ -104,9 +104,12 @@
   .lc { position: relative; display: flex; align-items: center; gap: 12px; min-height: 76px; padding: 10px 18px; background: var(--card); border: 1px solid var(--line2); border-radius: 12px; font-size: 13px; line-height: 22px; color: var(--muted); }
   .lc[draggable=true] { cursor: grab; } .lc.active { min-height: 104px; padding: 14px 18px; border: 2px solid var(--ok); background: var(--okbg); color: var(--sub); }
   .lc.own { border-color: var(--own); } .lc.own > .dot { background: var(--own); }
-  .ownc { padding: 12px 14px; gap: 0; } .ownc .vh { min-height: 28px; } .orow { height: 44px; display: flex; flex-direction: column; justify-content: center; font-size: 13px; }
+  .ownc { padding: 12px 14px; gap: 0; } .ownc .vh { min-height: 28px; } .orow { padding: 7px 0; font-size: 13px; }
   .orow .o1 { display: flex; justify-content: space-between; gap: 8px; } .orow .o1 span:last-child { font: 12px 'IBM Plex Mono', ui-monospace, Menlo, monospace; color: var(--muted); }
   .orow .o2 { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .orow .o2 b { font-weight: 600; } .orow .o2 .tv { color: var(--ownink); } .orow .o2 .tn { color: var(--warnink); }
+  .orow .o3 { font-size: 12px; color: var(--muted); margin-top: 1px; } .orow .o3 b { font-weight: 600; color: var(--ink); } .orow.off .o1 > span:first-child { color: var(--muted); }
+  .offh { border-top: 1px solid var(--hair); margin-top: 6px; padding-top: 10px; font-size: 12px; font-weight: 600; letter-spacing: .06em; color: var(--muted); }
+  .tagw { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--warnbg); color: var(--warnink); } .dev .warn { color: var(--warn); }
   .lc.sel { outline: 2px solid var(--accent); outline-offset: 2px; } .lc.dragging { opacity: .35; } .lc.dropbefore { box-shadow: 0 -6px 0 0 var(--accent); }
   .lc:focus-visible { outline: 2px solid var(--accent); }
   .lc > .dot { flex: none; width: 12px; height: 12px; }
@@ -306,10 +309,10 @@ function toast(msg, ms = 4000, spin = false) { const el = $("#toast"); clearTime
 
 function devRow(d) {
   const sel = selected && selected.kind === "dev" && selected.mac === d.mac ? "sel" : "";
-  const tip = d.bypass ? `has its own route: ${d.bypass.kind === "vpn" ? "through " + d.bypass.tunnel : "the normal connection"}` : `${d.mac}${d.wired ? ", wired" : ""}`;
+  const tip = d.bypass ? `has its own route: ${d.bypass.kind === "vpn" ? "through " + d.bypass.tunnel : "the normal connection"} (policy #${d.bypass.position}: ${d.bypass.policy})` : d.overridden ? "its own policy is overridden by a policy higher in the UniFi list" : `${d.mac}${d.wired ? ", wired" : ""}`;
   const vpn = d.bypass && d.bypass.kind === "vpn";
   return `<div class="dev ${d.bypass ? "byp" : ""} ${vpn ? "ownv" : ""} ${sel}" data-mac="${esc(d.mac)}" title="${esc(tip)}"><i class="${d.active ? "" : "idle"}" ${d.bypass ? `style="background:var(${vpn ? "--own" : "--warn"})"` : ""}></i>
-    <span>${d.name && d.name !== d.ip ? esc(d.name) : '<span class="muted">unnamed</span>'}${d.bypass ? " ↗" : ""}</span><span>${esc(d.ip || "")}</span><span>${rate(d.rate_bps)}</span></div>`;
+    <span>${d.name && d.name !== d.ip ? esc(d.name) : '<span class="muted">unnamed</span>'}${d.bypass ? " ↗" : ""}${d.overridden ? ' <b class="warn">⚠</b>' : ""}</span><span>${esc(d.ip || "")}</span><span>${rate(d.rate_bps)}</span></div>`;
 }
 function devList(n) {
   const q = (vsearch[n.id] || "").trim().toLowerCase(), exp = !!vexp[n.id];
@@ -379,12 +382,19 @@ function directBox(m) {
     ${m.direct.slice(0, 3).map((n) => `<div class="dev"><i class="idle"></i><span>${esc(n.name)}</span><span>${plural(n.count, "device")}</span><span></span></div>`).join("")}
     <div class="vf" id="directToggle">Show all ${plural(m.direct.length, "VLAN")} and devices</div></div>`;
 }
+const ownName = (d) => d.name && d.name !== d.ip ? esc(d.name) : '<span class="muted">unnamed</span>';
+const ownDest = (d) => d.kind === "vpn" ? `<b class="tv">\u2192 ${esc(d.tunnel)}</b>` : '<b class="tn">\u2192 normal connection</b>';
 function ownCard(m) {
-  if (!m.own || !m.own.length) return "";
-  const n = m.own.length;
+  const off = m.own_off || [];
+  if (!(m.own || []).length && !off.length) return "";
+  const n = (m.own || []).length;
   return `<div class="vc ownc"><div class="vh"><span class="dot" style="background:var(--own)"></span><b style="font-size:14px">Devices with their own route · ${n}</b></div>
-    ${m.own.map((d) => `<div class="orow" data-mac="${esc(d.mac)}" data-kind="${d.kind}" ${d.tunnel ? `data-tun="${esc(d.tunnel)}"` : ""}><div class="o1"><span>${d.name && d.name !== d.ip ? esc(d.name) : '<span class="muted">unnamed</span>'}</span><span>${esc(d.ip || "")}</span></div>
-      <div class="o2" title="${esc(d.kind === "vpn" ? d.tunnel : "normal connection")}">${esc(d.network || "")}${d.network ? " · " : ""}${d.kind === "vpn" ? `<b class="tv">\u2192 ${esc(d.tunnel)}</b>` : '<b class="tn">\u2192 normal connection</b>'}</div></div>`).join("")}</div>`;
+    ${(m.own || []).map((d) => `<div class="orow" data-mac="${esc(d.mac)}" data-kind="${d.kind}" ${d.tunnel ? `data-tun="${esc(d.tunnel)}"` : ""}><div class="o1"><span>${ownName(d)}</span><span>${esc(d.ip || "")}</span></div>
+      <div class="o2" title="${esc(d.kind === "vpn" ? d.tunnel : "normal connection")}">${esc(d.network || "")}${d.network ? " · " : ""}${ownDest(d)}</div>
+      <div class="o3">Applies: policy <b>#${d.position}</b> of ${d.total} · ${esc(d.policy)}</div></div>`).join("")}
+    ${off.length ? `<div class="offh">NOT APPLIED · ${off.length}</div>` + off.map((d) => `<div class="orow off" data-mac="${esc(d.mac)}"><div class="o1"><span>${ownName(d)}</span><span>${esc(d.ip || "")}</span></div>
+      <div class="o2">${esc(d.network || "")}${d.network ? " · " : ""}wanted <b>\u2192 ${d.kind === "vpn" ? esc(d.tunnel) : "normal connection"}</b></div>
+      <div class="o3"><span class="tagw">overridden</span> policy #${d.position} is below <b>#${d.applied.position} ${esc(d.applied.policy)}</b>, which applies, so it goes through ${d.applied.kind === "vpn" ? esc(d.applied.tunnel) : "the normal connection"}</div></div>`).join("") : ""}</div>`;
 }
 const normalNode = (m) => `<div class="inet normal" data-role="inet"><span class="dot idle"></span><div><b>Internet</b> · normal connection<div>exit <span class="mono">${esc(m.wan_ip || "your WAN address")}</span></div></div></div>`;
 function groupBlock(g, can, first, last, m) {
@@ -410,7 +420,7 @@ function plainBlock(m, can) {
 }
 function renderMap(d) {
   const m = d.map || { groups: [], direct: [] }, can = !!d.can_control;
-  let html = m.groups.map((g, i) => groupBlock(g, can, i === 0, i === m.groups.length - 1, m)).join("") + (!m.groups.length && (m.direct.length || (m.own || []).length) ? plainBlock(m, can) : "");
+  let html = m.groups.map((g, i) => groupBlock(g, can, i === 0, i === m.groups.length - 1, m)).join("") + (!m.groups.length && (m.direct.length || (m.own || []).length || (m.own_off || []).length) ? plainBlock(m, can) : "");
   if (html) html += `<div class="mapfoot"><div>${legendHtml(can && m.groups.some((g) => !g.unmanaged))}</div></div>`;
   if (!html) html = d.loading || !d.last_tick ? '<div class="loading"><span class="spin big"></span><div>Loading from UniFi...</div></div>'
     : '<div class="card muted">UniFi reported no networks to show.</div>';
@@ -467,7 +477,7 @@ function drawLinks() {
     const next = () => { const x = slot; slot = Math.min(slot + 8, lim); return x; };
     if (own) {                                // devices with their own route: one line each, from the card to where the device goes
       const o = R(own), by = {}; slot = o.r + 46; lim = o.r + 74; let amberX = null;
-      [...own.querySelectorAll(".orow")].forEach((row) => {
+      [...own.querySelectorAll(".orow:not(.off)")].forEach((row) => {
         const a = R(row);
         if (row.dataset.kind === "vpn") {
           const lc = blk.querySelector(`.lane .lc[data-tun="${CSS.escape(row.dataset.tun)}"]`);

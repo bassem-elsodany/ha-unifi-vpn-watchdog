@@ -146,6 +146,7 @@ class UniFiClient:
             target_networks=frozenset(t["network_id"] for t in targets if t.get("type") == "NETWORK" and t.get("network_id")),
             target_macs=frozenset(t["client_mac"].lower() for t in targets if t.get("type") == "CLIENT" and t.get("client_mac")),
             raw=raw,
+            matching=raw.get("matching_target") or "INTERNET",
         )
 
     # ------------------------------------------------------------------ writes

@@ -70,7 +70,7 @@ def test_status_map_has_devices_the_fallback_lane_the_pool_and_direct_vlans(make
         return s
 
     un.snapshot = snap_with_devices
-    un.routes.append(Route("r-direct", "Meter direct", "net-wan", True, False, frozenset(), frozenset({"bb:bb"}), {}))
+    un.routes.insert(0, Route("r-direct", "Meter direct", "net-wan", True, False, frozenset(), frozenset({"bb:bb"}), {}))
     run(eng, clock, 1)
     m = eng.status()["map"]
     g = m["groups"][0]
@@ -78,7 +78,7 @@ def test_status_map_has_devices_the_fallback_lane_the_pool_and_direct_vlans(make
     iot = next(n for n in g["networks"] if n["name"] == "vlan20-iot")
     assert (iot["vlan"], iot["subnet"], iot["count"], iot["bypass_count"]) == (20, "10.0.20.1/24", 3, 1)
     assert [d["name"] for d in iot["devices"]] == ["Meter", "Phone", "Idle plug"]               # bypassing first, then busiest, then idle
-    assert iot["devices"][0]["bypass"] == {"goes_to": "the normal internet connection", "policy": "Meter direct", "kind": "normal", "tunnel": None}
+    assert iot["devices"][0]["bypass"] == {"goes_to": "the normal internet connection", "policy": "Meter direct", "kind": "normal", "tunnel": None, "position": 1, "total": 7}
     assert [d["active"] for d in iot["devices"]] == [True, True, False]
     assert [t["name"] for t in g["lane"]] == ["Home-Primary", "Home-Backup", "Cousin vpn 2", "office/berlin", "office/frankfurt", "zzz-last-resort"]
     assert [t["position"] for t in g["lane"]] == [1, 2, 3, 4, 5, 6] and [t["active"] for t in g["lane"]] == [True] + [False] * 5

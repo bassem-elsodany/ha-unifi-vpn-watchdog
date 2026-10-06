@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.0
+
+- Status: every device with its own route now shows which policy applies (its position in the UniFi list, and its name).
+- Status: a device policy that sits below a policy covering the whole VLAN is shown under "Not applied" as overridden, with the policy that really applies. It gets no line on the map and a small ⚠ in the VLAN list.
+- UniFi policies are read top-down and the first enabled one that catches all of a device's traffic wins. Policies that only catch some domains or addresses are ignored for this. Before, the last matching policy was used.
+
 ## 0.10.1
 
 - Status: the line from every VLAN box is now a dashed moving line, like the others (before, only the last stretch moved and the short stubs were solid).

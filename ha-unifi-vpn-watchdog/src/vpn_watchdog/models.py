@@ -47,6 +47,7 @@ class Route:
     target_networks: frozenset[str]
     target_macs: frozenset[str]
     raw: dict[str, Any] = field(repr=False, default_factory=dict)
+    matching: str = "INTERNET"          # what the policy catches: all internet traffic, or only some domains/IPs/regions
 
 
 @dataclass

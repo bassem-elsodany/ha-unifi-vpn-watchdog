@@ -352,8 +352,8 @@ def test_status_map_lists_devices_with_their_own_route(make_engine):
         sn.networks["net-wan"] = "Internet 1"
         return sn
     un.snapshot = snap
-    un.routes.append(Route("r-tv", "tv", tid("zzz-last-resort"), True, False, frozenset(), frozenset({"aa:aa"}), {}))
-    un.routes.append(Route("r-ac", "ac", "net-wan", True, False, frozenset(), frozenset({"bb:bb"}), {}))
+    un.routes.insert(0, Route("r-ac", "ac", "net-wan", True, False, frozenset(), frozenset({"bb:bb"}), {}))      # listed above the VLAN policies, so they win
+    un.routes.insert(0, Route("r-tv", "tv", tid("zzz-last-resort"), True, False, frozenset(), frozenset({"aa:aa"}), {}))
     eng.tick()
     m = eng.status()["map"]
     assert [(d["name"], d["kind"], d["tunnel"]) for d in m["own"]] == [("tv-bedroom", "vpn", "zzz-last-resort"), ("ac_energy", "normal", None)]
@@ -361,3 +361,31 @@ def test_status_map_lists_devices_with_their_own_route(make_engine):
     assert lane["zzz-last-resort"]["carries"] == ["tv-bedroom"] and lane["Home-Primary"]["carries"] == []
     iot = next(n for n in m["groups"][0]["networks"] if n["name"] == "vlan20-iot")
     assert {d["name"]: d["bypass"]["kind"] for d in iot["devices"] if d["bypass"]} == {"tv-bedroom": "vpn", "ac_energy": "normal"}
+
+
+def test_a_device_policy_below_its_vlan_policy_is_overridden_and_says_which_policy_applies(make_engine):
+    """UniFi reads its policies top-down and the first enabled one that catches all the device's traffic wins."""
+    from vpn_watchdog.models import Route
+    eng, un, *_ = make_engine(active="Home-Primary")
+    orig = un.snapshot
+
+    def snap():
+        sn = orig()
+        sn.clients = {"aa:aa": {"name": "washer", "ip": "10.0.20.88", "network": "vlan20-iot", "rate_bps": 3_000, "wired": False},
+                      "bb:bb": {"name": "ac_energy", "ip": "10.0.20.142", "network": "vlan20-iot", "rate_bps": 9_000, "wired": False}}
+        sn.networks["net-wan"] = "Internet 1"
+        return sn
+    un.snapshot = snap
+    n_vlan = len(un.routes)
+    un.routes.insert(0, Route("r-ac", "ac", "net-wan", True, False, frozenset(), frozenset({"bb:bb"}), {}))
+    un.routes.append(Route("r-w", "washer direct", "net-wan", True, False, frozenset(), frozenset({"aa:aa"}), {}))
+    un.routes.append(Route("r-dom", "only a domain", "net-wan", True, False, frozenset(), frozenset({"bb:bb"}), {}, matching="DOMAIN"))
+    eng.tick()
+    m = eng.status()["map"]
+    assert [d["name"] for d in m["own"]] == ["ac_energy"] and m["own"][0]["position"] == 1 and m["own"][0]["total"] == n_vlan + 3
+    off = m["own_off"]
+    assert [d["name"] for d in off] == ["washer"] and off[0]["kind"] == "normal" and off[0]["position"] == n_vlan + 2
+    assert off[0]["applied"]["policy"] and off[0]["applied"]["kind"] == "vpn" and off[0]["applied"]["position"] <= n_vlan
+    iot = next(n for n in m["groups"][0]["networks"] if n["name"] == "vlan20-iot")
+    dv = {d["name"]: d for d in iot["devices"]}
+    assert dv["washer"]["overridden"] and not dv["washer"]["bypass"] and dv["ac_energy"]["bypass"]["position"] == 1 and not dv["ac_energy"]["overridden"]

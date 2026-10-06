@@ -507,34 +507,52 @@ class Engine:
         vpn_ids = set(snap.tunnels)
         lans = {nid for nid, i in snap.network_info.items() if i.get("purpose") in ("corporate", "guest")}      # UniFi's own type: LANs/VLANs only, never WAN, VPN or remote-user networks
         now = self.clock.now()
-        byp: dict[str, dict[str, Any]] = {}
-        for r in snap.routes:
-            for mac in r.target_macs:
-                to_vpn = r.network_id in snap.tunnels
-                byp[mac] = {"goes_to": snap.networks.get(r.network_id or "", "the normal internet connection"),
-                            "policy": r.description, "on": r.enabled, "kind": "vpn" if to_vpn else "normal",
-                            "tunnel": snap.tunnels[r.network_id].name if to_vpn else None}
+        # Which policy applies to a device: UniFi reads its policy list from the top and the first enabled one that catches
+        # all of the device's internet traffic wins, whether it targets the device or the device's VLAN.
+        net_id = {name: nid for nid, name in snap.networks.items()}
+        total = len(snap.routes)
+
+        def dest(r: Route) -> dict[str, Any]:
+            tun = snap.tunnels.get(r.network_id or "")
+            return {"kind": "vpn" if tun else "normal", "tunnel": tun.name if tun else None, "policy": r.description,
+                    "goes_to": snap.networks.get(r.network_id or "", "the normal internet connection")}
+
+        def winner(mac: str, nid: str | None) -> int | None:
+            return next((i for i, r in enumerate(snap.routes)
+                         if r.enabled and r.matching == "INTERNET" and (mac in r.target_macs or (nid is not None and nid in r.target_networks))), None)
+
+        eff: dict[str, dict[str, Any]] = {}          # per device that has its own policy: what applies, and whether its own policy is the one
+        for mac in sorted({m for r in snap.routes if r.enabled and r.matching == "INTERNET" for m in r.target_macs}):
+            c = snap.clients.get(mac, {})
+            win = winner(mac, net_id.get(c.get("network") or ""))
+            mine = next(i for i, r in enumerate(snap.routes) if r.enabled and r.matching == "INTERNET" and mac in r.target_macs)
+            eff[mac] = {"own": mine, "win": win, "applied": win == mine}
         devs: dict[str, list[dict[str, Any]]] = {}
         for mac, c in snap.clients.items():
-            b = byp.get(mac)
+            e = eff.get(mac)
+            b = dest(snap.routes[e["win"]]) | {"position": e["win"] + 1, "total": total} if e and e["applied"] else None
             devs.setdefault(c.get("network") or "", []).append({
                 "mac": mac, "name": c.get("name") or "", "ip": c.get("ip"), "rate_bps": c.get("rate_bps"),
                 "active": (c.get("rate_bps") or 0) > 800, "wired": c.get("wired", False),
-                "bypass": ({"goes_to": b["goes_to"], "policy": b["policy"], "kind": b["kind"], "tunnel": b["tunnel"]} if b and b["on"] else None),
+                "bypass": b, "overridden": bool(e and not e["applied"]),
             })
 
         own: list[dict[str, Any]] = []
+        own_off: list[dict[str, Any]] = []
         carriers: dict[str, list[str]] = {}
-        for r in snap.routes:
-            if not r.enabled or not r.target_macs:
-                continue
-            tun = snap.tunnels.get(r.network_id or "")
-            for mac in sorted(r.target_macs):
-                c = snap.clients.get(mac, {})
-                own.append({"mac": mac, "name": c.get("name") or "", "ip": c.get("ip"), "network": c.get("network") or "",
-                            "kind": "vpn" if tun else "normal", "tunnel": tun.name if tun else None, "policy": r.description})
-                if tun:
-                    carriers.setdefault(tun.name, []).append(c.get("name") or mac)
+        for mac, e in eff.items():
+            c = snap.clients.get(mac, {})
+            r = snap.routes[e["own"]]
+            row = {"mac": mac, "name": c.get("name") or "", "ip": c.get("ip"), "network": c.get("network") or "",
+                   "position": e["own"] + 1, "total": total, **dest(r)}
+            if e["applied"]:
+                own.append(row)
+                if row["tunnel"]:
+                    carriers.setdefault(row["tunnel"], []).append(row["name"] or mac)
+            else:
+                w = snap.routes[e["win"]]
+                own_off.append(row | {"applied": dest(w) | {"position": e["win"] + 1}})
+        own_off.sort(key=lambda d: (d["name"] or d["mac"]).lower())
         own.sort(key=lambda d: (d["kind"] != "vpn", d["tunnel"] or "", (d["name"] or d["mac"]).lower()))
 
         def card(nid: str) -> dict[str, Any]:
@@ -629,7 +647,7 @@ class Engine:
         direct = [card(nid) for nid, name in snap.networks.items()
                   if nid in lans and nid not in used]
         direct.sort(key=lambda n: (n["vlan"] is None, n["vlan"] if n["vlan"] is not None else 0, n["name"].lower()))
-        return {"groups": out_groups, "direct": direct, "own": own, "wan_ip": snap.wan_ip}
+        return {"groups": out_groups, "direct": direct, "own": own, "own_off": own_off, "wan_ip": snap.wan_ip}
 
     def _record(self, event: str, message: str, level: str = "info") -> None:
         rec = getattr(self.notifier, "record", None)
@@ -694,7 +712,7 @@ class Engine:
         status = {
             "last_tick": self.last_tick, "error": self.last_error,
             "groups": groups, "tunnels": tunnels, "direct_routes": direct,
-            "map": self._map(snap, groups) if snap is not None else {"groups": [], "direct": [], "own": [], "wan_ip": None},
+            "map": self._map(snap, groups) if snap is not None else {"groups": [], "direct": [], "own": [], "own_off": [], "wan_ip": None},
             "events": list(getattr(self.notifier, "history", []))[:60],
             "interval_seconds": self.cfg.interval_seconds,
         }
