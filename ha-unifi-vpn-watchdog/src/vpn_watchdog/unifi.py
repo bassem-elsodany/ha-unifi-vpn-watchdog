@@ -84,8 +84,10 @@ class UniFiClient:
 
         tunnels = {}
         networks = {}
+        network_info = {}
         for n in nets:
             networks[n["_id"]] = n.get("name", "")
+            network_info[n["_id"]] = {"name": n.get("name", ""), "vlan": n.get("vlan"), "subnet": n.get("ip_subnet")}
             if n.get("purpose") == "vpn-client":
                 t = parse_tunnel(n)
                 tunnels[t.id] = t
@@ -103,7 +105,17 @@ class UniFiClient:
             if c.get("network_id")
         }
         routes = [self._parse_route(r) for r in routes_raw]
-        return Snapshot(tunnels, connections, routes, networks, self._wan_ip())
+        return Snapshot(tunnels, connections, routes, networks, self._wan_ip(), network_info, self._clients())
+
+    def _clients(self) -> dict[str, dict[str, Any]]:
+        """Connected devices: only what the network map needs (name, ip, network). Failure is not fatal."""
+        try:
+            raw = (self._request("GET", self._s("stat/sta")) or {}).get("data", [])
+        except UniFiError as e:
+            log.debug("could not read clients: %s", e)
+            return {}
+        return {c["mac"].lower(): {"name": c.get("name") or c.get("hostname") or "", "ip": c.get("ip"), "network": c.get("network")}
+                for c in raw if c.get("mac")}
 
     def _wan_ip(self) -> str | None:
         try:

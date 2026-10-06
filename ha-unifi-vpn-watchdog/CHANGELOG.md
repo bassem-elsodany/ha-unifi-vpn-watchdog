@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.0
+- **Network map replaces the tunnel table.** The Status page shows one card per VLAN (VLAN id, subnet, device count, managing group).
+  Inside it: its devices, an animated path through the VPN client that is switched on for that VLAN, and the internet; the other VPN
+  clients that carry the VLAN sit in a collapsible list with status dots. Devices that bypass the VPN (for example an exit-policy for one
+  client) are listed on their VLAN. VLANs that use a VPN come first; VLANs with no VPN policy show "direct to the internet".
+- Click any VPN client for a details panel: status, traffic, policy, fallback position, last failure, and actions: switch the group to it,
+  test it, move it up/down, add it to or remove it from the fallback order. Escape closes the panel.
+
 ## 0.6.0
 - **No spare tunnels.** Only the tunnel in use is connected; every other tunnel in your fallback order is disconnected. Several tunnels
   up for the same VLAN let traffic leave through different exit IPs and look odd to firewalls and the VPN provider. The `standby` section

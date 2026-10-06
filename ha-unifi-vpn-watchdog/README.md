@@ -72,6 +72,7 @@ The project folder **is** the add-on (`config.yaml`, `Dockerfile`, `DOCS.md`).
 
 | HA feature | How |
 |---|---|
+| Network map | sidebar panel → *Status*: a card per VLAN with its devices, the active VPN client (animated path), other clients that carry it, and devices that bypass the VPN; click a client for details and actions |
 | Settings UI | sidebar panel → *Settings* tab (form: intervals, thresholds, fallback order, alerts) and *Advanced* (YAML); secrets via the add-on Configuration tab |
 | Status / jobs / start-stop | sidebar panel (ingress, authenticated by your HA login) |
 | Notifications | `home_assistant` notifier with `supervisor: true`, plus ntfy / Telegram / webhook |

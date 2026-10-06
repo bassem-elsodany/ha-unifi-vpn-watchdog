@@ -42,8 +42,6 @@
   table { width: 100%; border-collapse: collapse; }
   th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
   th { color: var(--muted); font-weight: 600; font-size: 12px; }
-  th[data-sort] { cursor: pointer; user-select: none; white-space: nowrap; }
-  th[data-sort]:hover { color: var(--ink); } th.sorted { color: var(--accent); }
   tr.cur td:first-child { box-shadow: inset 3px 0 var(--accent); }
   textarea { width: 100%; min-height: 55vh; font: 13px/1.5 ui-monospace, Menlo, monospace; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); }
   .banner { padding: 10px 14px; border-radius: 10px; margin-bottom: 14px; max-width: 980px; }
@@ -71,6 +69,32 @@
   .alert { padding: 10px 0; border-top: 1px solid var(--line); }
   .alert .head { display: flex; gap: 10px; align-items: center; margin-bottom: 6px; }
   .alert .grid { display: grid; grid-template-columns: 70px 1fr; gap: 6px 10px; align-items: center; }
+  /* network map */
+  .map { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 14px; max-width: 1500px; align-items: start; }
+  .vcard { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+  .vhead { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+  .vname { font-size: 16px; } .vhead .pill { align-self: flex-start; white-space: nowrap; }
+  .vflow { display: flex; flex-direction: column; }
+  .node { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; background: var(--bg); }
+  .node.clients { justify-content: center; } .node.clients b { font-size: 18px; }
+  .node.tun { cursor: pointer; border-width: 2px; transition: transform .1s; } .node.tun:hover { transform: translateY(-1px); }
+  .node.tun.ok { border-color: var(--ok); background: var(--okbg); } .node.tun.warn { border-color: var(--warn); background: var(--warnbg); }
+  .node.tun.off, .node.tun.bad { border-color: var(--bad); background: var(--badbg); }
+  .node.direct { border-style: dashed; } .node.direct.bad { border-color: var(--bad); background: var(--badbg); }
+  .node.inet { justify-content: center; }
+  .link { width: 4px; height: 26px; margin: 0 auto; border-radius: 2px; background: var(--line); }
+  .link.live { background: repeating-linear-gradient(to bottom, var(--ok) 0 7px, transparent 7px 14px); background-size: 4px 14px; animation: flow .7s linear infinite; }
+  @keyframes flow { from { background-position: 0 0; } to { background-position: 0 14px; } }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: var(--muted); flex: none; }
+  .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.bad, .dot.off { background: var(--bad); } .dot.idle { background: var(--muted); }
+  .alt { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .chip2 { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 12.5px; cursor: pointer; background: var(--card); }
+  .chip2:hover { border-color: var(--accent); } .chip2.sel { border-color: var(--accent); background: var(--accentbg); }
+  details.altd { margin-top: 14px; } details.altd summary { cursor: pointer; color: var(--muted); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  details.altd summary:hover { color: var(--ink); } .dots { display: inline-flex; gap: 3px; }
+  .byp { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line); }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 400px; max-width: 94vw; background: var(--card); border-left: 1px solid var(--line); padding: 18px 20px; overflow: auto; box-shadow: -8px 0 24px rgba(0,0,0,.14); z-index: 9; }
+  .kv { display: grid; grid-template-columns: 130px 1fr; gap: 4px 12px; margin: 12px 0; } .kv div:nth-child(odd) { color: var(--muted); }
   .savebar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--line); padding: 10px 20px; display: flex; gap: 10px; align-items: center; z-index: 5; }
 </style>
 </head>
@@ -97,14 +121,10 @@
   </nav>
 
   <section id="tab-status"><div id="groups"></div>
-    <div class="card" style="max-width:1300px"><h3>Tunnels and the routing policies that use them</h3>
-      <p class="sub">Each policy sends the listed networks or devices through that tunnel. A tunnel with no policy carries nothing.</p>
-      <table id="tunnelTable"><thead><tr><th data-sort="name">Tunnel<th data-sort="enabled">Enabled<th data-sort="status">Status<th data-sort="rx">rx / tx<th data-sort="policy">Routing policies<th data-sort="cool">Cooling down</tr></thead><tbody id="tunnels"></tbody></table>
-    </div>
-    <div class="card" style="max-width:1300px"><h3>Traffic that does not use a tunnel</h3>
-      <p class="sub">Policies that send traffic somewhere else, for example straight to the internet connection.</p>
-      <div id="direct"></div>
-    </div>
+    <h3 style="margin:18px 0 4px">Network map</h3>
+    <p class="muted" style="margin:0 0 12px;max-width:900px">Each card is a VLAN. Its devices reach the internet through the VPN client that is switched on for it (animated path). The other VPN clients that carry the VLAN wait below; click any client for details and actions.</p>
+    <div id="map" class="map"><div class="card muted">Waiting for the first UniFi check...</div></div>
+    <div id="unused"></div>
   </section>
 
   <section id="tab-events" class="hide"><div class="card" id="events"></div></section>
@@ -126,6 +146,8 @@
     </div>
   </section>
 </main>
+
+<aside id="drawer" class="drawer hide"></aside>
 
 <div class="savebar hide" id="savebar">
   <b>Unsaved changes</b><span class="muted">Applied within one check cycle after you save. Invalid values are rejected.</span>
@@ -169,7 +191,7 @@ async function refresh() {
   if (data.safe_mode && !window.__safe) { window.__safe = true; document.querySelector("nav button[data-tab=advanced]").click(); }
   $("#tick").textContent = "last check " + ago(data.last_tick);
   ["checkNow", "pauseAll", "resumeAll", "saveCfg", "validate", "saveSettings"].forEach((id) => ($("#" + id).disabled = !can));
-  renderGroups(data, can); renderTunnels(data); renderEvents(data);
+  renderGroups(data, can); renderMap(data); renderEvents(data);
 }
 
 function renderGroups(d, can) {
@@ -196,56 +218,112 @@ function renderGroups(d, can) {
   }).join("") || '<div class="card muted">No groups yet. Add one in Settings.</div>';
 }
 
-function policyHtml(r) {
-  const who = [].concat(r.networks.map((n) => esc(n)), r.clients.map((c) => "device " + esc(c))).join(", ") || "nothing";
-  const tags = [r.enabled ? '<span class="pill ok">on</span>' : '<span class="pill warn">off</span>',
-    r.kill_switch ? '<span class="pill info">kill switch</span>' : "",
-    r.managed_by ? `<span class="pill info">managed by ${esc(r.managed_by)}</span>` : "",
-    r.canary ? '<span class="pill info">exit-IP test client</span>' : ""].join(" ");
-  return `<div style="margin-bottom:6px"><b>${esc(r.description)}</b> ${tags}<div class="muted">carries: ${who}</div></div>`;
+const tstate = (t) => t.status === "CONNECTED" ? ["ok", "connected"] : t.status ? ["warn", t.status.toLowerCase()] : t.enabled ? ["warn", "starting"] : ["idle", "disconnected"];
+let selected = null;   // {net: networkId, tunnel: name}
+const openAlt = new Set();   // VLAN cards whose list of other VPN clients is expanded (survives the 5 s refresh)
+
+function chip(n, t) {
+  const [c, l] = tstate(t);
+  const sel = selected && selected.net === n.id && selected.tunnel === t.name;
+  const tip = `${t.name}\n${l}${t.policy_on ? "" : ", policy off"}${t.position ? ", position #" + t.position : ", not in the fallback order"}${t.quarantined_for ? ", cooling down " + t.quarantined_for + "s" : ""}`;
+  return `<span class="chip2 ${sel ? "sel" : ""}" data-net="${esc(n.id)}" data-tun="${esc(t.name)}" title="${esc(tip)}"><span class="dot ${c}"></span>${t.position ? "#" + t.position + " " : ""}${esc(t.name)}</span>`;
 }
 
-let sortBy = { key: "name", dir: 1 };
-try { const v = JSON.parse(localStorage.getItem("wd_sort")); if (v && v.key) sortBy = v; } catch (e) {}
+function mapCard(n) {
+  const act = n.tunnels.find((t) => t.active), others = n.tunnels.filter((t) => !t.active);
+  const sub = [n.vlan != null ? "VLAN " + n.vlan : null, n.subnet, `${n.clients} device${n.clients === 1 ? "" : "s"}`].filter(Boolean).join(" · ");
+  const badge = n.group ? `<span class="pill info" title="The failover group that manages this VLAN">${esc(n.group)}${n.paused ? " · paused" : ""}</span>` : '<span class="pill warn" title="No group manages this VLAN">not managed</span>';
+  let mid;
+  if (act) {
+    const [c, l] = tstate(act), live = act.status === "CONNECTED" && !n.paused ? "live" : "";
+    mid = `<div class="link ${live}"></div>
+      <div class="node tun ${c}" data-net="${esc(n.id)}" data-tun="${esc(act.name)}"><span class="dot ${c}"></span>
+        <div class="grow"><b>${esc(act.name)}</b><div class="muted">${l} &middot; ${bps(act.rx_bps)} &darr; ${bps(act.tx_bps)} &uarr;</div></div>${act.position ? `<span class="pill info">#${act.position}</span>` : ""}</div>
+      <div class="link ${live}"></div>`;
+  } else {
+    mid = `<div class="link"></div><div class="node direct ${n.group ? "bad" : ""}"><div class="grow"><b>Direct to the internet</b>
+      <div class="muted">${n.group ? "No VPN client is switched on for this VLAN" : "No VPN policy covers this VLAN"}</div></div></div><div class="link"></div>`;
+  }
+  const lp = n.last_probe && n.last_probe.ip ? `exit ${n.last_probe.ip}${n.last_probe.country ? " (" + n.last_probe.country + ")" : ""}` : "";
+  const inet = `<div class="node inet"><span class="dot ${act || !n.group ? "ok" : "bad"}"></span><div><b>Internet</b>${lp ? `<div class="muted">${esc(lp)}</div>` : ""}</div></div>`;
+  const dots = others.slice(0, 24).map((t) => `<span class="dot ${tstate(t)[0]}"></span>`).join("");
+  const alt = others.length ? `<details class="altd" data-net="${esc(n.id)}" ${openAlt.has(n.id) || (selected && selected.net === n.id) ? "open" : ""}><summary>${others.length} other VPN client${others.length === 1 ? "" : "s"} carry this VLAN (policy off) <span class="dots">${dots}</span></summary><div class="alt">${others.map((t) => chip(n, t)).join("")}</div></details>` : "";
+  const byp = n.bypass.length ? `<div class="byp"><b>Bypassing the VPN</b>${n.bypass.map((b) => `<div class="muted">${esc(b.name || b.mac)}${b.ip ? " (" + esc(b.ip) + ")" : ""} &rarr; ${esc(b.goes_to)}${b.on ? "" : " (policy off)"}</div>`).join("")}</div>` : "";
+  return `<div class="vcard"><div class="vhead"><div><b class="vname">${esc(n.name)}</b><div class="muted">${esc(sub)}</div></div>${badge}</div>
+    <div class="vflow"><div class="node clients"><b>${n.clients}</b><span class="muted">device${n.clients === 1 ? "" : "s"}</span></div>${mid}${inet}</div>${alt}${byp}</div>`;
+}
+
+function renderMap(d) {
+  const nets = (d.networks || []).map((n, i) => [n, i]).sort(([a, i], [b, j]) => ((a.tunnels.length ? 0 : 1) - (b.tunnels.length ? 0 : 1)) || (i - j)).map(([n]) => n);   // VPN VLANs first
+  $("#map").innerHTML = nets.map(mapCard).join("") || '<div class="card muted">Waiting for the first UniFi check...</div>';
+  const used = new Set(nets.flatMap((n) => n.tunnels.map((t) => t.name)));
+  const idle = Object.entries(d.tunnels).filter(([n]) => !used.has(n)).sort(([a], [b]) => natural(a, b));
+  $("#unused").innerHTML = idle.length ? `<div class="card" style="margin-top:14px"><h3>VPN clients that carry no VLAN (${idle.length})</h3><p class="sub">No routing policy points at these yet.</p><div class="alt">${idle.map(([n, t]) => `<span class="chip2" style="cursor:default"><span class="dot ${tstate(t)[0]}"></span>${esc(n)}</span>`).join("")}</div></div>` : "";
+  renderDrawer();
+}
 const natural = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
-const SORTERS = {
-  name: (n) => n,
-  enabled: (n, t) => (t.enabled ? 1 : 0),
-  status: (n, t) => ({ CONNECTED: 3, CONNECTING: 2 }[t.status] || 0),
-  rx: (n, t) => t.rx_bps || 0,
-  policy: (n, t) => (t.routes || []).filter((r) => r.enabled).length * 100 + (t.routes || []).length,
-  cool: (n, t) => t.quarantined_for || 0,
-};
-const FIRST_DIR = { name: 1, enabled: -1, status: -1, rx: -1, policy: -1, cool: -1 };   // first click: the "interesting" end first
-document.querySelectorAll("#tunnelTable th[data-sort]").forEach((th) => (th.onclick = () => {
-  const k = th.dataset.sort;
-  sortBy = sortBy.key === k ? { key: k, dir: -sortBy.dir } : { key: k, dir: FIRST_DIR[k] };
-  try { localStorage.setItem("wd_sort", JSON.stringify(sortBy)); } catch (e) {}
-  if (status) renderTunnels(status);
-}));
 
-function renderTunnels(d) {
-  const active = new Set(Object.values(d.groups).map((g) => g.active));
-  document.querySelectorAll("#tunnelTable th[data-sort]").forEach((th) => {
-    const on = th.dataset.sort === sortBy.key;
-    th.classList.toggle("sorted", on);
-    th.textContent = th.textContent.replace(/ [\u25B2\u25BC]$/, "") + (on ? (sortBy.dir > 0 ? " \u25B2" : " \u25BC") : "");
-  });
-  const f = SORTERS[sortBy.key] || SORTERS.name;
-  const rows = Object.entries(d.tunnels).sort(([an, at], [bn, bt]) => {
-    const x = f(an, at), y = f(bn, bt);
-    const c = typeof x === "string" ? natural(x, y) : x - y;
-    return (c * sortBy.dir) || natural(an, bn);
-  });
-  $("#tunnels").innerHTML = rows.map(([n, t]) => {
-    const cls = t.status === "CONNECTED" ? "ok" : t.enabled ? "warn" : "muted";
-    const pol = (t.routes || []).map(policyHtml).join("") || '<span class="muted">no routing policy</span>';
-    return `<tr class="${active.has(n) ? "cur" : ""}"><td>${esc(n)}${active.has(n) ? ' <span class="pill info">active</span>' : ""}<td>${t.enabled ? "yes" : "no"}
-      <td><span class="${cls}">${esc(t.status || "-")}</span><td>${bps(t.rx_bps)} / ${bps(t.tx_bps)}
-      <td>${pol}<td>${t.quarantined_for ? t.quarantined_for + "s" : "-"}${t.last_reason ? `<div class="muted">${esc(t.last_reason)}</div>` : ""}`;
-  }).join("");
-  $("#direct").innerHTML = (d.direct_routes || []).map((r) => policyHtml(r).replace("</div></div>", `</div><div class="muted">goes to: ${esc(r.goes_to)}</div></div>`)).join("") || '<span class="muted">None.</span>';
+function renderDrawer() {
+  const el = $("#drawer");
+  const n = selected && (status.networks || []).find((x) => x.id === selected.net);
+  const t = n && n.tunnels.find((x) => x.name === selected.tunnel);
+  if (!t) { el.classList.add("hide"); selected = null; return; }
+  const [c, l] = tstate(t), g = n.group, can = !!status.can_control;
+  const carries = (status.networks || []).filter((x) => x.tunnels.some((y) => y.name === t.name)).map((x) => x.name + (x.tunnels.find((y) => y.name === t.name).policy_on ? "" : " (off)"));
+  const acts = [];
+  if (g && can) {
+    if (!t.active) acts.push(`<button class="act primary" data-d="switch">Switch ${esc(g)} to this client now</button>`);
+    acts.push(`<button class="act" data-d="test">Test it</button>`);
+    if (t.position) acts.push(`<button class="act" data-d="up" ${t.position === 1 ? "disabled" : ""}>Move up</button><button class="act" data-d="down">Move down</button><button class="act" data-d="remove">Remove from the order</button>`);
+    else acts.push(`<button class="act" data-d="add">Add to the fallback order (last)</button>`);
+  }
+  el.innerHTML = `<div class="row"><b style="font-size:16px;word-break:break-all">${esc(t.name)}</b><span class="grow"></span><button class="act" data-d="close">Close</button></div>
+    <p><span class="pill ${c === "ok" ? "ok" : c === "warn" ? "warn" : "info"}">${l}</span> ${t.active ? '<span class="pill ok">active path</span>' : ""}</p>
+    <div class="kv"><div>Viewed from</div><div>${esc(n.name)}${g ? " (group " + esc(g) + ")" : " (not managed)"}</div>
+      <div>Carries</div><div>${carries.map(esc).join(", ")}</div>
+      <div>Routing policy</div><div>${esc(t.policy)}: ${t.policy_on ? "on" : "off"}${t.kill_switch ? ", kill switch" : ""}</div>
+      <div>Fallback position</div><div>${t.position ? "#" + t.position : "not in the order"}</div>
+      <div>Traffic</div><div>${bps(t.rx_bps)} down, ${bps(t.tx_bps)} up</div>
+      <div>Cooling down</div><div>${t.quarantined_for ? t.quarantined_for + "s" : "no"}</div>
+      <div>Last failure</div><div>${esc(t.last_reason || "none")}</div></div>
+    ${acts.length ? `<div class="row">${acts.join("")}</div>` : (can ? "" : '<p class="muted">Enter the control token to act on this client.</p>')}`;
+  el.classList.remove("hide");
 }
+
+async function editOrder(group, fn) {
+  const r = await api("settings");
+  if (!r.ok || !r.data.values) { alert("Settings are not available right now."); return; }
+  const v = r.data.values, grp = v.groups.find((x) => x.name === group);
+  if (!grp) return;
+  fn(grp.order);
+  const w = await api("settings", "POST", { values: v });
+  if (!w.ok) alert(w.data.error || "failed");
+  V = null; refresh();
+}
+
+$("#map").addEventListener("toggle", (e) => {
+  const d = e.target; if (!d.matches || !d.matches("details.altd")) return;
+  if (d.open) openAlt.add(d.dataset.net); else openAlt.delete(d.dataset.net);
+}, true);
+$("#map").addEventListener("click", (e) => {
+  const el = e.target.closest("[data-tun]"); if (!el) return;
+  selected = { net: el.dataset.net, tunnel: el.dataset.tun };
+  renderMap(status);
+});
+$("#drawer").addEventListener("click", async (e) => {
+  const b = e.target.closest("button[data-d]"); if (!b) return;
+  const n = (status.networks || []).find((x) => x.id === selected.net), name = selected.tunnel, g = n && n.group, k = b.dataset.d;
+  if (k === "close") { selected = null; renderMap(status); return; }
+  if (k === "switch") { if (confirm(`Move ${g} to ${name} now?`)) act(`groups/${encodeURIComponent(g)}/switch`, { tunnel: name }); return; }
+  if (k === "test") { act(`groups/${encodeURIComponent(g)}/test`, { tunnel: name }); return; }
+  if (k === "add") return editOrder(g, (o) => o.push({ tunnel: name, expect_country: "" }));
+  if (k === "remove") return editOrder(g, (o) => { const i = o.findIndex((x) => x.tunnel === name); if (i >= 0) o.splice(i, 1); });
+  if (k === "up" || k === "down") return editOrder(g, (o) => {
+    const i = o.findIndex((x) => x.tunnel === name), j = i + (k === "up" ? -1 : 1);
+    if (i >= 0 && j >= 0 && j < o.length) [o[i], o[j]] = [o[j], o[i]];
+  });
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && selected) { selected = null; renderMap(status); } });
 
 function renderEvents(d) {
   const cls = { info: "info", warning: "warn", critical: "bad" };

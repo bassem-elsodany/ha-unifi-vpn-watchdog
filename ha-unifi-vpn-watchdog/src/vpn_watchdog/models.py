@@ -56,6 +56,8 @@ class Snapshot:
     routes: list[Route]
     networks: dict[str, str]
     wan_ip: str | None = None
+    network_info: dict[str, dict[str, Any]] = field(default_factory=dict)   # id -> {name, vlan, subnet}
+    clients: dict[str, dict[str, Any]] = field(default_factory=dict)        # mac -> {name, ip, network}
 
     def tunnel_by_name(self, name: str) -> Tunnel | None:
         for t in self.tunnels.values():
