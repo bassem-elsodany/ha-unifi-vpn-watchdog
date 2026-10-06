@@ -66,6 +66,7 @@ class Engine:
         self._noted: dict[str, str] = {}
         self._warm: dict[str, set[str]] = {}         # group -> the standby VPN clients kept on and connected (keep_ready)
         self._warm_since: dict[str, float] = {}      # standby id -> when it was switched on as a standby (to give up on one that never connects)
+        self._hold: dict[str, float] = {}           # VPN client id -> until when it is left switched on (a speed test is using it)
         self._dev_owners: dict[str, str] = {}       # device MAC -> the group that routes it (a device belongs to one group)
         self._orphan_seen: dict[str, int] = {}       # policy id -> consecutive cycles its group has been missing from the config
         self._route_fail: dict[str, float] = {}     # group -> when its routing last failed to apply (retried after a pause, not every cycle)
@@ -643,6 +644,9 @@ class Engine:
             if gs.failback_target:
                 keep.add(gs.failback_target)
             keep.update(self._warm.get(g.name, ()))              # the warm standbys of a group with keep_ready > 1
+        now = self.clock.now()
+        self._hold = {i: t for i, t in self._hold.items() if t > now}
+        keep.update(self._hold)                                  # a client a speed test is using
         in_use = {r.network_id for r in snap.routes if r.enabled and r.target_macs and r.network_id}   # clients that carry a device's own route (and the exit-IP test device)
         for tid in managed:
             t = snap.tunnels[tid]
@@ -702,6 +706,9 @@ class Engine:
 
     def _handle(self, cmd: tuple, snap: Snapshot) -> None:
         kind, group = cmd[0], cmd[1] if len(cmd) > 1 else None
+        if kind == "hold":                                   # ("hold", client id, seconds): do not switch this client off for a while
+            self._hold[str(cmd[1])] = self.clock.now() + max(10.0, min(float(cmd[2]), 600.0))
+            return
         if group == "*" and kind in ("pause", "resume"):
             for x in self.cfg.groups:
                 self._handle((kind, x.name), snap)

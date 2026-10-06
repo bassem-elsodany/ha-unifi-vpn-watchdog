@@ -163,3 +163,10 @@ def test_switching_a_policy_off_needs_the_token_and_the_users_confirmation(srv):
     assert app.engine.submitted == []
     assert call(url, "POST", {"route_id": "r1", "confirmed": True}, token="tok")[0] == 202
     assert app.engine.submitted == [("blocker-off", "g", "r1")]
+
+
+def test_hold_needs_the_token_and_asks_the_engine_to_leave_a_client_on(srv):
+    app, base = srv
+    assert call(base + "/api/hold", "POST", {"tunnel": "t1"})[0] == 401
+    assert call(base + "/api/hold", "POST", {"tunnel": "t1", "seconds": 5000}, token="tok")[0] == 202
+    assert app.engine.submitted[-1] == ("hold", "t1", 600)       # capped at ten minutes

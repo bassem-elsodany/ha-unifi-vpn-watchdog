@@ -118,6 +118,8 @@ class StatusServer:
                     if body.get("confirmed") is not True:
                         return self._send(400, {"error": "switching one of your routing policies needs the user's confirmation"})
                     eng.submit(parts[3], parts[1], str(body["route_id"]))
+                elif parts == ["hold"] and body.get("tunnel"):                    # leave a VPN client switched on for a while (a speed test is using it)
+                    eng.submit("hold", str(body["tunnel"]), max(10, min(int(body.get("seconds") or 90), 600)))
                 elif len(parts) == 3 and parts[0] == "groups" and parts[2] in ("pause", "resume"):
                     eng.submit(parts[2], parts[1])
                 elif len(parts) == 3 and parts[0] == "groups" and parts[2] in ("switch", "test") and body.get("tunnel"):

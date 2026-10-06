@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.24.0
+
+- **Phone layout.** The web UI is now designed for phones as well (up to 700 px wide; tablet and desktop are unchanged). Nothing is wider than the screen on any page, buttons and fields are at least 44 px high, input text is 16 px (no zoom on iPhones), and the details panel is a bottom sheet.
+- **Status on a phone:** the VLANs are a row of tappable chips; the picked VLAN opens as a card with its devices; a group's warnings fold into one "⚠ N warnings" line you can open; the fallback order and the egress follow below.
+- **Settings on a phone:** one column with each label above its control, the section tabs scroll sideways, and the long group introduction sits behind "How it works".
+
 ## 0.23.0
 
 - **Device groups.** A group can route devices (by MAC address) as well as VLANs: Settings > VPN groups > Devices lists the devices UniFi knows (online or not). With Routing on, the watchdog keeps ONE policy of its own for all the group's devices, `vpnwd: <group> › devices`, on the group's active VPN client, and moves it on failover. Rotation, standbys and failover work as for any group, so a TV can rotate over its own list of VPN clients every day.

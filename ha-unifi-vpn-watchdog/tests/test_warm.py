@@ -73,3 +73,17 @@ def test_the_setting_round_trips_through_the_settings_form():
     assert settings.apply(raw, form)["groups"][0]["keep_ready"] == 3
     form["groups"][0]["keep_ready"] = 1
     assert "keep_ready" not in settings.apply(raw, form)["groups"][0]
+
+
+def test_a_held_client_is_not_switched_off_until_the_hold_ends(make_engine):
+    eng, un, _, _, clock = make_engine(order=ORDER3)
+    run(eng, clock, 2)
+    un.enabled.add(tid("Cousin vpn 2"))                          # a client switched on by a speed test
+    run(eng, clock, 1)
+    assert tid("Cousin vpn 2") not in un.enabled                  # without a hold the watchdog switches it off again
+    un.enabled.add(tid("Cousin vpn 2"))
+    eng.submit("hold", tid("Cousin vpn 2"), 90)
+    run(eng, clock, 3)                                            # 45 s
+    assert tid("Cousin vpn 2") in un.enabled
+    run(eng, clock, 5)                                            # past the 90 s
+    assert tid("Cousin vpn 2") not in un.enabled

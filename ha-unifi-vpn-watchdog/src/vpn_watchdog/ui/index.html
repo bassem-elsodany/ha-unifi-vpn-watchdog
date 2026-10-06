@@ -218,6 +218,50 @@
   @media (max-width: 900px) { .sset { flex-direction: column; gap: 16px; } .snav { width: auto; flex-direction: row; overflow-x: auto; position: static; } .srow, .gd .srow { grid-template-columns: 1fr; } .gm { flex-direction: column; } .gl { width: auto; border-right: 0; border-bottom: 1px solid var(--line); } .al { grid-template-columns: 52px 1fr; } .al .wh, .al .ed { grid-column: 2; text-align: left; } .spanel { padding: 22px 18px; } }
   .savebar { position: fixed; left: 0; right: 0; bottom: 0; height: 64px; background: var(--card); border-top: 1px solid var(--line); padding: 0 48px; display: flex; gap: 14px; align-items: center; z-index: 5; }
   .sset { margin-top: 28px; } #tab-events, #tab-advanced { padding-top: 16px; }
+
+  /* ---- phone layout (up to 700 px wide): one column, thumb-sized controls, nothing wider than the screen ---- */
+  @media (max-width: 700px) {
+    html, body { overflow-x: hidden; }
+    header { flex-wrap: wrap; gap: 8px; padding-top: 12px; padding-bottom: 12px; } header .grow { display: none; }
+    header button, .act, .btn { min-height: 44px; }
+    nav { overflow-x: auto; white-space: nowrap; } nav button { min-height: 44px; }
+    input, select, textarea, .fld, .nf input { font-size: 16px !important; }              /* iPhones zoom into smaller text on focus */
+    .fld, select.fld, input.fld, .vs, .vfilter input, .gname { width: 100% !important; max-width: 100% !important; }
+    .nf { width: 100% !important; } .nf input { width: 100% !important; }
+    button, .ib, .ed, .seg span, .vh[data-vpick], .lc { min-height: 44px; }
+    .ib { min-width: 44px; }
+    /* Status */
+    .gstrip { padding: 0 14px; } .gstrip .gr { flex-wrap: wrap; gap: 8px; padding: 12px 0 !important; min-height: 0 !important; } .gstrip .gr .grow { flex-basis: 100%; order: 3; }
+    .gstrip .gr > .act { order: 4; width: 100%; }
+    .gstrip .gr b.gname { font-size: 20px; }
+    .warns > summary { cursor: pointer; color: var(--warn); font-weight: 600; padding: 6px 0; min-height: 32px; } .warns > div, .warns > br + span { display: block; }
+    .colv { display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px; } .colv .colh { flex: 0 0 100%; order: 0; margin: 16px 0 0 !important; }
+    .colv > .vc.cmp { order: 1; flex: 0 0 auto; width: auto; padding: 0 14px; border-radius: 999px; } .colv > .vc.cmp .vh { min-height: 40px; gap: 8px; }
+    .colv > .vc.cmp .vn small, .colv > .vc.cmp .gtag { display: none; }
+    .colv > .vc.sel { order: 2; flex: 0 0 100%; } .colv > .ownc { order: 3; flex: 0 0 100%; }
+    .vc.sel .vh { flex-wrap: wrap; } .vc.sel .gtag { margin-left: 0; }
+    .gcols { row-gap: 12px; } .colr .colh { margin-top: 8px; } .lane .lc { padding: 10px 12px; } .band { padding: 14px; }
+    .lc .mono, .lc .sub { overflow-wrap: anywhere; }
+    .legend { display: none; } .mapfoot { display: none; }
+    .drawer { top: auto; left: 0; right: 0; bottom: 0; width: 100%; max-width: 100%; max-height: 78vh; border-left: 0; border-top: 1px solid var(--line); border-radius: 16px 16px 0 0; box-shadow: 0 -8px 24px rgba(0,0,0,.18); }
+    .dev { min-height: 40px; } .dev span:nth-child(3) { display: none; }
+    /* Settings */
+    main { padding-left: 12px; padding-right: 12px; } .sset { margin-top: 12px; gap: 12px; }
+    .sset { align-items: stretch; } .snav { gap: 6px; padding-bottom: 4px; width: 100%; max-width: 100%; } .snav button { white-space: nowrap; flex: none; }
+    .spanel { padding: 18px 14px; border-radius: 14px; } .spanel h1 { font-size: 22px; }
+    .glead { padding: 18px 14px 14px; } .glead p { font-size: 14px; } .gsteps { gap: 10px; } .how > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; color: var(--accentink); font-weight: 600; }
+    .gm { min-height: 0; } .gl { padding: 14px 0; } .gl .cap { padding: 0 14px 10px; }
+    .gd { padding: 16px 14px; }
+    .gd .srow, .srow { grid-template-columns: 1fr !important; gap: 10px; padding: 16px 0; align-items: start; }
+    .slab span { max-width: none; }
+    .ordr { flex-wrap: wrap; } .ordr .t { flex-basis: 100%; }
+    .exf { margin-left: 0 !important; grid-template-columns: 1fr; } .jnote { margin-left: 0 !important; }
+    .al { grid-template-columns: 44px 1fr; } .al .nm, .al .wh, .al .ed { grid-column: 2; }
+    .savebar { padding: 0 14px; height: auto; min-height: 56px; padding-bottom: env(safe-area-inset-bottom); }
+    #toast { bottom: calc(16px + env(safe-area-inset-bottom)); max-width: 92vw; }
+    #yaml { font-size: 13px; }
+    .row { flex-wrap: wrap; }
+  }
 </style>
 </head>
 <body>
@@ -390,6 +434,8 @@ function laneCard(g, t, can, behind) {
     <span class="dot ${c}"></span>
     <div class="lb">${head}<div class="sub">${sub}</div></div></div>`;
 }
+const isPhone = () => window.matchMedia("(max-width: 700px)").matches;
+const warnOpen = new Set();      // groups whose folded warnings (phone) are open
 const laneOpen = new Set();       // groups whose long fallback order is shown in full
 function laneHtml(g, can, behind) {
   const parts = [];
@@ -459,8 +505,10 @@ function groupBlock(g, can, left, showNormal, m) {
   const rotRow = !r ? "" : `<div class="gr"><span class="pill rot">ROTATION</span>
       <span class="muted grow">${!r.enabled ? "Off. Turn it on in Settings > VPN groups." : r.paused ? `${esc(r.summary)} · stopped` : `${esc(r.summary)} · next in <b>${r.next_in == null ? "..." : esc(fmtIn(r.next_in))}</b>${r.next_to ? ` → ${esc(r.next_to)}` : ""}`}${r.last_ts ? ` · last rotated ${esc(fmtWhen(r.last_ts))}` : ""}</span>
       ${r.enabled ? `<button class="act" data-gact="rotate" data-g="${esc(g.name)}" ${can ? "" : "disabled"}>Rotate now</button><button class="act" data-gact="${r.paused ? "rotation-resume" : "rotation-pause"}" data-g="${esc(g.name)}" ${can ? "" : "disabled"}>${r.paused ? "Start rotation" : "Stop rotation"}</button>` : ""}</div>`;
+  const nwarn = (g.conflict ? 1 : 0) + (g.gaps || []).length + ((g.routing && g.routing.blockers) || []).length;
+  const warnFold = isPhone() && nwarn > 1 ? `<details class="warns" data-g="${esc(g.name)}" ${warnOpen.has(g.name) ? "open" : ""}><summary>⚠ ${nwarn} warnings</summary>${conflict}</details>` : conflict;
   return `<section class="gblock" data-g="${esc(g.name)}"><div class="gstrip ${r ? "two" : ""}"><div class="gr"><b class="gname">${esc(g.name)}</b><span class="pill ${st[0]}">${st[1]}</span>
-      <span class="muted grow">${note}${conflict}</span>
+      <span class="muted grow">${note}${warnFold}</span>
       ${g.unmanaged ? "" : !g.has_order ? `<button class="act primary" data-goorder="${esc(g.name)}">Set the fallback order</button>` : `<button class="act" data-gact="${g.paused ? "resume" : "pause"}" data-g="${esc(g.name)}" ${can ? "" : "disabled"}>${g.paused ? "Start automatic failover" : "Stop automatic failover"}</button>`}</div>${rotRow}</div>
     <div class="gcols"><div class="colv"><div class="colh">VLANs · ${left.count}</div>${left.html}${ownCard(m)}</div>${laneHtml(g, can, behind)}
     <div class="colr"><div class="colh">Internet via the VPN</div>${inet}${showNormal ? normalNode(m) : ""}</div>${showNormal ? '<div class="dlabel">straight to the internet, no VPN</div>' : ""}</div></section>`;
@@ -637,7 +685,7 @@ mapEl.addEventListener("click", (e) => {
 mapEl.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches("[data-vpick]")) { e.preventDefault(); e.target.click(); } });
 $("#vfilter").addEventListener("input", (e) => { vfilter = e.target.value; renderMap(status); });
 mapEl.addEventListener("input", (e) => { const vs = e.target.closest(".vs"); if (vs) { vsearch[vs.dataset.net] = vs.value; updateVlist(vs.dataset.net); } });
-mapEl.addEventListener("toggle", (e) => { const d = e.target; if (d.matches && d.matches("details.pool")) { if (d.open) poolOpen.add(d.dataset.g); else poolOpen.delete(d.dataset.g); drawLinks(); } }, true);
+mapEl.addEventListener("toggle", (e) => { const d = e.target; if (d.matches && d.matches("details.warns")) { if (d.open) warnOpen.add(d.dataset.g); else warnOpen.delete(d.dataset.g); return; } if (d.matches && d.matches("details.pool")) { if (d.open) poolOpen.add(d.dataset.g); else poolOpen.delete(d.dataset.g); drawLinks(); } }, true);
 
 $("#drawer").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-d]"); if (!b) return;
@@ -748,7 +796,12 @@ function secSwitching() {
     ${srow("It must stay healthy for", "Only then does traffic move back.", numf("failback.stable_seconds", "seconds", 0), V.failback.enabled ? "" : "dim")}`;
 }
 let ordOpen = false, ordDrag = null, pendingGroup = null;
-const GINTRO = `<div class="glead"><h1>VPN groups</h1><p><b>A group is a set of VLANs and an ordered list of VPN clients.</b> The watchdog keeps one of the clients switched on. If it stops working, it switches on the next one in your order and switches the failed one off. By default it changes nothing else in UniFi: your routing policies decide which VLANs use a VPN client, and the watchdog warns you when they do not match the group. Switch on <b>Routing</b> and it keeps its own policy for each picked VLAN pointed at the active client.</p>
+const gintro = () => isPhone()      // on a phone the long introduction sits behind one line
+  ? `<div class="glead"><h1>VPN groups</h1><details class="how"><summary>How it works</summary><p><b>A group is a set of VLANs and an ordered list of VPN clients.</b> The watchdog keeps one of the clients switched on. If it stops working, it switches on the next one in your order and switches the failed one off. By default it changes nothing else in UniFi: your routing policies decide which VLANs use a VPN client, and the watchdog warns you when they do not match the group. Switch on <b>Routing</b> and it keeps its own policy for each picked VLAN pointed at the active client.</p>
+  <div class="gsteps"><div class="gst"><i>1</i><span><b>Pick the VLANs and/or devices</b> this group is for. A device gets its own policy, kept above every VLAN policy.</span></div>
+  <div class="gst"><i>2</i><span><b>Build the fallback order:</b> add the VPN clients you trust, #1 first. <b>Until you do, the group only watches and never switches.</b></span></div>
+  <div class="gst"><i>3</i><span>Optional: turn on <b>Rotation</b> (move to another client on a timer) and <b>Routing</b> (the watchdog keeps its own policy per picked VLAN on the active client).</span></div></div></details></div>`
+  : `<div class="glead"><h1>VPN groups</h1><p><b>A group is a set of VLANs and an ordered list of VPN clients.</b> The watchdog keeps one of the clients switched on. If it stops working, it switches on the next one in your order and switches the failed one off. By default it changes nothing else in UniFi: your routing policies decide which VLANs use a VPN client, and the watchdog warns you when they do not match the group. Switch on <b>Routing</b> and it keeps its own policy for each picked VLAN pointed at the active client.</p>
   <div class="gsteps"><div class="gst"><i>1</i><span><b>Pick the VLANs and/or devices</b> this group is for. A device gets its own policy, kept above every VLAN policy.</span></div>
   <div class="gst"><i>2</i><span><b>Build the fallback order:</b> add the VPN clients you trust, #1 first. <b>Until you do, the group only watches and never switches.</b></span></div>
   <div class="gst"><i>3</i><span>Optional: turn on <b>Rotation</b> (move to another client on a timer) and <b>Routing</b> (the watchdog keeps its own policy per picked VLAN on the active client).</span></div></div></div>`;
@@ -758,7 +811,7 @@ function secGroups() {
   const list = V.groups.map((x, i) => `<div class="gi ${i === selG ? "on" : ""}" data-gsel="${i}"><b>${esc(x.name || "(unnamed)")}</b><span>${x.order.length ? x.order.length + " client" + (x.order.length === 1 ? "" : "s") + " in the order" : "no clients in the order"}</span><span>${x.order.length ? '<span class="bdg ok">Ready</span>' : '<span class="bdg req">Needs a fallback order</span>'}</span></div>`).join("");
   const left = `<div class="gl"><div class="cap">YOUR GROUPS</div>${list}<div style="padding:16px 28px"><button class="btn" data-act="addgroup" style="width:100%;border-style:dashed;padding:9px 14px;font-size:14px">+ Add a VPN group</button></div></div>`;
   const g = V.groups[selG];
-  if (!g) return `${GINTRO}<div class="gempty"><div class="big">You have no VPN group yet</div><p>Until you create one, the watchdog only watches and shows the Status page. Your first group takes a minute: name it, tick the VLANs, then add the VPN clients in the order you want them used.</p><button class="act primary" data-act="addgroup" style="font-size:14px;padding:10px 18px;border-radius:10px">+ Create your first VPN group</button></div>`;
+  if (!g) return `${gintro()}<div class="gempty"><div class="big">You have no VPN group yet</div><p>Until you create one, the watchdog only watches and shows the Status page. Your first group takes a minute: name it, tick the VLANs, then add the VPN clients in the order you want them used.</p><button class="act primary" data-act="addgroup" style="font-size:14px;padding:10px 18px;border-radius:10px">+ Create your first VPN group</button></div>`;
   const inGroup = (grp, t) => grp.order.some((i) => i.id === t.id || (!i.id && i.tunnel === t.name));
   const elsewhere = (t) => { const o = V.groups.find((x, k) => k !== selG && inGroup(x, t)); return o ? o.name : null; };
   const pool = (M.tunnels || []).filter((t) => !inGroup(g, t) && !elsewhere(t)), taken = (M.tunnels || []).filter((t) => !inGroup(g, t) && elsewhere(t));
@@ -814,7 +867,7 @@ function secGroups() {
   const routeCtl = `<div style="display:flex;flex-direction:column;gap:8px"><div style="display:flex;align-items:center;gap:12px">${(g.networks || []).length ? tog(`groups.${selG}.manage_routing`) : '<span class="muted">Pick at least one VLAN first.</span>'}<span style="font-size:14px">${g.manage_routing ? "The watchdog manages routing for this group" : "You manage routing in UniFi"}</span></div>${g.manage_routing && rplan.length ? `<div class="note" style="margin:0">Applying now: ${rplan.map(esc).join("; ")}.</div>` : ""}</div>`;
   const badge = (ok, missing) => ok ? '<span class="bdg ok">done</span>' : `<span class="bdg ${missing}">${missing === "req" ? "required" : "optional"}</span>`;
   const sr = (title, bd, help, ctl) => `<div class="srow"><div class="slab"><b>${title} ${bd}</b><span>${help}</span></div><div>${ctl}</div></div>`;
-  return `${GINTRO}<div class="gm" style="border-top:1px solid var(--hair)">${left}<div class="gd">
+  return `${gintro()}<div class="gm" style="border-top:1px solid var(--hair)">${left}<div class="gd">
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:8px"><input class="gname" data-path="groups.${selG}.name" data-t="str" value="${esc(g.name)}" placeholder="Group name" aria-label="Group name"><button class="btn danger" data-act="delgroup">Delete group</button></div>
     ${state}${g.order.length ? carry : ""}${gapsHtml}
     ${sr("VLANs", badge((g.networks || []).length > 0, "opt"), "The VLANs this group is for. The watchdog checks UniFi's routing policies against them and warns you when one does not go through this group. With Routing on, it keeps its own policy for them.", netCtl)}
