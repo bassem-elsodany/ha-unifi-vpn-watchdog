@@ -14,7 +14,7 @@ PLACEHOLDERS = {
     "reason": "why the decision was taken",
     "tried": "number of candidate tunnels that were tested and failed",
     "groups": "number of groups being watched",
-    "mode": "DRY-RUN or LIVE",
+    "mode": "ACTIVE (a fallback order is set) or WATCHING ONLY",
     "error": "error text",
 }
 

@@ -1,6 +1,5 @@
 # Generated on first start of the Home Assistant add-on. Edit it from the add-on's "Config" tab (sidebar panel)
-# or from /addon_configs/<slug>/config.yaml. Starts in DRY-RUN: nothing is changed until you press "Go live".
-dry_run: true
+# or from /addon_configs/<slug>/config.yaml. With no fallback order set the watchdog only watches; it acts once you set one.
 interval_seconds: 15
 state_file: /data/state.json
 log: {level: "${LOG_LEVEL:-INFO}", format: text}

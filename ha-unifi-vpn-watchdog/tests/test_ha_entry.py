@@ -15,11 +15,11 @@ def test_options_become_env_and_config_is_seeded(tmp_path, monkeypatch):
     monkeypatch.setattr("vpn_watchdog.cli.main", lambda argv: captured.setdefault("argv", argv) and 0)
     assert ha_entry.main() == 0
     assert captured["argv"] == ["run", "--config", str(cfg)]
-    assert cfg.exists() and "dry_run: true" in cfg.read_text()
+    assert cfg.exists() and "order: []" in cfg.read_text()
     import os
     from vpn_watchdog.config import parse_config
     c = parse_config(cfg.read_text(), dict(os.environ))
-    assert c.unifi.api_key == "abc" and c.dry_run and c.server.trust_ingress and c.mqtt.supervisor
+    assert c.unifi.api_key == "abc" and c.server.trust_ingress and c.mqtt.supervisor
     assert c.notifications[0].service == "notify.mobile_app_x"
 
 

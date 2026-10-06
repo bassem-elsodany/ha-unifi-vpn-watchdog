@@ -19,15 +19,15 @@ def test_status_lists_routing_policies_per_tunnel(make_engine):
     assert len(primary) == 1
     r = primary[0]
     assert r["enabled"] and r["managed_by"] == "g1" and r["networks"] == ["vlan20-iot", "vlan50-vpn"] and r["kill_switch"] is False
-    assert st["tunnels"]["Home-Backup"]["routes"] == []                    # no policy: carries nothing
+    backup = st["tunnels"]["Home-Backup"]["routes"]
+    assert len(backup) == 1 and backup[0]["enabled"] is False and backup[0]["managed_by"] == "g1"   # its own policy, switched off
     assert st["groups"]["g1"]["position"] == "#1" and "country" not in st["groups"]["g1"]
 
 
 def test_routes_to_non_tunnels_are_shown_as_direct(make_engine):
-    from dataclasses import replace
+    from vpn_watchdog.models import Route
     eng, un, _, _, clock = make_engine()
-    un.extra_routes.append(replace(un.route, id="r-direct", description="Cameras direct", network_id="net-wan",
-                                   target_networks=frozenset(), target_macs=frozenset({"ec:62:60:c9:64:88"})))
+    un.routes.append(Route("r-direct", "Cameras direct", "net-wan", True, False, frozenset(), frozenset({"ec:62:60:c9:64:88"}), {}))
     run(eng, clock, 1)
     d = eng.status()["direct_routes"]
     assert [x["description"] for x in d] == ["Cameras direct"] and d[0]["clients"] == ["ec:62:60:c9:64:88"]

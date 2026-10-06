@@ -106,7 +106,6 @@ class SwitchingCfg(_M):
     connect_timeout_seconds: float = Field(40, ge=5)
     min_hold_seconds: int = Field(60, ge=0)                  # minimum time between switches (hard failures bypass it)
     max_switches_per_hour: int = Field(6, ge=1)
-    rename_route_to_tunnel: bool = True         # keep the route description equal to the active tunnel name
     quarantine: QuarantineCfg = QuarantineCfg()
     on_exhausted: Literal["keep", "kill_switch"] = "keep"
 
@@ -118,7 +117,7 @@ class FailbackCfg(_M):
 
 
 class StandbyCfg(_M):
-    warm: int = Field(2, ge=0)                # next N candidates kept enabled (connected) for instant failover
+    warm: int = Field(0, ge=0)     # spare tunnels kept connected for an instant switch (0 = only the tunnel in use)
     disable_unused: bool = True  # disable managed tunnels that are neither active nor warm
     max_enabled: int = Field(6, ge=1)         # NordVPN allows 10 simultaneous connections per account
 
@@ -140,7 +139,6 @@ class GroupCfg(_M):
     networks: list[str]                  # network names (or ids) whose internet traffic the route steers
     order: list[OrderItem] = Field(default_factory=list)   # fallback sequence: #1 is the most preferred, then #2, #3, ...
     kill_switch: bool | None = None      # None = leave the route's kill switch alone
-    route_id: str | None = None          # pin a specific route; otherwise discovered from `networks`
     overrides: dict[str, Any] = Field(default_factory=dict)  # deep-merged over detection/switching/failback/standby
 
     @field_validator("order", mode="before")
@@ -220,7 +218,6 @@ class GroupSettings(_M):
 
 
 class Config(_M):
-    dry_run: bool = True                 # SAFE DEFAULT: log what would change, change nothing
     interval_seconds: int = Field(15, ge=5)
     state_file: str = "/data/state.json"
     log: LogCfg = LogCfg()
@@ -297,10 +294,14 @@ def removed_settings(raw: dict[str, Any]) -> list[str]:
             errs.append(f"{where}switching.prefer_different_city was removed (cities are not a concept any more).")
 
     city(raw, "")
+    if isinstance(raw.get("switching"), dict) and "rename_route_to_tunnel" in raw["switching"]:
+        errs.append("switching.rename_route_to_tunnel was removed: every tunnel now keeps its own routing policy and the watchdog only turns them on and off.")
     for g in raw.get("groups") or []:
         if not isinstance(g, dict):
             continue
         city(g.get("overrides"), f"groups[{g.get('name')}].overrides.")
+        if "route_id" in g:
+            errs.append(f"groups[{g.get('name')}].route_id was removed: each tunnel has its own routing policy, found automatically.")
         if "ladder" in g:
             errs.append(f"groups[{g.get('name')}].ladder was replaced by `order`: list the tunnels in the sequence you want, first = "
                         "most preferred, e.g. order: [My-Tunnel-A, My-Tunnel-B, {tunnel: My-Tunnel-C, expect_country: DE}]. "

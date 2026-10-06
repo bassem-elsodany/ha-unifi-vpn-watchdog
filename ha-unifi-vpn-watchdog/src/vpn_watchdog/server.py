@@ -130,9 +130,6 @@ class StatusServer:
                 elif parts == ["notify", "test"]:
                     err = outer.app.test_notify(body.get("service"))
                     return self._send(502 if err else 200, {"error": err})
-                elif parts == ["mode"] and isinstance(body.get("dry_run"), bool):
-                    err = outer.app.set_dry_run(body["dry_run"])
-                    return self._send(400 if err else 200, {"error": err})
                 else:
                     return self._send(404, {"error": "unknown endpoint"})
                 self._send(202, {"accepted": True})

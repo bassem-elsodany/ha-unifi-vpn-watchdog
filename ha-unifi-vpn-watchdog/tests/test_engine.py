@@ -137,7 +137,7 @@ def test_exhausted_alerts_once_and_can_engage_kill_switch(make_engine):
         un.dead.add(tid(n))
     run(eng, clock, 8)
     assert notes.kinds().count("exhausted") == 1
-    assert un.route.kill_switch is True
+    assert un.active_route().kill_switch is True
     assert active_name(un) == "Home-Primary"       # nothing better to move to
 
 
@@ -156,8 +156,8 @@ def test_pause_and_manual_switch(make_engine):
 def test_external_route_change_is_adopted(make_engine):
     eng, un, _, _, clock = make_engine()
     run(eng, clock, 2)
-    un.route = type(un.route)(**{**un.route.__dict__, "network_id": tid("office/berlin"),
-                                 "description": "office/berlin"})
+    import dataclasses
+    un.routes = [dataclasses.replace(r, enabled=(r.description == "office/berlin")) for r in un.routes]   # someone flips policies in UniFi
     un.enabled.add(tid("office/berlin"))
     run(eng, clock, 2)
     assert eng.store.group("g1").current_id == tid("office/berlin")
@@ -246,3 +246,37 @@ def test_watch_only_still_tracks_the_active_tunnel_and_reports_health(make_engin
     run(eng, clock, 4)
     g = eng.status()["groups"]["g1"]
     assert "nothing was switched" in g["decision"] and "exhausted" in notes.kinds() and un.calls == []
+
+
+def test_switching_only_turns_each_tunnels_own_policy_on_and_off(make_engine):
+    """Regression: the watchdog re-pointed and renamed ONE policy, so the previous tunnel's policy 'disappeared'."""
+    eng, un, _, _, clock = make_engine()
+    before = sorted((r.id, r.description, r.network_id) for r in un.routes)
+    un.dead.add(tid("Home-Primary"))
+    run(eng, clock, 3)
+    assert active_name(un) == "Home-Backup"
+    assert sorted((r.id, r.description, r.network_id) for r in un.routes) == before      # same policies, same names, same targets
+    assert len(un.routes) == 6 and not any(c[0] == "create" for c in un.calls)
+    primary = next(r for r in un.routes if r.description == "Home-Primary")
+    assert primary.enabled is False                                                      # still there, just off
+
+
+def test_make_before_break_new_policy_is_on_before_the_old_one_is_turned_off(make_engine):
+    eng, un, _, _, clock = make_engine()
+    un.dead.add(tid("Home-Primary"))
+    run(eng, clock, 3)
+    seq = [(c[1], c[2]) for c in un.calls if c[0] == "route" and c[2] is not None]
+    assert seq.index(("Home-Backup", True)) < seq.index(("Home-Primary", False))
+
+
+def test_a_tunnel_without_a_policy_gets_one_created_named_after_it(make_engine):
+    eng, un, _, notes, clock = make_engine(with_policies=False)
+    run(eng, clock, 2)
+    assert [c for c in un.calls if c[0] == "create"] == [("create", "Home-Primary", True)]
+    assert active_name(un) == "Home-Primary"
+
+
+def test_only_the_tunnel_in_use_is_connected_by_default():
+    from vpn_watchdog.config import parse_config
+    c = parse_config("unifi: {api_key: k}\ngroups:\n  - {name: a, networks: [n]}\n", env={})
+    assert c.standby.warm == 0 and c.standby.disable_unused is True

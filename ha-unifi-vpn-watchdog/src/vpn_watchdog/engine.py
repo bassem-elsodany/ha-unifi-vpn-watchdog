@@ -113,22 +113,22 @@ class Engine:
                 self._noted[g.name] = note
                 log.warning("group %s: %s", g.name, note)
 
-        route = self._find_route(g, snap, gs)
-        if route is None:
+        routes = self._group_routes(g, snap)
+        active = next((r for r in routes if r.enabled), None)      # UniFi applies the first enabled policy in its list
+        if active is None:
             if watch_only:
-                gs.last_decision, gs.healthy = f"no route found for these networks; {note}", None
+                gs.last_decision, gs.healthy = f"no routing policy is switched on for these networks; {note}", None
                 return
-            gs.last_decision = "no managed route found; provisioning"
+            gs.last_decision = "no routing policy is switched on for these networks; choosing a tunnel"
             self._provision(g, st, gs, ladder, snap)
             return
-        gs.route_id = route.id
-        self._warn_overlaps(g, route, snap)
+        self._warn_overlaps(g, routes, snap)
 
-        cur = snap.tunnels.get(route.network_id or "")
+        cur = snap.tunnels.get(active.network_id or "")
         cur_id = cur.id if cur else None
         if gs.current_id != cur_id:
             if gs.current_id is not None:
-                log.warning("group %s: route target changed outside the watchdog (%s -> %s); adopting",
+                log.warning("group %s: the active routing policy changed outside the watchdog (%s -> %s); adopting",
                             g.name, gs.current_id, cur_id)
             self._set_current(gs, cur_id)
         if gs.paused:
@@ -151,7 +151,7 @@ class Engine:
                     self.store.touch()
             gs.last_decision = "healthy" if not watch_only else f"healthy (watching only) - {note}"
             if not watch_only:
-                self._maybe_failback(g, st, gs, cur, route, snap)
+                self._maybe_failback(g, st, gs, cur, snap)
             return
 
         gs.last_decision = "unhealthy: " + "; ".join(health.reasons)
@@ -173,7 +173,7 @@ class Engine:
                 self.notifier.emit("exhausted", f"VPN {g.name}: no working tunnel", gs.last_decision, level="critical", key=g.name,
                                    group=g.name, tunnel=cur.name if cur else "", tried=0)
             return
-        self._failover(g, st, gs, cur, route, hard, "; ".join(health.reasons))
+        self._failover(g, st, gs, cur, hard, "; ".join(health.reasons))
 
     # ------------------------------------------------------------------ health
     def _evaluate(self, g: GroupCfg, st: GroupSettings, gs: GroupState, cur: Tunnel | None, snap: Snapshot) -> Health:
@@ -217,7 +217,7 @@ class Engine:
         return Health(True)
 
     # ------------------------------------------------------------------ switching
-    def _failover(self, g: GroupCfg, st: GroupSettings, gs: GroupState, cur: Tunnel | None, route: Route,
+    def _failover(self, g: GroupCfg, st: GroupSettings, gs: GroupState, cur: Tunnel | None,
                   hard: bool, why: str) -> None:
         if not self._rate_ok(g, st, gs, hard):
             return
@@ -235,7 +235,7 @@ class Engine:
             tried += 1
             ok, reason = self._try(g, cand, st)
             if ok:
-                self._commit(g, st, gs, cand, route, f"failover from {cur.name if cur else 'unknown'}: {why}", "switch")
+                self._commit(g, st, gs, cand, f"failover from {cur.name if cur else 'unknown'}: {why}", "switch")
                 return
             self._quarantine(cand, reason, st)
             log.warning("group %s: candidate %s rejected: %s", g.name, cand.name, reason)
@@ -244,8 +244,10 @@ class Engine:
             self.notifier.emit("exhausted", f"VPN {g.name}: no healthy tunnel",
                                f"{cur.name if cur else 'current'} is down and {tried} candidate(s) failed or are quarantined",
                                level="critical", key=g.name, group=g.name, tunnel=cur.name if cur else "", tried=tried)
-        if st.switching.on_exhausted == "kill_switch" and route is not None:
-            self.unifi.set_route(route, kill_switch=True)
+        if st.switching.on_exhausted == "kill_switch":
+            act = next((r for r in self._group_routes(g, self.unifi.snapshot()) if r.enabled), None)
+            if act is not None:
+                self.unifi.set_route(act, kill_switch=True)
         gs.last_decision = f"exhausted: {why}"
 
     def _position(self, g: GroupCfg, t: Tunnel | None) -> str:
@@ -266,10 +268,6 @@ class Engine:
         return True, "ok"
 
     def _prepare(self, cand: Tunnel, st: GroupSettings) -> tuple[bool, str]:
-        if self.unifi.dry_run:
-            if not cand.enabled:
-                self.unifi.set_tunnel_enabled(cand.id, True)
-            return True, "dry-run: tunnel state not verified"
         snap = self.unifi.snapshot()
         t = snap.tunnels.get(cand.id)
         if t is None:
@@ -285,20 +283,23 @@ class Engine:
             waited += 2
         return False, f"did not connect within {st.switching.connect_timeout_seconds:.0f}s"
 
-    def _commit(self, g: GroupCfg, st: GroupSettings, gs: GroupState, cand: Tunnel, route: Route | None,
+    def _commit(self, g: GroupCfg, st: GroupSettings, gs: GroupState, cand: Tunnel,
                 reason: str, event: str) -> None:
-        desc = cand.name if st.switching.rename_route_to_tunnel else None
-        if route is None:
-            snap = self.unifi.snapshot()
+        """Switch to `cand` by turning ITS routing policy on and then the others of this group off (make before break).
+        Every tunnel keeps its own policy; nothing is renamed or re-pointed. A tunnel without one gets one created."""
+        snap = self.unifi.snapshot()
+        mine = next((r for r in self._group_routes(g, snap) if r.network_id == cand.id), None)
+        if mine is None:
             nets = [self._net_id(snap, n) for n in g.networks]
-            self.unifi.create_route(cand.name, cand.id, target_networks=nets, kill_switch=bool(g.kill_switch))
+            self.unifi.create_route(cand.name, cand.id, target_networks=nets, kill_switch=bool(g.kill_switch), enabled=True)
         else:
-            self.unifi.set_route(route, network_id=cand.id, description=desc, kill_switch=g.kill_switch)
-        if not self.unifi.dry_run:
-            after = self.unifi.snapshot()
-            r = next((x for x in after.routes if x.id == (route.id if route else x.id) and x.network_id == cand.id), None)
-            if r is None:
-                raise UniFiError(f"route did not switch to {cand.name} (controller did not apply the change)")
+            self.unifi.set_route(mine, enabled=True, kill_switch=g.kill_switch)
+        for r in self._group_routes(g, self.unifi.snapshot()):
+            if r.network_id != cand.id and r.enabled:
+                self.unifi.set_route(r, enabled=False)
+        on = [r for r in self._group_routes(g, self.unifi.snapshot()) if r.enabled]
+        if [r.network_id for r in on] != [cand.id]:
+            raise UniFiError(f"the routing policy did not switch to {cand.name} (the controller did not apply the change)")
         now = self.clock.now()
         prev = gs.current_id
         self._set_current(gs, cand.id)
@@ -319,13 +320,13 @@ class Engine:
                 continue
             ok, why = self._try(g, cand, st)
             if ok:
-                self._commit(g, st, gs, cand, None, "initial provisioning", "switch")
+                self._commit(g, st, gs, cand, "initial choice: no routing policy was on", "switch")
                 return
             self._quarantine(cand, why, st)
 
     # ------------------------------------------------------------------ failback
     def _maybe_failback(self, g: GroupCfg, st: GroupSettings, gs: GroupState, cur: Tunnel | None,
-                        route: Route, snap: Snapshot) -> None:
+                        snap: Snapshot) -> None:
         if not st.failback.enabled or cur is None:
             return
         now = self.clock.now()
@@ -349,7 +350,7 @@ class Engine:
         if gs.failback_stable_since is None:
             gs.failback_stable_since = now
         if now - gs.failback_stable_since >= st.failback.stable_seconds and self._rate_ok(g, st, gs, hard=False):
-            self._commit(g, st, gs, target, route, f"failback to preferred tunnel after {st.failback.stable_seconds}s stable", "failback")
+            self._commit(g, st, gs, target, f"failback to a higher position after {st.failback.stable_seconds}s stable", "failback")
 
     # ------------------------------------------------------------------ standby
     def _reconcile_standby(self, snap: Snapshot) -> None:
@@ -428,28 +429,26 @@ class Engine:
                 return nid
         raise UniFiError(f"network {ref!r} not found in UniFi")
 
-    def _find_route(self, g: GroupCfg, snap: Snapshot, gs: GroupState) -> Route | None:
-        pin = g.route_id or gs.route_id
-        if pin:
-            r = next((r for r in snap.routes if r.id == pin), None)
-            if r:
-                return r
+    def _group_routes(self, g: GroupCfg, snap: Snapshot) -> list[Route]:
+        """The group's routing policies: one per tunnel, targeting at least the group's networks. The watchdog only turns
+        them on and off (and creates a missing one); it never renames or re-points them."""
         want = frozenset(self._net_id(snap, n) for n in g.networks)
-        cands = [r for r in snap.routes
-                 if want <= r.target_networks and not r.target_macs and r.network_id in snap.tunnels]
-        if not cands:
-            return None
-        cands.sort(key=lambda r: (not r.enabled, len(r.target_networks - want)))
-        return cands[0]
+        return [r for r in snap.routes if want <= r.target_networks and not r.target_macs and r.network_id in snap.tunnels]
 
-    def _warn_overlaps(self, g: GroupCfg, route: Route, snap: Snapshot) -> None:
+    def _warn_overlaps(self, g: GroupCfg, routes: list[Route], snap: Snapshot) -> None:
         want = frozenset(self._net_id(snap, n) for n in g.networks)
+        mine = {r.id for r in routes}
+        on = [r for r in routes if r.enabled]
+        if len(on) > 1 and f"{g.name}:multi" not in self._overlap_warned:
+            self._overlap_warned.add(f"{g.name}:multi")
+            log.warning("group %s: %d routing policies are on at once (%s); UniFi applies the first in its list", g.name, len(on),
+                        ", ".join(r.description for r in on))
         for r in snap.routes:
-            if r.id != route.id and r.enabled and not r.target_macs and (r.target_networks & want):
+            if r.id not in mine and r.enabled and not r.target_macs and (r.target_networks & want):
                 key = f"{g.name}:{r.id}"
                 if key not in self._overlap_warned:
                     self._overlap_warned.add(key)
-                    log.warning("group %s: enabled route %r also targets the same network(s); the first route in "
+                    log.warning("group %s: enabled policy %r also targets the same network(s); the first policy in "
                                 "UniFi's list wins, so one of them is being ignored", g.name, r.description)
 
     def _drain_commands(self, snap: Snapshot) -> None:
@@ -499,7 +498,7 @@ class Engine:
             if not ok:
                 log.warning("manual switch to %s refused: %s", name, why)
                 return
-            self._commit(g, st, gs, target, self._find_route(g, snap, gs), "manual switch", "switch")
+            self._commit(g, st, gs, target, "manual switch", "switch")
 
     # ------------------------------------------------------------------ status export
     def _record(self, event: str, message: str, level: str = "info") -> None:
@@ -513,7 +512,7 @@ class Engine:
         tunnels: dict[str, Any] = {}
         direct: list[dict[str, Any]] = []
         if snap is not None:
-            managed = {self.store.group(g.name).route_id: g.name for g in self.cfg.groups}
+            managed = {r.id: g.name for g in self.cfg.groups for r in self._group_routes(g, snap)}
             canary = self.cfg.probe.canary.route_description
 
             def describe(r) -> dict[str, Any]:
@@ -562,7 +561,7 @@ class Engine:
                     },
                 }
         status = {
-            "dry_run": self.cfg.dry_run, "last_tick": self.last_tick, "error": self.last_error,
+            "last_tick": self.last_tick, "error": self.last_error,
             "groups": groups, "tunnels": tunnels, "direct_routes": direct,
             "events": list(getattr(self.notifier, "history", []))[:60],
             "interval_seconds": self.cfg.interval_seconds,

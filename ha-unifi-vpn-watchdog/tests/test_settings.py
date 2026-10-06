@@ -6,12 +6,10 @@ from vpn_watchdog.config import ConfigError, load_raw, parse_config
 from vpn_watchdog.models import Snapshot, Tunnel
 
 RAW = """
-dry_run: true
 unifi: {api_key: ${UNIFI_API_KEY}, url: 'https://10.0.1.1'}
 detection: {failure_threshold: 3}
 groups:
   - name: g1
-    route_id: keep-me
     networks: [vlan20-iot, vlan50-vpn]
     overrides: {detection: {failure_threshold: 9}}
     order:
@@ -46,7 +44,7 @@ def test_apply_changes_values_and_preserves_what_the_form_does_not_own():
     new = settings.apply(raw, form)
     assert new["interval_seconds"] == 30 and new["detection"]["failure_threshold"] == 5 and new["failback"]["enabled"] is False
     g = new["groups"][0]
-    assert g["route_id"] == "keep-me" and g["overrides"] == {"detection": {"failure_threshold": 9}}   # preserved
+    assert g["overrides"] == {"detection": {"failure_threshold": 9}}                                  # preserved
     assert g["kill_switch"] is True
     assert new["unifi"]["api_key"] == "${UNIFI_API_KEY}"                                              # secret stays a reference
     assert g["order"] == ["Home-Primary", {"tunnel": "Office Berlin", "expect_country": "DE"}, "Last resort"]

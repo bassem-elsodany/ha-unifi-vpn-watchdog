@@ -102,18 +102,13 @@ class TunnelTester:
 
     @property
     def can_pretest(self) -> bool:
-        return self.cfg.mode in ("canary", "remote") and not self.unifi.dry_run
+        return self.cfg.mode in ("canary", "remote")
 
     def test(self, tunnel: Tunnel, snap: Snapshot, *, pre: bool, expect: str | None = None) -> ProbeResult | None:
         """Returns None when this tunnel cannot be tested in the current mode."""
         mode = self.cfg.mode
         iso = expect
         if mode == "none":
-            return None
-        if self.unifi.dry_run:
-            # Route changes are simulated in dry-run, so a real probe would test the wrong tunnel.
-            res = self.prober.probe(None, snap.wan_ip)
-            log.info("[dry-run] informational probe from this host: %s ip=%s country=%s", res.reason, res.ip, res.country)
             return None
         if mode == "direct":
             return None if pre else self.prober.probe(iso, snap.wan_ip)

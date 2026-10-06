@@ -35,17 +35,28 @@ class FakeClock:
 
 
 class FakeUniFi:
-    """In-memory UniFi. `dead` tunnels never connect; `muted` tunnels connect but receive nothing."""
+    """In-memory UniFi with ONE routing policy per tunnel (like the real setup). `dead` tunnels never connect;
+    `muted` tunnels connect but receive nothing."""
 
-    def __init__(self, active: str = "Home-Primary", enabled: set[str] | None = None):
-        self.dry_run = False
+    def __init__(self, active: str = "Home-Primary", enabled: set[str] | None = None, with_policies: bool = True):
         self.dead: set[str] = set()
         self.muted: set[str] = set()
         self.enabled = {tid(n) for n in (enabled if enabled is not None else {active})}
         self.calls: list[tuple] = []
-        self.route = Route("route-1", active, tid(active), True, False, frozenset(NETS), frozenset(),
-                           {"description": active, "network_id": tid(active), "kill_switch_enabled": False})
-        self.extra_routes: list[Route] = []
+        self.routes: list[Route] = []
+        if with_policies:
+            for n in TUNNELS:
+                self.routes.append(self._mk(f"route-{n}", n, n == active))
+
+    @staticmethod
+    def _mk(rid, name, on, kill=False):
+        return Route(rid, name, tid(name), on, kill, frozenset(NETS), frozenset(), {"description": name})
+
+    def active_names(self) -> list[str]:
+        return [r.description for r in self.routes if r.enabled and r.network_id and r.network_id.startswith("id-")]
+
+    def active_route(self):
+        return next((r for r in self.routes if r.enabled), None)
 
     def snapshot(self) -> Snapshot:
         tunnels = {}
@@ -57,29 +68,31 @@ class FakeUniFi:
                 bad = i in self.dead
                 conns[i] = Connection(i, "CONNECTING" if bad else "CONNECTED", None if bad else "9.9.9.9",
                                       None if bad else (0 if i in self.muted else 5000), None if bad else 6000)
-        return Snapshot(tunnels, conns, [self.route, *self.extra_routes], dict(NETS), "92.0.0.1")
+        return Snapshot(tunnels, conns, list(self.routes), dict(NETS), "92.0.0.1")
 
     def set_tunnel_enabled(self, i, en):
         self.calls.append(("enable", i, en))
         (self.enabled.add if en else self.enabled.discard)(i)
 
     def set_route(self, route, *, network_id=None, description=None, kill_switch=None, enabled=None):
-        self.calls.append(("route", network_id, kill_switch))
-        r = self.route if route.id == self.route.id else next(x for x in self.extra_routes if x.id == route.id)
-        upd = {}
-        if network_id is not None:
-            upd["network_id"] = network_id
-        if kill_switch is not None:
-            upd["kill_switch"] = kill_switch
-        if enabled is not None:
-            upd["enabled"] = enabled
-        new = dataclasses.replace(r, **upd, description=description or r.description,
-                                  raw={**r.raw, "description": description or r.description})
-        if r is self.route:
-            self.route = new
+        self.calls.append(("route", route.description, enabled, kill_switch))
+        for k, r in enumerate(self.routes):
+            if r.id == route.id:
+                upd = {}
+                if network_id is not None:
+                    upd["network_id"] = network_id
+                if description is not None:
+                    upd["description"] = description
+                if kill_switch is not None:
+                    upd["kill_switch"] = kill_switch
+                if enabled is not None:
+                    upd["enabled"] = enabled
+                self.routes[k] = dataclasses.replace(r, **upd)
 
-    def create_route(self, *a, **k):
-        self.calls.append(("create", a, k))
+    def create_route(self, description, network_id, target_networks=(), target_macs=(), kill_switch=False, enabled=True):
+        self.calls.append(("create", description, enabled))
+        self.routes.append(Route(f"new-{description}", description, network_id, enabled, kill_switch,
+                                 frozenset(target_networks), frozenset(target_macs), {"description": description}))
 
     def close(self):
         pass
@@ -114,7 +127,6 @@ class RecordingNotifier:
 
 
 CFG = """
-dry_run: false
 interval_seconds: 15
 state_file: /tmp/unused
 unifi: {{api_key: x}}
@@ -132,10 +144,10 @@ groups:
 
 @pytest.fixture
 def make_engine():
-    def _make(active="Home-Primary", failback=True, extra_switching="", pretest=True, tester_enabled=True, enabled=None, order=ORDER):
+    def _make(active="Home-Primary", failback=True, extra_switching="", pretest=True, tester_enabled=True, enabled=None, order=ORDER, with_policies=True):
         cfg = parse_config(CFG.format(failback=str(failback).lower(), extra_switching=extra_switching, order=order), env={})
         clock = FakeClock()
-        un = FakeUniFi(active, enabled)
+        un = FakeUniFi(active, enabled, with_policies)
         tester = FakeTester(can_pretest=pretest, enabled=tester_enabled)
         notes = RecordingNotifier()
         eng = Engine(cfg, un, tester, notes, StateStore(None), clock)
@@ -150,4 +162,6 @@ def run(eng, clock, ticks, step=15):
 
 
 def active_name(un: FakeUniFi) -> str:
-    return un.route.description
+    on = un.active_names()
+    assert len(on) == 1, f"exactly one policy must be on, got {on}"
+    return on[0]

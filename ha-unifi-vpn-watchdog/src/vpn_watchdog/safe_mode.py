@@ -33,7 +33,7 @@ class _Engine:
         return self.error
 
     def status(self) -> dict:
-        return {"safe_mode": True, "dry_run": True, "last_tick": time.time(), "error": self.error, "groups": {},
+        return {"safe_mode": True, "last_tick": time.time(), "error": self.error, "groups": {},
                 "tunnels": {}, "events": [], "interval_seconds": 0}
 
     def submit(self, *a) -> None:
@@ -79,9 +79,6 @@ class SafeApp:
         return {"values": None, "meta": {}, "error": self._refuse}
 
     def save_settings(self, form: dict) -> str | None:
-        return self._refuse
-
-    def set_dry_run(self, v: bool) -> str | None:
         return self._refuse
 
     def ha_notify_services(self) -> dict:

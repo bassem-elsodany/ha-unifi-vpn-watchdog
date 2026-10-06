@@ -17,12 +17,11 @@ log = logging.getLogger("vpn_watchdog.notify")
 
 
 class Notifier:
-    def __init__(self, cfgs: list[NotifyCfg], clock: Clock, dry_run: bool = False, transport: httpx.BaseTransport | None = None,
+    def __init__(self, cfgs: list[NotifyCfg], clock: Clock, transport: httpx.BaseTransport | None = None,
                  alerts: dict[str, AlertCfg] | None = None):
         self.cfgs = cfgs
         self.alerts = alerts or {}
         self.clock = clock
-        self.dry_run = dry_run
         self._last: dict[tuple, float] = {}
         self.history: deque[dict[str, Any]] = deque(maxlen=200)   # shown in the UI "Events" tab
         self._http = httpx.Client(timeout=8, transport=transport)
@@ -38,8 +37,6 @@ class Notifier:
             title, message = render(a.title, fields), render(a.message, fields)
         level = level or EVENTS.get(event, {}).get("level", "info")
         enabled = True if a is None else bool(a.enabled)
-        if self.dry_run:
-            title = f"[DRY-RUN] {title}"
         self.history.appendleft({"ts": self.clock.now(), "event": event, "level": level, "message": f"{title}: {message}"})
         log.log({"info": logging.INFO, "warning": logging.WARNING, "critical": logging.ERROR}.get(level, logging.INFO), "%s: %s", event, message)
         now = self.clock.now()

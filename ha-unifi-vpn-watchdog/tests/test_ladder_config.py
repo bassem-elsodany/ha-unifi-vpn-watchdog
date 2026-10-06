@@ -85,7 +85,7 @@ def test_missing_env_var_is_an_error():
 
 def test_unknown_keys_are_rejected():
     with pytest.raises(ConfigError):
-        parse_config(BASE.replace("unifi:", "dryrun: true\nunifi:"), env={"K": "x"})
+        parse_config(BASE.replace("unifi:", "bogus_setting: true\nunifi:"), env={"K": "x"})
 
 
 def test_removed_settings_are_reported_with_instructions_never_converted():
@@ -96,10 +96,6 @@ def test_removed_settings_are_reported_with_instructions_never_converted():
         parse_config(BASE + "naming: {pattern: '(?P<iso>..)'}\n", env={"K": "x"})
     with pytest.raises(ConfigError, match="prefer_different_city"):
         parse_config(BASE + "switching: {prefer_different_city: true}\n", env={"K": "x"})
-
-
-def test_dry_run_is_the_default():
-    assert parse_config(BASE, env={"K": "x"}).dry_run is True
 
 
 def test_canary_requires_mac_and_remote_requires_url():

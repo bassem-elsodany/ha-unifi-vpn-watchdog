@@ -81,12 +81,6 @@ def test_notifier_failure_never_raises_and_ntfy_headers():
     assert seen["authorization"] == "Bearer tok" and seen["priority"] == "urgent"
 
 
-def test_dry_run_prefix():
-    n = Notifier([], FakeClock(), dry_run=True)
-    n.emit("switch", "VPN g -> x", "m")
-    assert n.history[0]["message"].startswith("[DRY-RUN]")
-
-
 def test_state_roundtrip_and_corrupt_file(tmp_path):
     p = tmp_path / "s.json"
     s = StateStore(p)

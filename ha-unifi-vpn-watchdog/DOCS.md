@@ -5,8 +5,7 @@ tunnel stops carrying traffic.
 
 ## First start
 1. **Configuration tab:** set `unifi_api_key` (UniFi > Settings > Integrations > API key) and, if needed, `unifi_url`.
-2. Start the add-on. It creates `config.yaml` in the add-on config folder and starts in **dry-run**: it logs and
-   alerts what it *would* do but changes nothing.
+2. Start the add-on. It creates `config.yaml` in the add-on config folder.
 3. Open **VPN Watchdog** in the sidebar and set **Settings > Fallback order**: add your tunnels and number them 1, 2, 3 ... Until you
    do, the watchdog only watches.
 4. Open **VPN Watchdog** in the sidebar: status, events, start/stop per group, force switch, and a **Settings** form for

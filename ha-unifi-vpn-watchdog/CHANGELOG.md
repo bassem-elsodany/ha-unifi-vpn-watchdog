@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0
+- **Every tunnel keeps its own routing policy.** A switch turns the new tunnel's policy on and then the old one off (make before
+  break). Before, one policy was re-pointed and renamed, so the previous tunnel's policy vanished. Policies are never renamed or
+  moved; a tunnel that has none gets one created. `switching.rename_route_to_tunnel` and `groups[].route_id` were removed.
+- **No spare tunnels by default** (`standby.warm` is now 0): only the tunnel in use is connected, instead of also connecting the
+  next two in your list.
+- The simulation mode was removed. A fresh install with no fallback order only watches; it acts once you set one. Old config files
+  that still contain the `dry_run` line must delete it.
+
 ## 0.4.1
 - With no fallback order set the watchdog still shows the tunnel in use, checks its health and alerts if it goes down (it just
   never switches). Before, the active tunnel showed as "none". The "no fallback order set" warning is logged once, not every cycle.
@@ -56,7 +65,7 @@
 
 ## 0.1.0
 - First release: UniFi WireGuard client health checks, ladder-based failover (same country other city, then next country),
-  quarantine with back-off, failback, warm standby, dry-run by default.
+  quarantine with back-off, failback, warm standby.
 - Web UI (status, jobs, start/stop, force switch, validating config editor), Prometheus metrics.
 - Home Assistant: ingress panel, MQTT discovery entities, notifications through the Supervisor.
 - Optional probe agent for real exit-IP checks through a canary client.

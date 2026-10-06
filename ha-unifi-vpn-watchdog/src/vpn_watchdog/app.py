@@ -44,10 +44,9 @@ def setup_logging(level: str, fmt: str) -> None:
 
 
 class App:
-    def __init__(self, config_path: str, env: dict[str, str] | None = None, dry_run: bool | None = None):
+    def __init__(self, config_path: str, env: dict[str, str] | None = None):
         self.path = Path(config_path)
         self.env = env
-        self.dry_run_override = dry_run
         self.clock = Clock()
         self.cfg = self._load()
         self.store = StateStore(self.cfg.state_file)
@@ -60,15 +59,13 @@ class App:
 
     def _load(self) -> Config:
         cfg = load_config(self.path, self.env)
-        if self.dry_run_override is not None:
-            cfg.dry_run = self.dry_run_override
         return cfg
 
     def _build(self) -> Engine:
         cfg = self.cfg
-        unifi = UniFiClient(cfg.unifi, dry_run=cfg.dry_run)
+        unifi = UniFiClient(cfg.unifi)
         tester = TunnelTester(cfg.probe, unifi, Prober(cfg.probe), self.clock)
-        notifier = Notifier(cfg.notifications, self.clock, dry_run=cfg.dry_run, alerts=cfg.alerts)
+        notifier = Notifier(cfg.notifications, self.clock, alerts=cfg.alerts)
         eng = Engine(cfg, unifi, tester, notifier, self.store, self.clock)
         if self.mqtt:
             eng.listeners.append(self.mqtt.publish)
@@ -87,8 +84,7 @@ class App:
 
     # ---- used by the web UI
     def get_settings(self) -> dict:
-        return {"values": settings_mod.extract(self.cfg), "meta": settings_mod.meta(self.engine.last_snapshot()),
-                "dry_run": self.cfg.dry_run}
+        return {"values": settings_mod.extract(self.cfg), "meta": settings_mod.meta(self.engine.last_snapshot())}
 
     def save_settings(self, form: dict) -> str | None:
         """Apply the settings form to config.yaml (validated; the previous file is kept as .bak)."""
@@ -162,12 +158,6 @@ class App:
         self.engine.wake.set()      # reload happens at the start of the next cycle
         return None
 
-    def set_dry_run(self, dry_run: bool) -> str | None:
-        text = self.config_text()
-        line = f"dry_run: {str(dry_run).lower()}"
-        new = re.sub(r"(?m)^dry_run:.*$", line, text) if re.search(r"(?m)^dry_run:", text) else line + "\n" + text
-        return self.save_text(new)
-
     def reload_if_changed(self) -> None:
         try:
             m = self.path.stat().st_mtime
@@ -211,9 +201,9 @@ class App:
         if cfg.server.enabled:
             self.server = StatusServer(cfg.server, self, stale_after=max(60, cfg.interval_seconds * 6))
             self.server.start()
+        mode = "ACTIVE" if any(g.order for g in cfg.groups) else "WATCHING ONLY (no fallback order set)"
         self.engine.notifier.emit("startup", "VPN watchdog started",
-                                  f"{len(cfg.groups)} group(s), {'DRY-RUN (no changes)' if cfg.dry_run else 'LIVE'}",
-                                  key="startup", groups=len(cfg.groups), mode="DRY-RUN" if cfg.dry_run else "LIVE")
+                                  f"{len(cfg.groups)} group(s), {mode}", key="startup", groups=len(cfg.groups), mode=mode)
         while not self.stop_event.is_set():
             self.reload_if_changed()
             self.engine.tick()

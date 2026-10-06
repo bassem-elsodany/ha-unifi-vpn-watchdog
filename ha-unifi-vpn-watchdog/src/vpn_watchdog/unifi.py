@@ -34,11 +34,9 @@ class UniFiClient:
     def __init__(
         self,
         cfg: UnifiCfg,
-        dry_run: bool = False,
         transport: httpx.BaseTransport | None = None,
     ):
         self.cfg = cfg
-        self.dry_run = dry_run
         self._http = httpx.Client(
             base_url=f"{cfg.url.rstrip('/')}/proxy/network",
             headers={"X-API-Key": cfg.api_key},
@@ -46,9 +44,6 @@ class UniFiClient:
             timeout=cfg.timeout_seconds,
             transport=transport,
         )
-        # In dry-run mutations are remembered here so later ticks behave consistently.
-        self._shadow_routes: dict[str, dict[str, Any]] = {}
-        self._shadow_enabled: dict[str, bool] = {}
 
     # ------------------------------------------------------------------ plumbing
     def close(self) -> None:
@@ -92,7 +87,7 @@ class UniFiClient:
         for n in nets:
             networks[n["_id"]] = n.get("name", "")
             if n.get("purpose") == "vpn-client":
-                t = parse_tunnel(n, self._shadow_enabled.get(n["_id"]))
+                t = parse_tunnel(n)
                 tunnels[t.id] = t
 
         connections = {
@@ -121,9 +116,6 @@ class UniFiClient:
 
     def _parse_route(self, raw: dict[str, Any]) -> Route:
         raw = copy.deepcopy(raw)
-        shadow = self._shadow_routes.get(raw["_id"])
-        if shadow:
-            raw.update(shadow)
         targets = raw.get("target_devices") or []
         return Route(
             id=raw["_id"],
@@ -138,10 +130,6 @@ class UniFiClient:
 
     # ------------------------------------------------------------------ writes
     def set_tunnel_enabled(self, tunnel_id: str, enabled: bool) -> None:
-        if self.dry_run:
-            log.info("[dry-run] would set tunnel %s enabled=%s", tunnel_id, enabled)
-            self._shadow_enabled[tunnel_id] = enabled
-            return
         obj = ((self._request("GET", self._s(f"rest/networkconf/{tunnel_id}")) or {}).get("data") or [None])[0]
         if not obj:
             raise UniFiError(f"tunnel {tunnel_id} not found")
@@ -172,10 +160,6 @@ class UniFiClient:
         changes = {k: v for k, v in changes.items() if route.raw.get(k) != v}
         if not changes:
             return
-        if self.dry_run:
-            log.info("[dry-run] would update route %r: %s", route.description, changes)
-            self._shadow_routes.setdefault(route.id, {}).update(changes)
-            return
         body = {**route.raw, **changes}
         self._request("PUT", self._v2(f"trafficroutes/{route.id}"), json=body)
         log.info("route %r updated: %s", route.description, changes)
@@ -187,12 +171,13 @@ class UniFiClient:
         target_networks: list[str] = (),  # type: ignore[assignment]
         target_macs: list[str] = (),      # type: ignore[assignment]
         kill_switch: bool = False,
+        enabled: bool = True,
     ) -> None:
         targets = [{"network_id": n, "type": "NETWORK"} for n in target_networks]
         targets += [{"client_mac": m, "type": "CLIENT"} for m in target_macs]
         body = {
             "description": description,
-            "enabled": True,
+            "enabled": enabled,
             "network_id": network_id,
             "matching_target": "INTERNET",
             "domains": [],
@@ -203,8 +188,5 @@ class UniFiClient:
             "kill_switch_enabled": kill_switch,
             "target_devices": targets,
         }
-        if self.dry_run:
-            log.info("[dry-run] would create route %r -> tunnel %s targets=%s", description, network_id, targets)
-            return
         self._request("POST", self._v2("trafficroutes"), json=body)
         log.info("route %r created", description)

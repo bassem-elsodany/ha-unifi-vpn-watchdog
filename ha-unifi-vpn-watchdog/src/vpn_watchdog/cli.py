@@ -25,9 +25,6 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("command", choices=["run", "once", "discover", "validate", "check", "agent"])
     ap.add_argument("--config", "-c", default=os.environ.get("WATCHDOG_CONFIG", "/config/config.yaml"))
     ap.add_argument("--env-file", help="KEY=VALUE file for local runs (Docker passes the environment itself)")
-    live = ap.add_mutually_exclusive_group()
-    live.add_argument("--dry-run", dest="dry_run", action="store_true", default=None, help="force dry-run")
-    live.add_argument("--live", dest="dry_run", action="store_false", help="force live mode (ignores dry_run in the file)")
     ap.add_argument("--port", type=int, default=8081, help="agent listen port")
     ap.add_argument("--token", default=os.environ.get("AGENT_TOKEN"), help="agent bearer token")
     args = ap.parse_args(argv)
@@ -36,7 +33,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "validate":
             cfg = load_config(args.config, env)
-            print(f"OK: {len(cfg.groups)} group(s), dry_run={cfg.dry_run}, probe.mode={cfg.probe.mode}")
+            print(f"OK: {len(cfg.groups)} group(s), probe.mode={cfg.probe.mode}")
             return 0
         if args.command == "agent":
             cfg = load_config(args.config, env)
@@ -46,7 +43,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "run":
             return _run_forever(args, env)
-        app = App(args.config, env, args.dry_run)
+        app = App(args.config, env)
     except ConfigError as e:
         print(f"config error: {e}", file=sys.stderr)
         return 2
@@ -75,7 +72,7 @@ def _run_forever(args, env: dict[str, str]) -> int:
     setup_logging("INFO", "text")
     while not stop.is_set():
         try:
-            app = App(args.config, env, args.dry_run)
+            app = App(args.config, env)
         except ConfigError as e:
             if not wait_until_valid(args.config, env, str(e), stop):
                 return 0

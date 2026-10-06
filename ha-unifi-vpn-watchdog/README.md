@@ -26,17 +26,17 @@ web UI (status, jobs, start/stop, config editor), and is configured by one hot-r
    called anything and are never interpreted, sorted or pattern-matched.
 4. **Test before switching.** The candidate is enabled, must reach `CONNECTED`, and (with a canary) must pass the
    exit-IP probe. A candidate that fails is quarantined with exponential backoff and the next one is tried.
-5. **Commit.** One `PUT` changes the managed route's tunnel. There is never a moment with no route, so nothing leaks to
-   the WAN between tunnels. The route is renamed to the tunnel name (`rename_route_to_tunnel`).
+5. **Commit.** Every tunnel has its own routing policy. The new tunnel's policy is switched on first and the old one off
+   afterwards (make before break), so there is never a moment without a route. Policies are never renamed or moved; a tunnel
+   that has none gets one created, named after it.
 6. **Guard rails.** `min_hold_seconds` and `max_switches_per_hour` prevent flapping; hard failures bypass the hold,
    not the hourly cap. If nothing works it alerts once and optionally engages the kill switch (`on_exhausted`).
 7. **Fail back.** When a tunnel higher in your list (a lower number) has tested healthy for `stable_seconds`, traffic moves back
    up to it. It never moves down or sideways while the active tunnel is healthy.
-8. **Standby.** The next `standby.warm` candidates stay enabled so failover is instant; unused tunnels are disabled
-   (NordVPN allows 10 concurrent connections per account).
+8. **Spare tunnels (optional).** `standby.warm` keeps the next N tunnels of your list connected for an instant switch. The default is 0:
+   only the tunnel in use is connected, and tunnels that are not needed are disconnected.
 
-Safe by default: **`dry_run: true`** logs and alerts what it *would* do and changes nothing. Press **Go live** in the
-UI (or set `dry_run: false`) when the decisions look right.
+Safe start: until you set a fallback order the watchdog only watches the tunnel in use and never switches anything.
 
 ## Quick start (Docker)
 
@@ -55,7 +55,7 @@ Local checks, no container needed:
 pip install -e '.[dev]'
 ha-unifi-vpn-watchdog validate -c config/config.yaml --env-file .env     # config sanity
 ha-unifi-vpn-watchdog discover -c config/config.yaml --env-file .env     # tunnels, routes, resolved ladders
-ha-unifi-vpn-watchdog once     -c config/config.yaml --env-file .env     # one cycle (honours dry_run)
+ha-unifi-vpn-watchdog once     -c config/config.yaml --env-file .env     # run one cycle and print the status
 pytest
 ```
 
@@ -67,7 +67,7 @@ The project folder **is** the add-on (`config.yaml`, `Dockerfile`, `DOCS.md`).
    Store → ⋮ → Check for updates* and install **HA UniFi VPN Watchdog** from *Local add-ons*. (Requires HA OS or Supervised;
    on a Container install run the Docker image next to HA and use the MQTT + REST pieces below.)
 2. **Configuration** tab: `unifi_api_key`, optionally `notify_service` (e.g. `notify.mobile_app_myphone`).
-3. Start. A `config.yaml` is created in the add-on config folder in **dry-run**. Open **VPN Watchdog** in the sidebar.
+3. Start. A `config.yaml` is created in the add-on config folder. Open **VPN Watchdog** in the sidebar and set **Settings > Fallback order**.
 
 | HA feature | How |
 |---|---|
@@ -124,7 +124,7 @@ See [config/config.example.yaml](config/config.example.yaml); every key is docum
 
 Read without auth: `GET /healthz`, `/api/status`, `/metrics` (Prometheus). Control needs `Authorization: Bearer <control_token>`
 (or HA ingress): `POST /api/groups/{name|*}/pause|resume`, `/api/groups/{name}/switch|test {"tunnel": "..."}`,
-`/api/check-now`, `/api/mode {"dry_run": bool}`, `GET|POST /api/config`, `POST /api/config/validate`.
+`/api/check-now`, `GET|POST /api/config`, `POST /api/config/validate`.
 With no `control_token` set the server is read-only.
 
 ## Things learned the hard way (all handled in code)

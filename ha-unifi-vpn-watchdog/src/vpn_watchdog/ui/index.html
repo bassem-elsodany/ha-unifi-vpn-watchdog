@@ -75,8 +75,6 @@
 <body>
 <header>
   <h1>VPN Watchdog</h1>
-  <span id="mode" class="pill"></span>
-  <button class="act" id="modeBtn"></button>
   <span class="muted" id="tick"></span>
   <span class="grow"></span>
   <button class="act" id="checkNow">Check now</button>
@@ -167,11 +165,8 @@ async function refresh() {
   $("#errbar").classList.toggle("hide", !data.error);
   $("#errbar").textContent = data.error ? (data.safe_mode ? "CONFIGURATION REJECTED, failover is OFF. Fix it in the Advanced tab:\n" : "UniFi unreachable: ") + data.error : "";
   if (data.safe_mode && !window.__safe) { window.__safe = true; document.querySelector("nav button[data-tab=advanced]").click(); }
-  $("#mode").textContent = data.dry_run ? "DRY-RUN: nothing is changed" : "LIVE";
-  $("#mode").className = "pill " + (data.dry_run ? "warn" : "ok");
-  $("#modeBtn").textContent = data.dry_run ? "Go live" : "Switch to dry-run";
   $("#tick").textContent = "last check " + ago(data.last_tick);
-  ["modeBtn", "checkNow", "pauseAll", "resumeAll", "saveCfg", "validate", "saveSettings"].forEach((id) => ($("#" + id).disabled = !can));
+  ["checkNow", "pauseAll", "resumeAll", "saveCfg", "validate", "saveSettings"].forEach((id) => ($("#" + id).disabled = !can));
   renderGroups(data, can); renderTunnels(data); renderEvents(data);
 }
 
@@ -410,12 +405,6 @@ $("#discard").onclick = () => { V = JSON.parse(orig); renderSettings(); markDirt
 $("#checkNow").onclick = () => act("check-now");
 $("#pauseAll").onclick = () => act("groups/*/pause");
 $("#resumeAll").onclick = () => act("groups/*/resume");
-$("#modeBtn").onclick = async () => {
-  const toDry = !status.dry_run;
-  if (!toDry && !confirm("Go LIVE? The watchdog will start enabling/disabling tunnels and changing routes.")) return;
-  const r = await api("mode", "POST", { dry_run: toDry });
-  if (!r.ok) alert(r.data.error); refresh();
-};
 $("#saveToken").onclick = () => { token = $("#token").value.trim(); try { localStorage.setItem("wd_token", token); } catch (e) {} refresh(); };
 
 let cfgLoaded = false;

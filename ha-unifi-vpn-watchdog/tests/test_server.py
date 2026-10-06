@@ -17,7 +17,7 @@ class StubEngine:
         self.wake = type("W", (), {"set": lambda s: None})()
 
     def status(self):
-        return {"dry_run": True, "last_tick": self.last_tick, "groups": {"g": {"healthy": True, "switches_last_hour": 0, "active": "Tunnel A", "position": "#1"}},
+        return {"last_tick": self.last_tick, "groups": {"g": {"healthy": True, "switches_last_hour": 0, "active": "Tunnel A", "position": "#1"}},
                 "tunnels": {"Tunnel A": {"status": "CONNECTED", "quarantined_for": 0}}, "events": []}
 
     def submit(self, *c):
@@ -29,13 +29,12 @@ class StubApp:
         self.engine = StubEngine()
         self.saved = None
 
-    def config_text(self): return "dry_run: true\n"
+    def config_text(self): return "interval_seconds: 15\n"
     def validate_text(self, t): return None if "bad" not in t else "unifi: field required"
     def save_text(self, t):
         err = self.validate_text(t)
         self.saved = None if err else t
         return err
-    def set_dry_run(self, v): return None
     def ha_notify_services(self): return {"available": True, "current": "notify.a", "services": [{"service": "notify.a", "label": "A"}], "error": None}
     def set_notify_service(self, s): self.chosen = s; return None
     def test_notify(self, s=None): return None
@@ -84,7 +83,7 @@ def test_control_needs_the_token(srv):
 
 def test_config_validate_and_save_flow(srv):
     app, base = srv
-    assert json.loads(call(base + "/api/config", token="tok")[1])["yaml"] == "dry_run: true\n"
+    assert json.loads(call(base + "/api/config", token="tok")[1])["yaml"] == "interval_seconds: 15\n"
     assert json.loads(call(base + "/api/config/validate", "POST", {"yaml": "bad"}, token="tok")[1])["error"]
     assert call(base + "/api/config", "POST", {"yaml": "bad"}, token="tok")[0] == 400 and app.saved is None
     assert call(base + "/api/config", "POST", {"yaml": "ok: 1"}, token="tok")[0] == 200 and app.saved == "ok: 1"

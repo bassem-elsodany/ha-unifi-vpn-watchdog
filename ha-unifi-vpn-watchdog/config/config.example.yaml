@@ -1,7 +1,6 @@
 # ha-unifi-vpn-watchdog configuration. Copy to config.yaml. ${VAR} and ${VAR:-default} are read from the environment.
 # The file is hot-reloaded: save it and the watchdog applies it within one cycle (invalid files are rejected).
 
-dry_run: true              # SAFE DEFAULT. Logs and alerts what it WOULD do; changes nothing. Set false to go live.
 interval_seconds: 15
 state_file: /data/state.json
 log: {level: INFO, format: text}      # format: json for log shippers
@@ -43,7 +42,7 @@ failback:
   stable_seconds: 300             # preferred tunnel must test healthy this long before switching back
 
 standby:
-  warm: 2                         # next N candidates are kept enabled so failover is instant
+  warm: 0                         # spare tunnels kept connected for an instant switch; 0 = only the tunnel in use
   disable_unused: true
   max_enabled: 6                  # NordVPN allows 10 concurrent connections per account
 
