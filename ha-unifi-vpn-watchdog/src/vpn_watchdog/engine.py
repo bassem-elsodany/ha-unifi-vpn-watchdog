@@ -712,28 +712,26 @@ class Engine:
                 "exit": {"ip": probe.get("ip") if probe.get("ok") else None, "country": probe.get("country") if probe.get("ok") else None,
                          "server": ac.remote_ip if ac else None, "age": gstat.get("last_probe_age") if probe.get("ok") else None},
             })
-        # What UniFi itself does is shown whether or not the watchdog manages it: networks that VPN policies carry, grouped by the
-        # set of networks a policy covers, with the tunnel that is switched on (UniFi uses the first enabled policy in its list).
+        # What UniFi itself does is shown whether or not the watchdog manages it. For every VLAN that a VPN policy covers, the policy
+        # that applies is the first enabled one in UniFi's list that covers it; VLANs that end up on the same VPN client share a block.
         managed = {r.id for g in self.cfg.groups for r in self._group_routes(g, snap)}
-        comps: list[tuple[set[str], list[Route]]] = []        # policies whose network sets overlap describe one carried set of VLANs
-        for r in snap.routes:
-            if r.id in managed or r.target_macs or r.network_id not in snap.tunnels:
+        vpn_pols = [r for r in snap.routes if r.id not in managed and not r.target_macs and r.network_id in snap.tunnels and (r.target_networks & lans)]
+        whole = [r for r in snap.routes if r.enabled and r.matching == "INTERNET" and not r.target_macs]      # in UniFi's list order
+        by_tunnel: dict[str | None, list[str]] = {}
+        for n in {n for r in vpn_pols for n in r.target_networks & lans}:
+            if n in used:
                 continue
-            covered = {n for n in r.target_networks if n in lans}
-            if not covered:
-                continue
-            hit = [c for c in comps if c[0] & covered]
-            merged = (set().union(covered, *(c[0] for c in hit)), [x for c in hit for x in c[1]] + [r])
-            comps = [c for c in comps if c not in hit] + [merged]
-        for covered, rs in comps:
-            nets = [n for n in covered if n not in used]
-            if not nets:
-                continue
-            nets.sort(key=lambda n: (snap.network_info.get(n, {}).get("vlan") is None, snap.network_info.get(n, {}).get("vlan") or 0, snap.networks[n].lower()))
+            w = next((r for r in whole if n in r.target_networks), None)
+            if w is not None and w.network_id not in snap.tunnels:
+                continue                                            # an enabled policy sends it to the normal connection: no VPN
+            by_tunnel.setdefault(w.network_id if w else None, []).append(n)
+        vlan_of = lambda n: (snap.network_info.get(n, {}).get("vlan") is None, snap.network_info.get(n, {}).get("vlan") or 0, snap.networks[n].lower())
+        for key, nets in sorted(by_tunnel.items(), key=lambda kv: (kv[0] is None, min(vlan_of(n) for n in kv[1]))):
+            nets.sort(key=vlan_of)
             used.update(nets)
+            rs = [r for r in vpn_pols if r.target_networks & set(nets)]
             policies = {r.network_id: r for r in rs}
-            active_route = next((r for r in rs if r.enabled), None)
-            act = snap.tunnels.get(active_route.network_id or "") if active_route else None
+            act = snap.tunnels.get(key or "")
             ac = snap.connections.get(act.id) if act else None
             rest = sorted((snap.tunnels[r.network_id] for r in rs if r.network_id and (not act or r.network_id != act.id)), key=lambda t: t.name.lower())
             out_groups.append({

@@ -407,3 +407,18 @@ def test_debug_log_level_adds_every_check_cycle_to_the_events_list(make_engine):
         root.setLevel(old)
     checks = [e for e in eng.status()["events"] if e["event"] == "check"]
     assert len(checks) == 2 and "read UniFi" in checks[0]["message"] and "g1" in checks[0]["message"]
+
+
+def test_status_map_follows_what_unifi_applies_per_vlan_when_policies_were_split(make_engine):
+    import dataclasses
+    """vlan20 on one VPN client and vlan50 on another: every other policy still lists both VLANs (switched off), which must not
+    glue the two VLANs together or put both under whichever client is first in the list."""
+    eng, un, *_ = make_engine(active="Home-Primary")
+    eng.cfg = eng.cfg.model_copy(update={"groups": []})
+    un.routes = [dataclasses.replace(r, target_networks=frozenset({"net-vpn"})) if r.description == "Home-Primary" else r for r in un.routes]
+    un.routes = [dataclasses.replace(r, enabled=True, target_networks=frozenset({"net-iot"})) if r.description == "Home-Backup" else r for r in un.routes]
+    eng.tick()
+    blocks = {b["name"]: b for b in eng.status()["map"]["groups"]}
+    assert set(blocks) == {"vlan20-iot", "vlan50-vpn"}
+    assert blocks["vlan20-iot"]["active"] == "Home-Backup" and blocks["vlan50-vpn"]["active"] == "Home-Primary"
+    assert [n["name"] for n in blocks["vlan20-iot"]["networks"]] == ["vlan20-iot"]

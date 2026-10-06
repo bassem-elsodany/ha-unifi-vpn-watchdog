@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.2
+
+- Fixed: Status put every VLAN that a VPN policy lists under the same VPN client. When VLAN 20 and VLAN 50 are routed to different clients (policies narrowed to one VLAN each), both showed on whichever client was first in UniFi's list, because the other, switched-off policies still listed both VLANs. Now each VLAN is drawn under the policy UniFi actually applies to it (the first enabled one in its list); VLANs on the same client share a block, VLANs on different clients get a block each.
+
 ## 0.12.1
 
 - The app version is shown as a small tag next to the app name at the top left (it is the add-on version, so it matches what Home Assistant lists).
