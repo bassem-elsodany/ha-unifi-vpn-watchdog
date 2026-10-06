@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.1
+- Status page brought back in line with the approved design: IBM Plex Sans/Mono, the column headings (VLANs and their devices / Internet via the VPN),
+  "GROUP <name> · FALLBACK ORDER", the active card reading "#1 ACTIVE · N devices behind it", the group strip "Active: ... · exit-IP test passed Ns ago",
+  the legend and hint, one compact "No VPN policy" card (expandable) with the "straight to the internet, no VPN" path, and the Internet node level with
+  the active card so its arrow is straight. The bypassing device stays visible at the end of a long device list.
+
 ## 0.8.0
 - **New Status page: the network map.** Each VPN group is a row: its VLANs on the left, every device with its IP and live rate (search box, "show all N"),
   an animated path through the active VPN client to the internet, and the fallback order in the middle as numbered cards. Devices that bypass the VPN

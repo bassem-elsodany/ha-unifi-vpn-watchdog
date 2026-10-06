@@ -568,7 +568,7 @@ class Engine:
                 "pool": [{"name": t.name, "status": (snap.connections.get(t.id).status if snap.connections.get(t.id) else None),
                           "enabled": t.enabled} for t in pool],
                 "exit": {"ip": probe.get("ip") if probe.get("ok") else None, "country": probe.get("country") if probe.get("ok") else None,
-                         "server": ac.remote_ip if ac else None},
+                         "server": ac.remote_ip if ac else None, "age": gstat.get("last_probe_age") if probe.get("ok") else None},
             })
         direct = [card(nid) for nid, name in snap.networks.items()
                   if nid not in vpn_ids and nid not in used and not name.startswith("Internet") and name != "One-Click VPN"]
@@ -625,6 +625,7 @@ class Engine:
                     "status_failures": gs.status_failures,
                     "probe_failures": gs.probe_failures,
                     "last_probe": gs.last_probe,
+                    "last_probe_age": int(now - gs.last_probe_ts) if gs.last_probe_ts else None,
                     "switches_last_hour": len([t for t in gs.switches if now - t < 3600]),
                     "order": [t.name for t in resolve_order(g, list(snap.tunnels.values()))],
                     "jobs": {
