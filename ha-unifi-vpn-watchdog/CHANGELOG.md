@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.3
+- The app now has an icon and a logo in Home Assistant (`icon.png`, `logo.png`); before, the Apps list showed a blank placeholder. A test checks that both files ship.
+
 ## 0.9.2
 - **The Status map no longer depends on watchdog groups.** It draws what UniFi does: the VLANs that VPN routing policies carry (with their devices), the VPN client that is switched on, the Internet exit, and the VLANs that go straight to the internet. A watchdog group only adds the fallback order, the "if #1 fails" steps and the Stop/Start failover button on top. With no group (a fresh install) you get the same page, without any "create a group" panel.
 - Policies that cover overlapping networks are shown as one carried set; the other tunnels with a policy for it are listed under "+ N more tunnels have a policy for these networks".

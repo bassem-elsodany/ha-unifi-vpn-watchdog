@@ -23,3 +23,13 @@ def test_every_option_is_consumed_by_the_entrypoint():
     src = inspect.getsource(ha_entry)
     for key in MANIFEST["options"]:
         assert f'"{key}"' in src, f"option {key} is defined but ha_entry never reads it"
+
+
+def test_addon_has_icon_and_logo():
+    """Home Assistant shows icon.png / logo.png from the add-on folder; without them the app has no icon in the list."""
+    root = Path(__file__).resolve().parents[1]
+    for name, size in (("icon.png", (128, 128)), ("logo.png", None)):
+        data = (root / name).read_bytes()
+        assert data[:8] == b"\x89PNG\r\n\x1a\n", f"{name} is not a PNG"
+        w, h = int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
+        assert (w, h) == size if size else w > h, f"{name} has an unexpected size {w}x{h}"
