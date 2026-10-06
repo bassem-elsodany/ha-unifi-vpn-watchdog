@@ -58,6 +58,7 @@ class Engine:
         self.refs_changed = False        # ids or labels in the config were brought in line with UniFi: the app writes them back to config.yaml
         self._status: dict[str, Any] = {}
         self._overlap_warned: set[str] = set()
+        self._conflicts: dict[str, str | None] = {}
         self._noted: dict[str, str] = {}
         self._busy = False
         self._blocked_notified: dict[str, float] = {}
@@ -153,6 +154,7 @@ class Engine:
             self._provision(g, st, gs, ladder, snap)
             return
         self._warn_overlaps(g, routes, snap)
+        self._conflicts[g.name] = self._conflict(g, routes, snap)
 
         cur = snap.tunnels.get(active.network_id or "")
         cur_id = cur.id if cur else None
@@ -323,7 +325,7 @@ class Engine:
         mine = next((r for r in self._group_routes(g, snap) if r.network_id == cand.id), None)
         if mine is None:
             nets = self._group_nets(g, snap)
-            self.unifi.create_route(cand.name, cand.id, target_networks=nets, kill_switch=bool(g.kill_switch), enabled=True)
+            self.unifi.create_route(f"{cand.name} ({g.name})", cand.id, target_networks=nets, kill_switch=bool(g.kill_switch), enabled=True)
         else:
             self.unifi.set_route(mine, enabled=True, kill_switch=g.kill_switch)
         for r in self._group_routes(g, self.unifi.snapshot()):
@@ -540,10 +542,25 @@ class Engine:
         return ids
 
     def _group_routes(self, g: GroupCfg, snap: Snapshot) -> list[Route]:
-        """The group's routing policies: one per tunnel, targeting at least the group's networks. The watchdog only turns
-        them on and off (and creates a missing one); it never renames or re-points them."""
+        """The group's routing policies: one per tunnel, targeting EXACTLY the group's VLANs (so groups never share a policy, and a
+        policy that also covers other VLANs is left alone). The watchdog only turns them on and off (and creates a missing one);
+        it never renames or re-points them."""
         want = frozenset(self._group_nets(g, snap))
-        return [r for r in snap.routes if want <= r.target_networks and not r.target_macs and r.network_id in snap.tunnels]
+        return [r for r in snap.routes if r.target_networks == want and not r.all_clients and not r.target_macs
+                and r.matching == "INTERNET" and r.network_id in snap.tunnels]
+
+    def _conflict(self, g: GroupCfg, routes: list[Route], snap: Snapshot) -> str | None:
+        """An enabled policy that is NOT the group's, covers some of its VLANs and sits above the group's active policy in UniFi's
+        list: UniFi applies that one, so the group's own switching has no effect on those VLANs. Said, never changed."""
+        want = frozenset(self._group_nets(g, snap))
+        mine = {r.id for r in routes}
+        act = next((i for i, r in enumerate(snap.routes) if r.id in mine and r.enabled), None)
+        if act is None:
+            return None
+        for i, r in enumerate(snap.routes[:act]):
+            if r.enabled and r.id not in mine and r.matching == "INTERNET" and not r.target_macs and (r.all_clients or r.target_networks & want):
+                return f"policy \"{r.description}\" (#{i + 1} in UniFi's list) also covers these VLANs and is above this group's policy, so UniFi applies it instead"
+        return None
 
     def _warn_overlaps(self, g: GroupCfg, routes: list[Route], snap: Snapshot) -> None:
         want = frozenset(self._group_nets(g, snap))
@@ -728,7 +745,7 @@ class Engine:
             probe = gstat.get("last_probe") or {}
             out_groups.append({
                 "name": g.name, "paused": gstat.get("paused", False), "healthy": gstat.get("healthy"), "decision": gstat.get("decision", ""),
-                "exhausted": gstat.get("exhausted", False), "jobs": gstat.get("jobs", {}), "has_order": bool(g.order), "rotation": gstat.get("rotation"),
+                "exhausted": gstat.get("exhausted", False), "jobs": gstat.get("jobs", {}), "has_order": bool(g.order), "rotation": gstat.get("rotation"), "conflict": self._conflicts.get(g.name),
                 "active": act.name if act else None, "networks": [card(n) for n in nets],
                 "lane": ([tinfo(g, act, active_id, policies)] if act and act.id not in in_order else []) + [tinfo(g, t, active_id, policies) for t in order],
                 "pool": [{"id": t.id, "name": t.name, "status": (snap.connections.get(t.id).status if snap.connections.get(t.id) else None),

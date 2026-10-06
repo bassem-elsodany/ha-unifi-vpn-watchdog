@@ -269,8 +269,8 @@ def test_make_before_break_new_policy_is_on_before_the_old_one_is_turned_off(mak
 def test_a_tunnel_without_a_policy_gets_one_created_named_after_it(make_engine):
     eng, un, _, notes, clock = make_engine(with_policies=False)
     run(eng, clock, 2)
-    assert [c for c in un.calls if c[0] == "create"] == [("create", "Home-Primary", True)]
-    assert active_name(un) == "Home-Primary"
+    assert [c for c in un.calls if c[0] == "create"] == [("create", "Home-Primary (g1)", True)]
+    assert active_name(un) == "Home-Primary (g1)"
 
 
 def test_the_standby_section_is_gone_and_rejected_with_a_reason():

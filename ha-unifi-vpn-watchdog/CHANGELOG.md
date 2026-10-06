@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.1
+
+- **Groups on different VLANs now work independently.** A group owns the routing policies that target exactly its own VLANs. Before, it used every policy that included its VLANs, so a group for VLAN 20 and a group for VLAN 50 shared (and disturbed) the same policies whenever a policy listed both. Policies that also cover other VLANs are left alone. A missing one is created for exactly the group's VLANs, named "<tunnel> (<group>)".
+- A VLAN can belong to one group only (the config is refused otherwise).
+- If another enabled policy that is not the group's covers the group's VLANs and sits above its policy in UniFi's list, UniFi applies that one instead. The group header now says so, naming the policy and its position. The watchdog never changes such a policy.
+
 ## 0.13.0
 
 - **Everything that points at UniFi now points at its id, not only its name.** A group's VLANs and the tunnels in its fallback order are stored with their UniFi id (`id`) and a name label. Renaming a VPN client or a VLAN in UniFi changes nothing: the order, the position numbers, the country typed for a position and the group's VLANs all stay, and the label in `config.yaml` follows the new name. A config that only has names (every config before this version) gets its ids filled in automatically on the first UniFi reading, and is rewritten once.

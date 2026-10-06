@@ -290,6 +290,13 @@ class Config(_M):
         names = [g.name for g in self.groups]
         if len(set(names)) != len(names):
             raise ValueError("group names must be unique")
+        owner: dict[str, str] = {}
+        for g in self.groups:
+            for ref in g.networks:
+                key = ref.id or ref.name
+                if key in owner and owner[key] != g.name:
+                    raise ValueError(f"the VLAN {ref.name or ref.id!r} is in two groups ({owner[key]!r} and {g.name!r}); a VLAN can belong to one group")
+                owner[key] = g.name
         seen: set[tuple[str, str]] = set()
         for j in self.jobs:
             if j.group not in names:

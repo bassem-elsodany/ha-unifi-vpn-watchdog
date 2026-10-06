@@ -120,6 +120,10 @@ See [config/config.example.yaml](config/config.example.yaml); every key is docum
 - **Fallback order** (`groups[].order`): the sequence of tunnels, first = most preferred. Each entry is an exact tunnel name,
   or `{tunnel: NAME, expect_country: IT}` if the exit-IP test should check a country that you typed yourself. Tunnels not in the
   list are never used. Empty means the watchdog only watches. Set it in *Settings > Fallback order* (type a position number to move).
+- **One group per set of VLANs.** A group owns the routing policies that target *exactly* its VLANs (one per tunnel; a missing one is created, named
+  `<tunnel> (<group>)`). Give VLAN 20 and VLAN 50 their own groups and each fails over on its own. Policies that cover other VLANs as well are never touched,
+  and a VLAN can be in one group only. If a policy that is not the group's covers its VLANs and sits above the group's policy in UniFi's list, the group
+  header says so (UniFi applies the first enabled policy in its list).
 - **Renames are safe.** Groups store each VLAN and each tunnel of the fallback order by its UniFi id, with the name only as a label. Renaming a
   VPN client or a VLAN in UniFi changes nothing (the label in `config.yaml` follows). The Status page is drawn from UniFi's own state on every check
   (default every 15 s, or press *Check now*): which policy applies to which VLAN, and to which device, is read, never remembered.

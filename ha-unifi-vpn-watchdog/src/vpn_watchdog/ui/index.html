@@ -416,6 +416,7 @@ function groupBlock(g, can, first, last, m) {
   const behind = g.networks.reduce((a, n) => a + n.count - n.bypass_count, 0);
   const probe = ex.ip && ex.age != null ? ` · exit-IP test passed ${ex.age}s ago` : "";
   const note = act ? `Active: <b class="mono" style="color:var(--ink);font-weight:500">${esc(act.name)}</b>${act.position ? " · #" + act.position : g.unmanaged ? "" : " · not in the order"}${probe}${g.decision && g.decision !== "healthy" ? " · " + esc(g.decision) : ""}` : esc(g.decision || "no VPN client is switched on");
+  const conflict = g.conflict ? `<br><span style="color:var(--warn)">⚠ ${esc(g.conflict)}.</span>` : "";
   const exline = ex.ip ? `exit <span class="mono">${esc(ex.ip)}</span>${ex.age != null ? `<br>exit-IP test OK ${ex.age}s ago` : ""}` : ex.server ? `VPN server <span class="mono">${esc(ex.server)}</span>` : "";
   const inet = act ? `<div class="inet" data-role="inet"><span class="dot ok"></span><div><b>Internet</b><div>${exline}</div></div></div>`
     : `<div class="inet bad" data-role="inet"><span class="dot bad"></span><div><b>Internet</b><div>no VPN client is switched on</div></div></div>`;
@@ -425,7 +426,7 @@ function groupBlock(g, can, first, last, m) {
       <span class="muted grow">${!r.enabled ? "Off. Turn it on in Settings > Jobs." : r.paused ? `${esc(r.summary)} · stopped` : `${esc(r.summary)} · next in <b>${r.next_in == null ? "..." : esc(fmtIn(r.next_in))}</b>${r.next_to ? ` → ${esc(r.next_to)}` : ""}`}${r.last_ts ? ` · last rotated ${esc(fmtWhen(r.last_ts))}` : ""}</span>
       ${r.enabled ? `<button class="act" data-gact="rotate" data-g="${esc(g.name)}" ${can ? "" : "disabled"}>Rotate now</button><button class="act" data-gact="${r.paused ? "rotation-resume" : "rotation-pause"}" data-g="${esc(g.name)}" ${can ? "" : "disabled"}>${r.paused ? "Start rotation" : "Stop rotation"}</button>` : ""}</div>`;
   return `<section class="gblock" data-g="${esc(g.name)}"><div class="gstrip ${r ? "two" : ""}"><div class="gr"><b class="gname">${esc(g.name)}</b><span class="pill ${st[0]}">${st[1]}</span>
-      <span class="muted grow">${note}</span>
+      <span class="muted grow">${note}${conflict}</span>
       ${g.unmanaged ? "" : `<button class="act" data-gact="${g.paused ? "resume" : "pause"}" data-g="${esc(g.name)}" ${can ? "" : "disabled"}>${g.paused ? "Start automatic failover" : "Stop automatic failover"}</button>`}</div>${rotRow}</div>
     <div class="gcols"><div class="colv"><div class="colh">VLANs and their devices</div>${g.networks.map((n) => vlanCard(n, false)).join("") || '<div class="muted">No VLAN is selected for this group.</div>'}${last ? ownCard(m) : ""}${withDirect ? directBox(m) : ""}</div>${laneHtml(g, can, behind)}
     <div class="colr"><div class="colh">Internet via the VPN</div>${inet}${showNormal ? normalNode(m) : ""}</div>${showNormal ? '<div class="dlabel">straight to the internet, no VPN</div>' : ""}</div></section>`;
