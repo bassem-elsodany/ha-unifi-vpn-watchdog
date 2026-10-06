@@ -10,6 +10,8 @@ from vpn_watchdog.state import StateStore
 
 NETS = {"net-iot": "vlan20-iot", "net-vpn": "vlan50-vpn"}
 
+ORDER = '[Home-Primary, Home-Backup, "Cousin vpn 2", {tunnel: office/berlin, expect_country: DE}, office/frankfurt, zzz-last-resort]'
+
 TUNNELS = [
     "Home-Primary", "Home-Backup", "Cousin vpn 2",
     "office/berlin", "office/frankfurt",
@@ -124,17 +126,14 @@ standby: {{warm: 1, disable_unused: true, max_enabled: 6}}
 groups:
   - name: g1
     networks: [vlan20-iot, vlan50-vpn]
-    ladder:
-      - {{name: Home, tunnels: ["Home-*", "Cousin*"]{home_prefer}}}
-      - {{name: Office, tunnels: ["office/*"], expect_country: DE}}
-      - {{name: Last resort, tunnels: ["zzz-last-resort"]}}
+    order: {order}
 """
 
 
 @pytest.fixture
 def make_engine():
-    def _make(active="Home-Primary", failback=True, extra_switching="", pretest=True, tester_enabled=True, enabled=None, prefer=True):
-        cfg = parse_config(CFG.format(failback=str(failback).lower(), extra_switching=extra_switching, home_prefer=', prefer: ["Home-Primary"]' if prefer else ''), env={})
+    def _make(active="Home-Primary", failback=True, extra_switching="", pretest=True, tester_enabled=True, enabled=None, order=ORDER):
+        cfg = parse_config(CFG.format(failback=str(failback).lower(), extra_switching=extra_switching, order=order), env={})
         clock = FakeClock()
         un = FakeUniFi(active, enabled)
         tester = FakeTester(can_pretest=pretest, enabled=tester_enabled)

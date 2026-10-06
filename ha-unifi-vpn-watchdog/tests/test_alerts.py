@@ -5,7 +5,7 @@ from vpn_watchdog import alerts, settings
 from vpn_watchdog.config import ConfigError, load_raw, parse_config
 from vpn_watchdog.notify import Notifier
 
-BASE = "unifi: {api_key: k}\ngroups:\n  - {name: g, networks: [n], ladder: [{tunnels: ['*']}]}\n"
+BASE = "unifi: {api_key: k}\ngroups:\n  - {name: g, networks: [n], order: [T1]}\n"
 
 
 def cfg(extra=""):
@@ -45,11 +45,11 @@ def test_notifier_uses_templates_and_respects_enabled_flag():
     def handler(req):
         sent.append(json.loads(req.content)); return httpx.Response(200)
 
-    c = cfg("alerts: {switch: {title: 'Moved {group}', message: '{previous} to {tunnel} ({step})'}, recovered: {enabled: false}}\n")
+    c = cfg("alerts: {switch: {title: 'Moved {group}', message: '{previous} to {tunnel} ({position})'}, recovered: {enabled: false}}\n")
     n = Notifier([NotifyCfg(type="webhook", url="http://h")], FakeClock(), transport=httpx.MockTransport(handler), alerts=c.alerts)
-    n.emit("switch", group="iot", previous="Alpha one", tunnel="Beta 2", step="Office")
+    n.emit("switch", group="iot", previous="Alpha one", tunnel="Beta 2", position="#2")
     n.emit("recovered", group="iot", tunnel="DE__B")
-    assert len(sent) == 1 and sent[0]["title"] == "Moved iot" and sent[0]["message"] == "Alpha one to Beta 2 (Office)"
+    assert len(sent) == 1 and sent[0]["title"] == "Moved iot" and sent[0]["message"] == "Alpha one to Beta 2 (#2)"
     assert sent[0]["level"] == "warning"                                  # level comes from the event definition
     assert [h["event"] for h in n.history] == ["recovered", "switch"]     # disabled alerts still appear in the Events tab
 

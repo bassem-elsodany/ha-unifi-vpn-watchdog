@@ -21,8 +21,9 @@ groups:
   - name: iot-and-vpn
     networks: [vlan20-iot, vlan50-vpn]
     kill_switch: false
-    ladder:                                 # tried top to bottom; edit in the Settings tab
-      - {name: All tunnels, tunnels: ["*"]}
+    # Fallback order: #1 is used first; if it fails #2, then #3 ... Set it in the panel: Settings > Fallback order.
+    # Until at least one tunnel is listed the watchdog only watches and never switches.
+    order: []
 
 notifications:
   - {type: home_assistant, supervisor: true, service: "${NOTIFY_SERVICE:-persistent_notification.create}"}

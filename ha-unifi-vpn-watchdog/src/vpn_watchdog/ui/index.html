@@ -184,12 +184,12 @@ function renderGroups(d, can) {
     if (g.jobs.next_probe_in != null) jobs.push("next exit-IP test in " + g.jobs.next_probe_in + "s");
     if (g.jobs.next_failback_check_in != null) jobs.push("next check of preferred tunnel in " + g.jobs.next_failback_check_in + "s");
     if (g.jobs.failback_target) jobs.push("moving back to " + esc(g.jobs.failback_target) + (g.jobs.failback_stable_for != null ? " (stable " + g.jobs.failback_stable_for + "s)" : ""));
-    const opts = g.ladder.map((n) => `<option ${keep[name] === n ? "selected" : ""}>${esc(n)}</option>`).join("");
+    const opts = g.order.map((n) => `<option ${keep[name] === n ? "selected" : ""}>${esc(n)}</option>`).join("");
     const probe = g.last_probe ? `${g.last_probe.ok ? "ok" : "FAILED"}: ${esc(g.last_probe.ip || "")} ${esc(g.last_probe.country || "")} ${esc(g.last_probe.reason && !g.last_probe.ok ? g.last_probe.reason : "")}` : "not tested yet";
     return `<div class="card">
       <div class="row"><span class="big">${esc(name)}</span><span class="pill ${health[0]}">${health[1]}</span><span class="grow"></span>
         <button class="act" ${can ? "" : "disabled"} onclick="act('groups/${encodeURIComponent(name)}/${g.paused ? "resume" : "pause"}')">${g.paused ? "Start automatic failover" : "Stop automatic failover"}</button></div>
-      <p>Active tunnel: <b>${esc(g.active || "none")}</b> <span class="muted">${esc(g.step || "")}</span></p>
+      <p>Active tunnel: <b>${esc(g.active || "none")}</b> <span class="muted">${esc(g.position || "")}</span></p>
       <p class="muted">${esc(g.decision)}<br>failed checks ${g.status_failures}, failed exit-IP tests ${g.probe_failures}, switches in the last hour ${g.switches_last_hour}<br>last exit-IP test: ${probe}</p>
       <p class="muted">${jobs.join(" &middot; ") || "no scheduled jobs"}</p>
       <div class="row"><select data-g="${esc(name)}">${opts}</select>
@@ -289,53 +289,39 @@ function renderSettings() {
   renderGroupsForm(); renderNotify(); updateSummary();
 }
 
-const globRe = (p) => new RegExp("^" + p.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".") + "$");
-const tn = () => (M.tunnels || []).map((t) => t.name);
-const hit = (n, pats) => pats.some((p) => n === p || globRe(p).test(n));
-const matched = (st) => tn().filter((n) => hit(n, st.tunnels || []) && !hit(n, st.exclude || []));
-const exactOf = (st) => (st.tunnels || []).filter((x) => tn().includes(x));
-const patsOf = (st) => (st.tunnels || []).filter((x) => !tn().includes(x));
+const tnames = () => (M.tunnels || []).map((t) => t.name);
 
-function prefOptions(st) {
-  const m = matched(st), p = (st.prefer || [])[0] || "";
-  const cur = m.find((n) => n === p) || (p ? m.find((n) => globRe(p).test(n)) : "") || "";
-  return `<option value="">Automatic (in the order listed)</option>` + m.map((n) => `<option value="${esc(n)}" ${n === cur ? "selected" : ""}>${esc(n)}</option>`).join("");
-}
-
-function stepRow(g, gi, st, si) {
-  const last = g.ladder.length - 1, m = matched(st), exact = new Set(exactOf(st));
-  const btns = `<button class="act" data-act="up" data-gi="${gi}" data-si="${si}" ${si === 0 ? "disabled" : ""}>&uarr;</button>
-    <button class="act" data-act="down" data-gi="${gi}" data-si="${si}" ${si === last ? "disabled" : ""}>&darr;</button>
-    <button class="act" data-act="del" data-gi="${gi}" data-si="${si}">Remove</button>`;
-  const list = tn().map((n) => `<label class="net"><input type="checkbox" data-gi="${gi}" data-si="${si}" data-srv="${esc(n)}" ${m.includes(n) ? "checked" : ""} ${m.includes(n) && !exact.has(n) ? "disabled" : ""}> ${esc(n)}</label>`).join("") || '<span class="muted">No tunnels found yet.</span>';
-  return `<div class="step" style="display:block">
-    <div class="row"><span class="n">${si + 1}.</span><input type="text" placeholder="Step name (any label you like)" data-gi="${gi}" data-si="${si}" data-f="name" value="${esc(st.name)}" style="width:260px"><span class="grow"></span>${btns}</div>
-    <details style="margin:8px 0 0 30px" ${st.tunnels.length ? "" : "open"}><summary>Tunnels in this step: <b id="cnt-${gi}-${si}">${m.length}</b></summary>
-      <div style="max-height:180px;overflow:auto;margin:8px 0">${list}</div>
-      <div class="row"><span class="muted">or match by name pattern (comma separated, * and ? allowed)</span>
-      <input type="text" data-gi="${gi}" data-si="${si}" data-f="pattern" placeholder="e.g. Home-*, Backup*" value="${esc(patsOf(st).join(", "))}" style="width:280px"></div></details>
-    <div class="row" style="margin:8px 0 0 30px"><span class="muted">Preferred first</span><select id="pref-${gi}-${si}" data-gi="${gi}" data-si="${si}" data-f="prefer">${prefOptions(st)}</select>
-      <span class="muted">Expect exit country (optional)</span><input type="text" maxlength="2" placeholder="e.g. IT" data-gi="${gi}" data-si="${si}" data-f="expect" value="${esc(st.expect_country)}" style="width:60px"></div></div>`;
-}
-
-function refreshStep(gi, si) {
-  const st = V.groups[gi].ladder[si], m = matched(st), exact = new Set(exactOf(st));
-  const c = document.getElementById(`cnt-${gi}-${si}`); if (c) c.textContent = m.length;
-  const p = document.getElementById(`pref-${gi}-${si}`); if (p) p.innerHTML = prefOptions(st);
-  document.querySelectorAll(`input[data-srv][data-gi="${gi}"][data-si="${si}"]`).forEach((cb) => { const n = cb.dataset.srv; cb.checked = m.includes(n); cb.disabled = m.includes(n) && !exact.has(n); });
+function orderRow(g, gi, it, ii) {
+  const names = tnames(), last = g.order.length - 1;
+  const known = !it.tunnel || names.includes(it.tunnel);
+  const opts = `<option value="">Choose a tunnel...</option>` + names.map((n) => `<option value="${esc(n)}" ${n === it.tunnel ? "selected" : ""}>${esc(n)}</option>`).join("")
+    + (known ? "" : `<option value="${esc(it.tunnel)}" selected>${esc(it.tunnel)} (not found in UniFi)</option>`);
+  const at = `data-gi="${gi}" data-ii="${ii}"`;
+  return `<div class="step"><input type="number" min="1" max="${g.order.length}" value="${ii + 1}" ${at} data-f="pos" title="Type a position to move this tunnel" style="width:64px">
+    <select ${at} data-f="tunnel" style="min-width:260px">${opts}</select>
+    <span class="muted">expect exit country (optional)</span><input type="text" maxlength="2" placeholder="e.g. IT" ${at} data-f="expect" value="${esc(it.expect_country)}" style="width:60px">
+    <span class="grow"></span>
+    <button class="act" data-act="up" ${at} ${ii === 0 ? "disabled" : ""}>&uarr;</button>
+    <button class="act" data-act="down" ${at} ${ii === last ? "disabled" : ""}>&darr;</button>
+    <button class="act" data-act="del" ${at}>Remove</button></div>`;
 }
 
 function renderGroupsForm() {
   $("#groupsForm").innerHTML = V.groups.map((g, gi) => {
     const nets = (M.networks || []).map((n) => `<label class="net"><input type="checkbox" data-gi="${gi}" data-net="${esc(n)}" ${g.networks.includes(n) ? "checked" : ""}> ${esc(n)}</label>`).join("");
     const extra = g.networks.filter((n) => !(M.networks || []).includes(n)).map((n) => `<label class="net"><input type="checkbox" data-gi="${gi}" data-net="${esc(n)}" checked> ${esc(n)} <span class="muted">(not found)</span></label>`).join("");
+    const used = new Set(g.order.map((x) => x.tunnel));
+    const free = tnames().filter((n) => !used.has(n));
+    const addopts = free.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join("");
+    const empty = g.order.length ? "" : '<div class="banner warn" style="margin:0 0 8px">No order yet. Until you add tunnels here the watchdog only watches and never switches.</div>';
     return `<div class="card"><h3>Group: ${esc(g.name)}</h3><p class="sub">Which networks use the VPN, and which tunnels to use, in order.</p>
       ${row("Networks that use this VPN", "Their internet traffic goes through the active tunnel.", (nets + extra) || '<span class="muted">Waiting for the first UniFi check...</span>')}
       ${row("If the tunnel dies", "", sel(`groups.${gi}.kill_switch`, [["null", "Leave the UniFi setting as it is"], ["true", "Block traffic (no leak) until a new tunnel is ready"], ["false", "Let traffic use the normal internet connection"]], "tri"))}
-      ${row("Fallback order", "Top is preferred. When the active tunnel fails, the next tunnel in this list is used; steps are tried from top to bottom. A step is any set of tunnels you choose.",
-        (g.ladder.map((st, si) => stepRow(g, gi, st, si)).join("") || '<span class="muted">No steps yet.</span>') +
-        `<div class="row" style="margin-top:10px"><button class="act" data-act="add" data-gi="${gi}">Add a step</button>
-         <button class="act" data-act="suggest" data-gi="${gi}">Suggest steps from my tunnel names</button></div>`)}</div>`;
+      ${row("Fallback order", "You decide the sequence. #1 is used when it works; if it fails the watchdog tries #2, then #3, and so on. It moves back up the list when a higher tunnel recovers. Tunnels not in the list are never used.",
+        empty + g.order.map((it, ii) => orderRow(g, gi, it, ii)).join("") +
+        `<div class="row" style="margin-top:10px"><select id="add-${gi}"><option value="">Add a tunnel at the end...</option>${addopts}</select>
+         <button class="act" data-act="add" data-gi="${gi}">Add</button>
+         <button class="act" data-act="addall" data-gi="${gi}" ${free.length ? "" : "disabled"}>Add all remaining tunnels (${free.length})</button></div>`)}</div>`;
   }).join("");
 }
 
@@ -374,9 +360,9 @@ function markDirty() {
 }
 
 /* one delegated handler for every settings control */
-$("#settings").addEventListener("input", (e) => handleField(e.target));
-$("#settings").addEventListener("change", (e) => handleField(e.target));
-function handleField(t) {
+$("#settings").addEventListener("input", (e) => handleField(e.target, "input"));
+$("#settings").addEventListener("change", (e) => handleField(e.target, "change"));
+function handleField(t, type) {
   if (t.dataset.path) {
     const k = t.dataset.t; let v;
     if (k === "bool") v = t.checked; else if (k === "num") { v = t.value === "" ? "" : Number(t.value); }
@@ -384,16 +370,15 @@ function handleField(t) {
     set(V, t.dataset.path, v);
   } else if (t.dataset.net !== undefined) {
     const g = V.groups[+t.dataset.gi]; g.networks = g.networks.filter((n) => n !== t.dataset.net); if (t.checked) g.networks.push(t.dataset.net);
-  } else if (t.dataset.srv !== undefined) {
-    const gi = +t.dataset.gi, si = +t.dataset.si, st = V.groups[gi].ladder[si], ex = new Set(exactOf(st));
-    if (t.checked) ex.add(t.dataset.srv); else ex.delete(t.dataset.srv);
-    st.tunnels = tn().filter((n) => ex.has(n)).concat(patsOf(st)); refreshStep(gi, si);
   } else if (t.dataset.f) {
-    const gi = +t.dataset.gi, si = +t.dataset.si, st = V.groups[gi].ladder[si], f = t.dataset.f;
-    if (f === "name") st.name = t.value;
-    else if (f === "expect") st.expect_country = t.value.toUpperCase();
-    else if (f === "prefer") st.prefer = t.value ? [t.value] : [];
-    else if (f === "pattern") { st.tunnels = exactOf(st).concat(t.value.split(",").map((x) => x.trim()).filter(Boolean)); refreshStep(gi, si); }
+    const gi = +t.dataset.gi, ii = +t.dataset.ii, g = V.groups[gi], f = t.dataset.f;
+    if (f === "tunnel") { g.order[ii].tunnel = t.value; renderGroupsForm(); }
+    else if (f === "expect") g.order[ii].expect_country = t.value.toUpperCase();
+    else if (f === "pos") {
+      if (type !== "change") return;
+      const to = Math.max(1, Math.min(g.order.length, Math.round(Number(t.value) || ii + 1))) - 1;
+      const [it] = g.order.splice(ii, 1); g.order.splice(to, 0, it); renderGroupsForm();
+    }
   } else return;
   updateSummary(); markDirty();
 }
@@ -402,16 +387,12 @@ $("#settings").addEventListener("click", async (e) => {
   if (b.id === "notifySave") { const r = await api("notify/service", "POST", { service: $("#notifySel").value }); $("#notifyMsg").innerHTML = r.ok ? '<span class="pill ok">saved</span>' : '<span class="pill bad">' + esc(r.data.error || "failed") + "</span>"; return; }
   if (b.id === "notifyTest") { const r = await api("notify/test", "POST", { service: $("#notifySel").value }); $("#notifyMsg").innerHTML = r.ok ? '<span class="pill ok">sent: check your phone</span>' : '<span class="pill bad">' + esc(r.data.error || "failed") + "</span>"; return; }
   if (!b.dataset.act) return;
-  const g = V.groups[+b.dataset.gi], si = +b.dataset.si; let L = g.ladder;
-  if (b.dataset.act === "up" && si > 0) [L[si - 1], L[si]] = [L[si], L[si - 1]];
-  if (b.dataset.act === "down" && si < L.length - 1) [L[si + 1], L[si]] = [L[si], L[si + 1]];
-  if (b.dataset.act === "del") L.splice(si, 1);
-  if (b.dataset.act === "add") L.push({ name: "", tunnels: [], prefer: [], exclude: [], expect_country: "" });
-  if (b.dataset.act === "suggest") {
-    if (!(M.suggestions || []).length) return;
-    if (L.length && !confirm("Replace the fallback order of this group with the suggestion?")) return;
-    g.ladder = M.suggestions.map((x) => ({ name: x.label, tunnels: x.tunnels.slice(), prefer: [], exclude: [], expect_country: x.expect_country || "" }));
-  }
+  const g = V.groups[+b.dataset.gi], ii = +b.dataset.ii, L = g.order;
+  if (b.dataset.act === "up" && ii > 0) [L[ii - 1], L[ii]] = [L[ii], L[ii - 1]];
+  if (b.dataset.act === "down" && ii < L.length - 1) [L[ii + 1], L[ii]] = [L[ii], L[ii + 1]];
+  if (b.dataset.act === "del") L.splice(ii, 1);
+  if (b.dataset.act === "add") { const v = $("#add-" + b.dataset.gi).value; if (!v) return; L.push({ tunnel: v, expect_country: "" }); }
+  if (b.dataset.act === "addall") { const used = new Set(L.map((x) => x.tunnel)); tnames().filter((n) => !used.has(n)).forEach((n) => L.push({ tunnel: n, expect_country: "" })); }
   renderGroupsForm(); markDirty();
 });
 

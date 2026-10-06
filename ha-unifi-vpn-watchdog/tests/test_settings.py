@@ -14,9 +14,10 @@ groups:
     route_id: keep-me
     networks: [vlan20-iot, vlan50-vpn]
     overrides: {detection: {failure_threshold: 9}}
-    ladder:
-      - {name: Home, tunnels: ["Home-*"], prefer: ["Home-Primary"], expect_country: IT}
-      - {tunnels: ["Backup*"], exclude: ["Backup 3"]}
+    order:
+      - Home-Primary
+      - {tunnel: Office Berlin, expect_country: de}
+      - Last resort
 """
 ENV = {"UNIFI_API_KEY": "k"}
 
@@ -30,8 +31,9 @@ def test_extract_reads_effective_values_including_defaults():
     assert v["interval_seconds"] == 15 and v["detection"]["failure_threshold"] == 3
     assert v["switching"]["on_exhausted"] == "keep" and v["failback"]["enabled"] is True
     assert "prefer_different_city" not in v["switching"]
-    assert v["groups"][0]["ladder"][0] == {"name": "Home", "tunnels": ["Home-*"], "prefer": ["Home-Primary"], "exclude": [], "expect_country": "IT"}
-    assert v["groups"][0]["ladder"][1]["name"] == ""
+    assert v["groups"][0]["order"] == [{"tunnel": "Home-Primary", "expect_country": ""},
+                                       {"tunnel": "Office Berlin", "expect_country": "DE"},
+                                       {"tunnel": "Last resort", "expect_country": ""}]
 
 
 def test_apply_changes_values_and_preserves_what_the_form_does_not_own():
@@ -47,28 +49,26 @@ def test_apply_changes_values_and_preserves_what_the_form_does_not_own():
     assert g["route_id"] == "keep-me" and g["overrides"] == {"detection": {"failure_threshold": 9}}   # preserved
     assert g["kill_switch"] is True
     assert new["unifi"]["api_key"] == "${UNIFI_API_KEY}"                                              # secret stays a reference
-    assert g["ladder"][1] == {"tunnels": ["Backup*"], "exclude": ["Backup 3"]}                        # untouched step stays minimal
+    assert g["order"] == ["Home-Primary", {"tunnel": "Office Berlin", "expect_country": "DE"}, "Last resort"]
     cfg_of(yaml.safe_dump(new))
 
 
-def test_ladder_reorder_rename_and_edit_round_trip():
+def test_reordering_in_the_form_is_exactly_what_gets_saved():
     raw = load_raw(RAW)
     form = settings.extract(cfg_of(RAW))
-    a, b = form["groups"][0]["ladder"]
-    b["name"] = "  Spare  "
-    b["expect_country"] = "fr"
-    form["groups"][0]["ladder"] = [b, a]
+    a, b, c = form["groups"][0]["order"]
+    form["groups"][0]["order"] = [c, a, b, {"tunnel": "Brand new", "expect_country": "fr"}, {"tunnel": "   ", "expect_country": ""}]
     new = settings.apply(raw, form)
-    assert new["groups"][0]["ladder"][0] == {"name": "Spare", "tunnels": ["Backup*"], "exclude": ["Backup 3"], "expect_country": "FR"}
-    assert new["groups"][0]["ladder"][1]["name"] == "Home"
-    cfg_of(yaml.safe_dump(new))
+    assert new["groups"][0]["order"] == ["Last resort", "Home-Primary", {"tunnel": "Office Berlin", "expect_country": "DE"},
+                                         {"tunnel": "Brand new", "expect_country": "FR"}]            # blank row dropped
+    assert [i.tunnel for i in cfg_of(yaml.safe_dump(new)).groups[0].order] == ["Last resort", "Home-Primary", "Office Berlin", "Brand new"]
 
 
-def test_empty_step_is_rejected_by_validation():
+def test_the_same_tunnel_twice_is_rejected_by_validation():
     raw = load_raw(RAW)
     form = settings.extract(cfg_of(RAW))
-    form["groups"][0]["ladder"].append({"name": "empty", "tunnels": [], "prefer": [], "exclude": [], "expect_country": ""})
-    with pytest.raises(ConfigError, match="tunnels"):
+    form["groups"][0]["order"].append({"tunnel": "Home-Primary", "expect_country": ""})
+    with pytest.raises(ConfigError, match="twice"):
         cfg_of(yaml.safe_dump(settings.apply(raw, form)))
 
 
@@ -106,7 +106,6 @@ def test_meta_lists_networks_and_tunnels_without_any_interpretation():
     m = settings.meta(snap)
     assert m["networks"] == ["vlan20-iot"]
     assert [x["name"] for x in m["tunnels"]] == ["Home 1", "Home 2", "zeta"]
-    assert [x["label"] for x in m["suggestions"]] == ["All tunnels"]
     assert "countries" not in m
     assert settings.meta(None)["ready"] is False
 
@@ -117,7 +116,7 @@ def test_save_settings_works_when_the_file_uses_inline_env_references(tmp_path):
 
     f = tmp_path / "c.yaml"
     f.write_text("unifi: {api_key: ${UNIFI_API_KEY}}\nstate_file: " + str(tmp_path / "s.json") +
-                 "\ngroups:\n  - {name: g, networks: [n], ladder: [{tunnels: ['*']}]}\n")
+                 "\ngroups:\n  - {name: g, networks: [n], order: [T1]}\n")
     a = App(str(f), env={"UNIFI_API_KEY": "k"})
     form = settings.extract(a.cfg)
     form["interval_seconds"] = 45

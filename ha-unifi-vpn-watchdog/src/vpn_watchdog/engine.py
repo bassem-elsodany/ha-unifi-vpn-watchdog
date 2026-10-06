@@ -10,7 +10,7 @@ from typing import Any
 
 from .clock import Clock
 from .config import Config, GroupCfg, GroupSettings
-from .ladder import candidates, expected_country, failback_targets, resolve_ladder, step_of
+from .ladder import candidates, expected_country, failback_targets, missing, position_label, resolve_order
 from .models import ProbeResult, Route, Snapshot, Tunnel
 from .notify import Notifier
 from .probe import TunnelTester
@@ -101,10 +101,13 @@ class Engine:
     def _tick_group(self, g: GroupCfg, snap: Snapshot) -> None:
         st = self.cfg.settings_for(g)
         gs = self.store.group(g.name)
-        ladder = resolve_ladder(g, list(snap.tunnels.values()))
+        ladder = resolve_order(g, list(snap.tunnels.values()))
         if not ladder:
-            gs.last_decision = "ladder resolved to no tunnels - check names/country codes"
-            log.error("group %s: %s", g.name, gs.last_decision)
+            gone = missing(g, list(snap.tunnels.values()))
+            gs.last_decision = ("no fallback order set: choose the tunnels and their order in Settings > Fallback order" if not g.order
+                                else f"none of the tunnels in the fallback order exist in UniFi: {', '.join(gone)}")
+            log.warning("group %s: %s", g.name, gs.last_decision)
+            gs.healthy = None
             return
 
         route = self._find_route(g, snap, gs)
@@ -231,13 +234,11 @@ class Engine:
             self.unifi.set_route(route, kill_switch=True)
         gs.last_decision = f"exhausted: {why}"
 
-    def _step_name(self, g: GroupCfg, t: Tunnel | None) -> str:
-        snap = self._snap
-        hit = step_of(g, list(snap.tunnels.values()), t) if snap and t else None
-        return hit[1] if hit else ""
+    def _position(self, g: GroupCfg, t: Tunnel | None) -> str:
+        return position_label(g, t)
 
     def _expect(self, g: GroupCfg, snap: Snapshot, t: Tunnel) -> str | None:
-        return expected_country(g, list(snap.tunnels.values()), t)
+        return expected_country(g, t)
 
     def _try(self, g: GroupCfg, cand: Tunnel, st: GroupSettings) -> tuple[bool, str]:
         ok, why = self._prepare(cand, st)
@@ -296,7 +297,7 @@ class Engine:
         old = self._snap.tunnels.get(prev or "") if self._snap else None
         self.notifier.emit(event, f"VPN {g.name} -> {cand.name}", reason, key=f"{g.name}:{cand.name}",
                            group=g.name, tunnel=cand.name, previous=old.name if old else (prev or ""),
-                           step=self._step_name(g, cand), previous_step=self._step_name(g, old) if old else "", reason=reason)
+                           position=self._position(g, cand), previous_position=self._position(g, old) if old else "", reason=reason)
 
     def _provision(self, g: GroupCfg, st: GroupSettings, gs: GroupState, ladder: list[Tunnel], snap: Snapshot) -> None:
         for cand in ladder:
@@ -343,7 +344,7 @@ class Engine:
         now = self.clock.now()
         for g in self.cfg.groups:
             st = self.cfg.settings_for(g)
-            ladder = resolve_ladder(g, list(snap.tunnels.values()))
+            ladder = resolve_order(g, list(snap.tunnels.values()))
             managed.update(t.id for t in ladder)
             gs = self.store.group(g.name)
             if gs.current_id:
@@ -529,7 +530,7 @@ class Engine:
                 cur = snap.tunnels.get(gs.current_id or "")
                 groups[g.name] = {
                     "active": cur.name if cur else None,
-                    "step": self._step_name(g, cur),
+                    "position": self._position(g, cur),
                     "healthy": gs.healthy is True,
                     "decision": gs.last_decision,
                     "paused": gs.paused,
@@ -538,7 +539,7 @@ class Engine:
                     "probe_failures": gs.probe_failures,
                     "last_probe": gs.last_probe,
                     "switches_last_hour": len([t for t in gs.switches if now - t < 3600]),
-                    "ladder": [t.name for t in resolve_ladder(g, list(snap.tunnels.values()))],
+                    "order": [t.name for t in resolve_order(g, list(snap.tunnels.values()))],
                     "jobs": {
                         "next_probe_in": max(0, int(gs.last_probe_ts + self.cfg.settings_for(g).detection.probe_interval_seconds - now)) if self.tester.enabled else None,
                         "next_failback_check_in": max(0, int(gs.last_failback_check + self.cfg.settings_for(g).failback.check_interval_seconds - now)) if self.cfg.settings_for(g).failback.enabled else None,

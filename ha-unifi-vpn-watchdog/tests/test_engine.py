@@ -196,30 +196,42 @@ def test_status_exposes_jobs_and_events(make_engine):
     assert "next_failback_check_in" in st["groups"]["g1"]["jobs"] and st["interval_seconds"] == 15
 
 
-def test_nothing_moves_back_within_a_step_unless_a_tunnel_is_marked_preferred(make_engine):
-    """Regression: list order inside a step (alphabetical) was treated as a preference, so a healthy tunnel was abandoned
-    for whatever sorted first and the route wandered."""
-    eng, un, _, notes, clock = make_engine(prefer=False)
-    un.dead.add(tid("Home-Primary"))
-    run(eng, clock, 3)
-    assert active_name(un) == "Home-Backup"
-    un.dead.clear()                                         # Home-Primary is healthy again, but nobody said it is preferred
-    run(eng, clock, 60, step=15)
-    assert active_name(un) == "Home-Backup" and "failback" not in notes.kinds()
-
-
-def test_a_healthy_active_tunnel_is_never_left_when_nothing_is_preferred(make_engine):
-    eng, un, _, notes, clock = make_engine(active="Cousin vpn 2", prefer=False)
+def test_a_healthy_active_tunnel_is_never_left(make_engine):
+    eng, un, _, notes, clock = make_engine()
     run(eng, clock, 80, step=15)
-    assert active_name(un) == "Cousin vpn 2" and notes.kinds() == []
+    assert active_name(un) == "Home-Primary" and notes.kinds() == []
 
 
-def test_failback_still_returns_to_an_earlier_step(make_engine):
-    eng, un, _, notes, clock = make_engine(prefer=False)
+def test_failback_goes_up_the_list_to_the_highest_recovered_position(make_engine):
+    eng, un, _, notes, clock = make_engine()
     for n in ("Home-Primary", "Home-Backup", "Cousin vpn 2"):
         un.dead.add(tid(n))
     run(eng, clock, 3)
-    assert active_name(un).startswith("office/")
+    assert active_name(un) == "office/berlin"                                   # #4: the first position that works
     un.dead.clear()
     run(eng, clock, 40, step=15)
-    assert active_name(un) in ("Home-Primary", "Home-Backup", "Cousin vpn 2") and "failback" in notes.kinds()
+    assert active_name(un) == "Home-Primary" and "failback" in notes.kinds()      # back to #1
+
+
+def test_it_never_moves_down_or_sideways_while_the_active_one_is_healthy(make_engine):
+    eng, un, _, notes, clock = make_engine(active="Cousin vpn 2", enabled={"Cousin vpn 2"})
+    un.dead.update({tid("Home-Primary"), tid("Home-Backup")})                    # higher positions are broken
+    run(eng, clock, 80, step=15)
+    assert active_name(un) == "Cousin vpn 2" and "switch" not in notes.kinds()
+
+
+def test_a_tunnel_missing_from_the_order_is_never_chosen(make_engine):
+    order = "[Home-Primary, Home-Backup]"
+    eng, un, _, notes, clock = make_engine(order=order)
+    for n in ("Home-Primary", "Home-Backup"):
+        un.dead.add(tid(n))
+    run(eng, clock, 12)
+    assert active_name(un) == "Home-Primary" and "exhausted" in notes.kinds()    # nothing else is allowed, however healthy
+
+
+def test_empty_order_means_watch_only_and_says_so(make_engine):
+    eng, un, _, notes, clock = make_engine(order="[]")
+    un.dead.add(tid("Home-Primary"))
+    run(eng, clock, 6)
+    assert active_name(un) == "Home-Primary" and un.calls == []
+    assert "no fallback order set" in eng.status()["groups"]["g1"]["decision"]

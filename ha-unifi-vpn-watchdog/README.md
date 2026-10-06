@@ -21,16 +21,17 @@ web UI (status, jobs, start/stop, config editor), and is configured by one hot-r
    status is `CONNECTED` · receive rate is not stuck at 0 while sending (black hole) · an **exit-IP probe** through
    the tunnel returns a working IP that is not your WAN IP (leak) and, only if you typed an expected country for the step, is in that country.
 2. **Decide.** A tunnel is *down* after `failure_threshold` bad polls (or `probe_failure_threshold` bad probes).
-3. **Pick.** Candidates come from the group's **fallback order**: a list of steps, each a set of tunnels you chose by name or
-   pattern. The next tunnel of the current step is tried first, then the next step, and so on. Tunnels that failed recently
-   are skipped. Tunnels can be called anything; nothing is read out of a name.
+3. **Pick.** Candidates come from the group's **fallback order**: a numbered list of tunnels you set yourself. #1 is used when
+   it works; if the active tunnel fails the watchdog tries #1, #2, #3 ... skipping tunnels that failed recently. Tunnels can be
+   called anything and are never interpreted, sorted or pattern-matched.
 4. **Test before switching.** The candidate is enabled, must reach `CONNECTED`, and (with a canary) must pass the
    exit-IP probe. A candidate that fails is quarantined with exponential backoff and the next one is tried.
 5. **Commit.** One `PUT` changes the managed route's tunnel. There is never a moment with no route, so nothing leaks to
    the WAN between tunnels. The route is renamed to the tunnel name (`rename_route_to_tunnel`).
 6. **Guard rails.** `min_hold_seconds` and `max_switches_per_hour` prevent flapping; hard failures bypass the hold,
    not the hourly cap. If nothing works it alerts once and optionally engages the kill switch (`on_exhausted`).
-7. **Fail back.** When a higher-priority tunnel has tested healthy for `stable_seconds`, traffic moves back to it.
+7. **Fail back.** When a tunnel higher in your list (a lower number) has tested healthy for `stable_seconds`, traffic moves back
+   up to it. It never moves down or sideways while the active tunnel is healthy.
 8. **Standby.** The next `standby.warm` candidates stay enabled so failover is instant; unused tunnels are disabled
    (NordVPN allows 10 concurrent connections per account).
 
@@ -112,9 +113,9 @@ Each alert has an on/off switch, a title and a message with `{placeholders}` (`{
 
 See [config/config.example.yaml](config/config.example.yaml); every key is documented there. Highlights:
 
-- **Fallback order** (`groups[].ladder`): steps tried top to bottom. A step has an optional `name`, `tunnels` (exact names or
-  `*`/`?` patterns, tried in the order written), `prefer`, `exclude` and an optional `expect_country` that you type yourself.
-  Nothing is ever derived from a tunnel's name, so any naming scheme works.
+- **Fallback order** (`groups[].order`): the sequence of tunnels, first = most preferred. Each entry is an exact tunnel name,
+  or `{tunnel: NAME, expect_country: IT}` if the exit-IP test should check a country that you typed yourself. Tunnels not in the
+  list are never used. Empty means the watchdog only watches. Set it in *Settings > Fallback order* (type a position number to move).
 - **Per-group overrides** for any `detection`, `switching`, `failback`, `standby` key.
 - **Hot reload**: edit the file (or use the UI), it is applied next cycle; an invalid file is rejected and the old
   config keeps running. Typos are errors (unknown keys are rejected). `${VAR}` / `${VAR:-default}` read the environment.

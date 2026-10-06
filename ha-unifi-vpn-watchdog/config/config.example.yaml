@@ -51,10 +51,11 @@ groups:
   - name: iot-and-vpn
     networks: [vlan20-iot, vlan50-vpn]     # names or ids; the managed route is found automatically
     kill_switch: false                      # true = block (no leak) when the tunnel dies, until failover completes
-    ladder:                                  # tried top to bottom. Tunnels can have ANY names: pick by exact name or pattern
-      - {name: Home,   tunnels: ["Home-*"], prefer: ["Home-Primary"]}
-      - {name: Office, tunnels: ["office/berlin", "office/frankfurt"], expect_country: DE}   # expect_country is optional
-      - {name: Last resort, tunnels: ["*"]}   # anything not claimed above
+    order:                                   # fallback sequence: #1 is used first, then #2, #3 ... (exact tunnel names, any names)
+      - Home-Primary
+      - Home-Backup
+      - {tunnel: Office-Berlin, expect_country: DE}   # expect_country is optional: the exit-IP test must then see that country
+      - Last-Resort
     # overrides:                             # any detection/switching/failback/standby key, per group
     #   detection: {failure_threshold: 2}
 

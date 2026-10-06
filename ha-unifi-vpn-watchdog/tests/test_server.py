@@ -17,7 +17,7 @@ class StubEngine:
         self.wake = type("W", (), {"set": lambda s: None})()
 
     def status(self):
-        return {"dry_run": True, "last_tick": self.last_tick, "groups": {"g": {"healthy": True, "switches_last_hour": 0, "active": "Tunnel A", "step": "Home"}},
+        return {"dry_run": True, "last_tick": self.last_tick, "groups": {"g": {"healthy": True, "switches_last_hour": 0, "active": "Tunnel A", "position": "#1"}},
                 "tunnels": {"Tunnel A": {"status": "CONNECTED", "quarantined_for": 0}}, "events": []}
 
     def submit(self, *c):
@@ -110,7 +110,7 @@ def test_mqtt_failure_is_not_fatal(tmp_path, monkeypatch):
 
     cfg = tmp_path / "c.yaml"
     cfg.write_text("unifi: {api_key: k}\nstate_file: " + str(tmp_path / "s.json") + "\nmqtt: {enabled: true, supervisor: true}\n"
-                   "groups:\n  - {name: g, networks: [n], ladder: [{tunnels: ['*']}]}\n")
+                   "groups:\n  - {name: g, networks: [n], order: [T1]}\n")
 
     def boom(*a, **k):
         raise RuntimeError("Client error '400 Bad Request' for url 'http://supervisor/services/mqtt'")

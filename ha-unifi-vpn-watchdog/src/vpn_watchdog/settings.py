@@ -11,7 +11,6 @@ from typing import Any
 
 from .alerts import EVENTS, PLACEHOLDERS
 from .config import Config
-from .ladder import suggest_groups
 from .models import Snapshot
 
 ALERT_INFO = {
@@ -57,11 +56,7 @@ def extract(cfg: Config) -> dict[str, Any]:
                 "name": g.name,
                 "networks": list(g.networks),
                 "kill_switch": g.kill_switch,
-                "ladder": [
-                    {"name": st.name or "", "tunnels": list(st.tunnels), "prefer": list(st.prefer),
-                     "exclude": list(st.exclude), "expect_country": st.expect_country or ""}
-                    for st in g.ladder
-                ],
+                "order": [{"tunnel": i.tunnel, "expect_country": i.expect_country or ""} for i in g.order],
             }
             for g in cfg.groups
         ],
@@ -151,18 +146,17 @@ def apply(raw: dict[str, Any], form: dict[str, Any]) -> dict[str, Any]:
                 g.pop("kill_switch", None)
             else:
                 g["kill_switch"] = bool(fg["kill_switch"])
-            ladder = []
-            for step in fg.get("ladder", []):
-                clean = {}
-                if str(step.get("name") or "").strip():
-                    clean["name"] = str(step["name"]).strip()
-                for key in ("tunnels", "prefer", "exclude"):
-                    if step.get(key):
-                        clean[key] = [str(x) for x in step[key]]
-                if str(step.get("expect_country") or "").strip():
-                    clean["expect_country"] = str(step["expect_country"]).strip().upper()
-                ladder.append(clean)
-            g["ladder"] = ladder
+            order = []
+            for item in fg.get("order", []):
+                name = str(item.get("tunnel") or "").strip()
+                if not name:
+                    continue                      # an unfilled row is simply dropped
+                entry: dict[str, Any] = {"tunnel": name}
+                if str(item.get("expect_country") or "").strip():
+                    entry["expect_country"] = str(item["expect_country"]).strip().upper()
+                order.append(entry)
+            g["order"] = [e["tunnel"] if set(e) == {"tunnel"} else e for e in order]
+            g.pop("ladder", None)
             groups.append(g)
         out["groups"] = groups
     return out
@@ -170,7 +164,7 @@ def apply(raw: dict[str, Any], form: dict[str, Any]) -> dict[str, Any]:
 
 def meta(snap: Snapshot | None) -> dict[str, Any]:
     if snap is None:
-        return {"networks": [], "tunnels": [], "suggestions": [], "ready": False, "alert_info": ALERT_INFO}
+        return {"networks": [], "tunnels": [], "ready": False, "alert_info": ALERT_INFO}
     tunnel_ids = set(snap.tunnels)
     networks = sorted(
         n for i, n in snap.networks.items()
@@ -181,6 +175,5 @@ def meta(snap: Snapshot | None) -> dict[str, Any]:
         "alert_info": ALERT_INFO,
         "networks": networks,
         "tunnels": [{"name": t.name, "enabled": t.enabled} for t in tunnels],
-        "suggestions": suggest_groups(tunnels),
         "ready": True,
     }

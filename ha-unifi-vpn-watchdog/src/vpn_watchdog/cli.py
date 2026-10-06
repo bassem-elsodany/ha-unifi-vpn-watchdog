@@ -9,7 +9,7 @@ import sys
 
 from .app import App, setup_logging
 from .config import ConfigError, load_config, load_env_file
-from .ladder import resolve_ladder
+from .ladder import missing, resolve_order
 from .probe import Prober
 
 
@@ -100,6 +100,10 @@ def _discover(app: App) -> None:
     print("== Networks ==")
     print("  " + ", ".join(sorted(snap.networks.values())))
     print(f"== WAN IP == {snap.wan_ip}")
-    print("== Resolved ladders ==")
+    print("== Fallback order per group ==")
     for g in app.cfg.groups:
-        print(f"  {g.name}: " + " > ".join(t.name for t in resolve_ladder(g, list(snap.tunnels.values()))))
+        ts = list(snap.tunnels.values())
+        order = resolve_order(g, ts)
+        print(f"  {g.name}: " + (" > ".join(f"#{i} {t.name}" for i, t in enumerate(order, 1)) or "(empty: set it in Settings > Fallback order)"))
+        if missing(g, ts):
+            print(f"    NOT FOUND in UniFi: {', '.join(missing(g, ts))}")

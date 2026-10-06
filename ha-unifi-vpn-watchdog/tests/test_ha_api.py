@@ -37,7 +37,7 @@ def test_call_posts_title_and_message_and_rejects_bad_names():
         a.call("../etc/passwd", "T", "M")
 
 
-CFG = ("unifi: {api_key: k}\nstate_file: %s\ngroups:\n  - {name: g, networks: [n], ladder: [{tunnels: ['*']}]}\n"
+CFG = ("unifi: {api_key: k}\nstate_file: %s\ngroups:\n  - {name: g, networks: [n], order: [T1]}\n"
        "notifications:\n  - {type: home_assistant, supervisor: true, service: persistent_notification.create}\n")
 
 
@@ -58,6 +58,6 @@ def test_ui_choice_overrides_config_and_survives_restart(tmp_path, monkeypatch):
 def test_standalone_without_ha_reports_unavailable(tmp_path, monkeypatch):
     monkeypatch.delenv("SUPERVISOR_TOKEN", raising=False)
     cfgp = tmp_path / "c.yaml"
-    cfgp.write_text("unifi: {api_key: k}\nstate_file: " + str(tmp_path / "s.json") + "\ngroups:\n  - {name: g, networks: [n], ladder: [{tunnels: ['*']}]}\n")
+    cfgp.write_text("unifi: {api_key: k}\nstate_file: " + str(tmp_path / "s.json") + "\ngroups:\n  - {name: g, networks: [n], order: [T1]}\n")
     out = App(str(cfgp), env={}).ha_notify_services()
     assert out["available"] is False and out["services"] == []

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0
+- **You set the order.** The fallback order is a numbered list of tunnels (#1, #2, #3 ...) that you choose and arrange: pick a
+  tunnel per row, move rows with the arrows or by typing a position, add all remaining tunnels in one click. No steps,
+  patterns, groups or alphabetical rules. #1 is used first; if the active tunnel fails the next ones are tried in that order, and
+  traffic moves back up the list when a higher tunnel recovers. Tunnels not in the list are never used.
+- An empty order is allowed: a fresh install only watches until you set it.
+- `ladder` (0.3.0) is replaced by `order`; the old key is rejected with instructions, nothing is converted.
+- `{step}` / `{previous_step}` alert placeholders became `{position}` / `{previous_position}`; the HA sensor is "Fallback position".
+
 ## 0.3.0
 - **Name-agnostic.** Tunnel names are never interpreted: no country, city or naming-convention assumptions anywhere.
   A fallback order is a list of steps; each step is a set of tunnels you pick by name or pattern, with any label you like.

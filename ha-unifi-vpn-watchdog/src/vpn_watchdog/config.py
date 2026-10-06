@@ -9,7 +9,7 @@ from typing import Any, Literal
 
 import yaml
 from .alerts import EVENTS, unknown_placeholders
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 
 class ConfigError(Exception):
@@ -123,19 +123,13 @@ class StandbyCfg(_M):
     max_enabled: int = Field(6, ge=1)         # NordVPN allows 10 simultaneous connections per account
 
 
-class LadderStep(_M):
-    """One tier of the fallback order, tried top to bottom. Its tunnels are chosen by exact name or glob pattern, so
-    tunnels can be called anything. Nothing is ever read out of a tunnel's name."""
-    name: str | None = None              # label shown in the UI and alerts
-    tunnels: list[str] = Field(default_factory=list)   # exact names or globs, tried in the order written
-    prefer: list[str] = Field(default_factory=list)    # tried first inside this step
-    exclude: list[str] = Field(default_factory=list)
-    expect_country: str | None = None    # optional, typed by you: the country the exit-IP test must see for this step
+class OrderItem(_M):
+    """One position in the fallback order."""
+    tunnel: str                          # exact tunnel name as it is in UniFi, whatever it is called
+    expect_country: str | None = None    # optional, typed by you: country the exit-IP test must see for this tunnel
 
     @model_validator(mode="after")
-    def _something(self) -> "LadderStep":
-        if not self.tunnels:
-            raise ValueError("a ladder step needs `tunnels`: tunnel names or patterns such as '*'")
+    def _norm(self) -> "OrderItem":
         if self.expect_country:
             self.expect_country = self.expect_country.upper()
         return self
@@ -144,15 +138,24 @@ class LadderStep(_M):
 class GroupCfg(_M):
     name: str
     networks: list[str]                  # network names (or ids) whose internet traffic the route steers
-    ladder: list[LadderStep]
+    order: list[OrderItem] = Field(default_factory=list)   # fallback sequence: #1 is the most preferred, then #2, #3, ...
     kill_switch: bool | None = None      # None = leave the route's kill switch alone
     route_id: str | None = None          # pin a specific route; otherwise discovered from `networks`
     overrides: dict[str, Any] = Field(default_factory=dict)  # deep-merged over detection/switching/failback/standby
 
+    @field_validator("order", mode="before")
+    @classmethod
+    def _allow_plain_names(cls, v: Any) -> Any:
+        return [{"tunnel": x} if isinstance(x, str) else x for x in (v or [])]
+
     @model_validator(mode="after")
-    def _non_empty(self) -> "GroupCfg":
-        if not self.networks or not self.ladder:
-            raise ValueError(f"group {self.name!r} needs networks and a ladder")
+    def _valid(self) -> "GroupCfg":
+        if not self.networks:
+            raise ValueError(f"group {self.name!r} needs at least one network")
+        names = [i.tunnel for i in self.order]
+        dup = sorted({n for n in names if names.count(n) > 1})
+        if dup:
+            raise ValueError(f"group {self.name!r}: tunnel listed twice in the fallback order: {dup}")
         return self
 
 
@@ -298,10 +301,10 @@ def removed_settings(raw: dict[str, Any]) -> list[str]:
         if not isinstance(g, dict):
             continue
         city(g.get("overrides"), f"groups[{g.get('name')}].overrides.")
-        for i, st in enumerate(g.get("ladder") or []):
-            if isinstance(st, dict) and "country" in st:
-                errs.append(f"groups[{g.get('name')}].ladder[{i + 1}]: `country` was removed. List the tunnel names or patterns "
-                            "under `tunnels` (e.g. tunnels: [\"Italy*\"]); add `expect_country: IT` if the exit-IP test should check a country.")
+        if "ladder" in g:
+            errs.append(f"groups[{g.get('name')}].ladder was replaced by `order`: list the tunnels in the sequence you want, first = "
+                        "most preferred, e.g. order: [My-Tunnel-A, My-Tunnel-B, {tunnel: My-Tunnel-C, expect_country: DE}]. "
+                        "Or set it in the web UI: Settings > Fallback order.")
     return errs
 
 

@@ -9,8 +9,8 @@ PLACEHOLDERS = {
     "group": "VPN group name",
     "tunnel": "active / new tunnel name",
     "previous": "tunnel it moved away from",
-    "step": "name of the fallback step the tunnel belongs to",
-    "previous_step": "fallback step of the previous tunnel",
+    "position": "position of the tunnel in the fallback order, e.g. #2",
+    "previous_position": "position of the tunnel it moved away from",
     "reason": "why the decision was taken",
     "tried": "number of candidate tunnels that were tested and failed",
     "groups": "number of groups being watched",
@@ -20,16 +20,16 @@ PLACEHOLDERS = {
 
 EVENTS: dict[str, dict[str, Any]] = {
     "switch": {
-        "when": "A tunnel stopped working and traffic was moved to another server (possibly in another fallback step).",
+        "when": "A tunnel stopped working and traffic was moved to the next tunnel in your fallback order.",
         "level": "warning", "enabled": True,
-        "title": "VPN {group}: switched to {step}",
-        "message": "{previous} -> {tunnel}. Reason: {reason}",
+        "title": "VPN {group}: switched to {tunnel} ({position})",
+        "message": "{previous} ({previous_position}) -> {tunnel} ({position}). Reason: {reason}",
     },
     "failback": {
-        "when": "The preferred tunnel recovered and stayed healthy long enough, so traffic moved back to it.",
+        "when": "A tunnel higher in your fallback order recovered and stayed healthy long enough, so traffic moved back up to it.",
         "level": "info", "enabled": True,
-        "title": "VPN {group}: back on preferred {step}",
-        "message": "{previous} -> {tunnel}. {reason}",
+        "title": "VPN {group}: back on {tunnel} ({position})",
+        "message": "{previous_position} -> {position}. {reason}",
     },
     "exhausted": {
         "when": "The active tunnel is down and every candidate failed or is paused after failing. Needs your attention.",
