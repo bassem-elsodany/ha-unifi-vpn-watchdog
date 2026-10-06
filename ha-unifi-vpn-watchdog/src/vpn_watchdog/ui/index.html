@@ -23,6 +23,7 @@
   body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 'IBM Plex Sans', system-ui, sans-serif; }
   header { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; min-height: 56px; padding: 0 48px; border-bottom: 1px solid var(--line); background: var(--card); }
   h1 { font-size: 17px; margin: 0; }
+  .brand { display: flex; align-items: center; gap: 8px; } .ver { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--chip); color: var(--chipink); }
   main { padding: 0 48px 90px; }                 /* left aligned, full width: no auto margins */
   nav { display: flex; gap: 4px; padding: 12px 0 0; flex-wrap: wrap; }
   nav button { background: none; border: 0; padding: 8px 14px; border-radius: 8px; color: var(--muted); cursor: pointer; font: inherit; }
@@ -207,7 +208,7 @@
 </head>
 <body>
 <header>
-  <h1>VPN Watchdog</h1>
+  <span class="brand"><h1>VPN Watchdog</h1><span class="ver hide" id="ver"></span></span>
   <span class="muted" id="tick"></span>
   <span id="spin" class="spin hide" title="Reading from UniFi" role="status" aria-label="Reading from UniFi"></span>
   <span class="grow"></span>
@@ -304,6 +305,7 @@ async function refreshInner() {
   $("#spin").classList.toggle("hide", busyCount <= 0 && !data.loading);
   ["checkNow", "pauseAll", "resumeAll", "saveCfg", "validate", "saveSettings"].forEach((id) => ($("#" + id).disabled = !can));
   $("#resumeAll").classList.toggle("hide", !(data.map && data.map.groups.some((g) => g.paused)));
+  if (data.version) { const v = $("#ver"); v.textContent = "v" + data.version; v.classList.remove("hide"); }
   renderMap(data); renderEvents(data);
 }
 

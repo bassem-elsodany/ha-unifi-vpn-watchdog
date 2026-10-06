@@ -11,6 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib import resources
 from urllib.parse import urlparse
 
+from . import __version__
 from .config import ServerCfg
 
 log = logging.getLogger("vpn_watchdog.server")
@@ -78,6 +79,7 @@ class StatusServer:
                 elif path in ("/status", "/api/status"):
                     st = eng.status()
                     st["can_control"] = self._can_control()
+                    st["version"] = __version__
                     self._send(200, st)
                 elif path == "/metrics":
                     self._send(200, render_metrics(eng.status()), "text/plain; version=0.0.4")

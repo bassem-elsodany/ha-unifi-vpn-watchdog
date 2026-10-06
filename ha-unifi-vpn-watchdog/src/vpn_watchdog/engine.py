@@ -9,6 +9,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
+from . import __version__
 from .clock import Clock
 from .config import Config, GroupCfg, GroupSettings, JobCfg
 from .ladder import candidates, expected_country, failback_targets, missing, position_label, position_of, resolve_order
@@ -821,6 +822,7 @@ class Engine:
             "map": self._map(snap, groups) if snap is not None else {"groups": [], "direct": [], "own": [], "own_off": [], "wan_ip": None},
             "events": sorted(list(getattr(self.notifier, "history", []))[:60] + list(getattr(self.notifier, "checks", [])), key=lambda e: -e["ts"])[:100],
             "interval_seconds": self.cfg.interval_seconds,
+            "version": __version__,
         }
         with self._lock:
             self._status = status

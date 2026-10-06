@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.1
+
+- The app version is shown as a small tag next to the app name at the top left (it is the add-on version, so it matches what Home Assistant lists).
+
 ## 0.12.0
 
 - New: **Jobs** (Settings > Jobs). Failover is every group's first job. A group can now also have a **rotation** job: every N hours, days or weeks

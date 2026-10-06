@@ -33,3 +33,13 @@ def test_addon_has_icon_and_logo():
         assert data[:8] == b"\x89PNG\r\n\x1a\n", f"{name} is not a PNG"
         w, h = int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
         assert (w, h) == size if size else w > h, f"{name} has an unexpected size {w}x{h}"
+
+
+def test_the_version_shown_in_the_app_is_the_add_on_version():
+    import re
+    from pathlib import Path
+    import vpn_watchdog
+    root = Path(__file__).resolve().parent.parent
+    manifest = re.search(r'^version:\s*"([^"]+)"', (root / "config.yaml").read_text(), re.M).group(1)
+    assert vpn_watchdog.__version__ == manifest
+    assert f'version = "{manifest}"' in (root / "pyproject.toml").read_text()
