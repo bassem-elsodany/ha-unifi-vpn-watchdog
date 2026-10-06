@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1
+- With no fallback order set the watchdog still shows the tunnel in use, checks its health and alerts if it goes down (it just
+  never switches). Before, the active tunnel showed as "none". The "no fallback order set" warning is logged once, not every cycle.
+
 ## 0.4.0
 - **You set the order.** The fallback order is a numbered list of tunnels (#1, #2, #3 ...) that you choose and arrange: pick a
   tunnel per row, move rows with the arrows or by typing a position, add all remaining tunnels in one click. No steps,

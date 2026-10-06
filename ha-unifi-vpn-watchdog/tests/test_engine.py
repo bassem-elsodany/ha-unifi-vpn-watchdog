@@ -235,3 +235,14 @@ def test_empty_order_means_watch_only_and_says_so(make_engine):
     run(eng, clock, 6)
     assert active_name(un) == "Home-Primary" and un.calls == []
     assert "no fallback order set" in eng.status()["groups"]["g1"]["decision"]
+
+
+def test_watch_only_still_tracks_the_active_tunnel_and_reports_health(make_engine):
+    eng, un, _, notes, clock = make_engine(order="[]")
+    run(eng, clock, 2)
+    g = eng.status()["groups"]["g1"]
+    assert g["active"] == "Home-Primary" and g["healthy"] is True and "no fallback order set" in g["decision"]
+    un.dead.add(tid("Home-Primary"))
+    run(eng, clock, 4)
+    g = eng.status()["groups"]["g1"]
+    assert "nothing was switched" in g["decision"] and "exhausted" in notes.kinds() and un.calls == []

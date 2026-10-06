@@ -52,6 +52,7 @@ class Engine:
         self._lock = threading.RLock()
         self._status: dict[str, Any] = {}
         self._overlap_warned: set[str] = set()
+        self._noted: dict[str, str] = {}
         self._blocked_notified: dict[str, float] = {}
         self.listeners: list = []   # callables(status_dict) invoked after each tick (MQTT publisher)
 
@@ -102,16 +103,21 @@ class Engine:
         st = self.cfg.settings_for(g)
         gs = self.store.group(g.name)
         ladder = resolve_order(g, list(snap.tunnels.values()))
-        if not ladder:
+        watch_only = not ladder
+        note = ""
+        if watch_only:
             gone = missing(g, list(snap.tunnels.values()))
-            gs.last_decision = ("no fallback order set: choose the tunnels and their order in Settings > Fallback order" if not g.order
-                                else f"none of the tunnels in the fallback order exist in UniFi: {', '.join(gone)}")
-            log.warning("group %s: %s", g.name, gs.last_decision)
-            gs.healthy = None
-            return
+            note = ("no fallback order set: choose the tunnels and their order in Settings > Fallback order" if not g.order
+                    else f"none of the tunnels in the fallback order exist in UniFi: {', '.join(gone)}")
+            if self._noted.get(g.name) != note:       # say it once, not every cycle
+                self._noted[g.name] = note
+                log.warning("group %s: %s", g.name, note)
 
         route = self._find_route(g, snap, gs)
         if route is None:
+            if watch_only:
+                gs.last_decision, gs.healthy = f"no route found for these networks; {note}", None
+                return
             gs.last_decision = "no managed route found; provisioning"
             self._provision(g, st, gs, ladder, snap)
             return
@@ -143,8 +149,9 @@ class Engine:
                 if gs.since and now - gs.since >= st.failback.stable_seconds and ts.fail_streak:
                     ts.fail_streak = 0
                     self.store.touch()
-            gs.last_decision = "healthy"
-            self._maybe_failback(g, st, gs, cur, route, snap)
+            gs.last_decision = "healthy" if not watch_only else f"healthy (watching only) - {note}"
+            if not watch_only:
+                self._maybe_failback(g, st, gs, cur, route, snap)
             return
 
         gs.last_decision = "unhealthy: " + "; ".join(health.reasons)
@@ -159,6 +166,13 @@ class Engine:
             return
         hard = gs.status_failures >= st.detection.failure_threshold
         log.warning("group %s: %s is DOWN: %s", g.name, cur.name if cur else "?", "; ".join(health.reasons))
+        if watch_only:
+            gs.last_decision = f"{cur.name if cur else 'the active tunnel'} is DOWN ({'; '.join(health.reasons)}) but nothing was switched - {note}"
+            if not gs.exhausted:
+                gs.exhausted = True
+                self.notifier.emit("exhausted", f"VPN {g.name}: no working tunnel", gs.last_decision, level="critical", key=g.name,
+                                   group=g.name, tunnel=cur.name if cur else "", tried=0)
+            return
         self._failover(g, st, gs, cur, route, hard, "; ".join(health.reasons))
 
     # ------------------------------------------------------------------ health
