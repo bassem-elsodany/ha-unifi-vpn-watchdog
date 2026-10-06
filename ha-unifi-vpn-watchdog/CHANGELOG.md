@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.10.1
+
+- Status: the line from every VLAN box is now a dashed moving line, like the others (before, only the last stretch moved and the short stubs were solid).
+- Status: the legend sits at the bottom right of the page, no longer between the two Internet boxes.
+
 ## 0.10.0
 - **Devices with their own route** (approved design "Status page with device routes"). A routing policy that targets individual devices (not a whole network) is now shown on the Status page: a small card "Devices with their own route" lists each device, its VLAN and where it goes, and draws a line from there to the normal connection (amber) or to the VPN client that carries it (violet). The device stays in its VLAN list, marked with an arrow. The tunnel that carries it shows "carries N devices with its own route" even when it is not in a fallback order. The watchdog still never changes these policies.
 

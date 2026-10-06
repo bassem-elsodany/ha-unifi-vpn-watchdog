@@ -129,7 +129,8 @@
   .inet > .dot { flex: none; width: 12px; height: 12px; } .inet b { font-size: 16px; color: var(--ink); } .inet .mono { color: var(--ink); }
   .inet.bad { border-color: var(--bad); background: var(--badbg); }
   .inet.normal { min-height: 80px; margin-top: 24px; padding: 12px 18px; border: 1px dashed var(--idle2); line-height: 20px; } .inet.normal b { font-size: 15px; }
-  .legend { margin-top: 50px; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; font-size: 13px; line-height: 24px; color: var(--chipink); }
+  .mapfoot { display: flex; justify-content: flex-end; margin-top: 36px; } .mapfoot > div { width: 240px; }
+  .legend { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; font-size: 13px; line-height: 24px; color: var(--chipink); }
   .legend b { font-size: 12px; letter-spacing: .06em; color: var(--muted); } .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
   .hint { margin: 16px 0 0; font-size: 13px; line-height: 20px; color: var(--muted); }
   .dlabel { position: absolute; width: 300px; text-align: center; font-size: 13px; line-height: 16px; color: var(--muted); }
@@ -400,16 +401,17 @@ function groupBlock(g, can, first, last, m) {
       <span class="muted grow">${note}</span>
       ${g.unmanaged ? "" : `<button class="act" data-gact="${g.paused ? "resume" : "pause"}" data-g="${esc(g.name)}" ${can ? "" : "disabled"}>${g.paused ? "Start automatic failover" : "Stop automatic failover"}</button>`}</div>
     <div class="gcols"><div class="colv"><div class="colh">VLANs and their devices</div>${g.networks.map((n) => vlanCard(n, false)).join("") || '<div class="muted">No VLAN is selected for this group.</div>'}${last ? ownCard(m) : ""}${withDirect ? directBox(m) : ""}</div>${laneHtml(g, can, behind)}
-    <div class="colr"><div class="colh">Internet via the VPN</div>${inet}${first ? legendHtml(can && !g.unmanaged) : ""}${showNormal ? normalNode(m) : ""}</div>${showNormal ? '<div class="dlabel">straight to the internet, no VPN</div>' : ""}</div></section>`;
+    <div class="colr"><div class="colh">Internet via the VPN</div>${inet}${showNormal ? normalNode(m) : ""}</div>${showNormal ? '<div class="dlabel">straight to the internet, no VPN</div>' : ""}</div></section>`;
 }
 let directOpen = false;
 function plainBlock(m, can) {
   return `<section class="gblock" data-nogroup="1"><div class="gcols"><div class="colv"><div class="colh">VLANs and their devices</div>${ownCard(m)}${m.direct.length ? directBox(m) : ""}</div>
-    <div class="colm"></div><div class="colr">${normalNode(m)}${legendHtml(false)}</div><div class="dlabel">straight to the internet, no VPN</div></div></section>`;
+    <div class="colm"></div><div class="colr">${normalNode(m)}</div><div class="dlabel">straight to the internet, no VPN</div></div></section>`;
 }
 function renderMap(d) {
   const m = d.map || { groups: [], direct: [] }, can = !!d.can_control;
   let html = m.groups.map((g, i) => groupBlock(g, can, i === 0, i === m.groups.length - 1, m)).join("") + (!m.groups.length && (m.direct.length || (m.own || []).length) ? plainBlock(m, can) : "");
+  if (html) html += `<div class="mapfoot"><div>${legendHtml(can && m.groups.some((g) => !g.unmanaged))}</div></div>`;
   if (!html) html = d.loading || !d.last_tick ? '<div class="loading"><span class="spin big"></span><div>Loading from UniFi...</div></div>'
     : '<div class="card muted">UniFi reported no networks to show.</div>';
   $("#map").innerHTML = '<svg id="links"></svg>' + html;
@@ -452,6 +454,11 @@ function drawLinks() {
   if (narrow) { svg.innerHTML = ""; return; }
   const R = (el) => { const r = el.getBoundingClientRect(); return { l: r.left - rr.left, r: r.right - rr.left, t: r.top - rr.top, b: r.bottom - rr.top, cx: (r.left + r.right) / 2 - rr.left, cy: (r.top + r.bottom) / 2 - rr.top }; };
   const segs = [];
+  const gutter = (cys, x, ty, cls) => {      // the shared vertical: one line from the farthest VLAN on each side, flowing toward the target
+    const up = Math.min(...cys), dn = Math.max(...cys);
+    if (up < ty - 1) segs.push({ d: `M ${x} ${up} V ${ty}`, cls });
+    if (dn > ty + 1) segs.push({ d: `M ${x} ${dn} V ${ty}`, cls });
+  };
   const hotNet = selected && selected.kind === "dev" ? (mapData().groups.flatMap((g) => g.networks).find((n) => n.devices.some((x) => x.mac === selected.mac)) || {}).id : null;
   document.querySelectorAll("#map .gblock").forEach((blk) => {
     const inet = blk.querySelector(".colr > .inet:not(.normal)"), nn = blk.querySelector(".inet.normal"), box = blk.querySelector(".dsum");
@@ -478,13 +485,18 @@ function drawLinks() {
     if (box && nn) { const a = R(box), b = R(nn); segs.push({ d: `M ${a.r} ${b.cy} H ${b.l - 3}`, cls: "lk idle live", head: "off" }); }
     else if (dcards.length && nn) {           // every listed VLAN gets its own line into the Internet node
       const b = R(nn), right = Math.max(...dcards.map((v) => R(v).r)), bx = slot != null ? slot : right + 46;
-      dcards.forEach((v) => { const h = R(v.querySelector(".vh")); segs.push({ d: `M ${R(v).r} ${h.cy} H ${bx} V ${b.cy}`, cls: "lk idle" }); });
+      const cys = dcards.map((v) => R(v.querySelector(".vh")).cy);
+      dcards.forEach((v, i) => segs.push({ d: `M ${R(v).r} ${cys[i]} H ${bx}`, cls: "lk idle live" }));
+      gutter(cys, bx, b.cy, "lk idle live");
       segs.push({ d: `M ${bx} ${b.cy} H ${b.l - 3}`, cls: "lk idle live", head: "off" });
     }
     const act = blk.querySelector(".lc.active"), vcs = [...blk.querySelectorAll(".colv > .vc:not(.direct):not(.ownc)")];
     if (act && inet && vcs.length) {
       const a = R(act), e = R(inet), right = Math.max(...vcs.map((v) => R(v).r)), bx = right + 36;
-      vcs.forEach((v) => { const h = R(v.querySelector(".vh")); segs.push({ d: `M ${R(v).r} ${h.cy} H ${bx} V ${a.cy}`, cls: "lk on" + (hotNet === v.dataset.net ? " hot" : "") }); });
+      const cys = vcs.map((v) => R(v.querySelector(".vh")).cy);
+      vcs.forEach((v, i) => segs.push({ d: `M ${R(v).r} ${cys[i]} H ${bx}`, cls: "lk on live" }));
+      gutter(cys, bx, a.cy, "lk on live");
+      vcs.forEach((v, i) => { if (hotNet === v.dataset.net) segs.push({ d: `M ${R(v).r} ${cys[i]} H ${bx} V ${a.cy}`, cls: "lk on hot" }); });
       segs.push({ d: `M ${bx} ${a.cy} H ${a.l - 3}`, cls: "lk on live", head: "on" });
       const mx = a.r + (e.l - a.r) / 2;
       segs.push({ d: Math.abs(a.cy - e.cy) < 2 ? `M ${a.r} ${a.cy} H ${e.l - 3}` : `M ${a.r} ${a.cy} H ${mx} V ${e.cy} H ${e.l - 3}`, cls: "lk on live", head: "on" });
