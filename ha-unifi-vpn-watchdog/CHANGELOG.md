@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.21.0
+
+- **Status: many VLANs no longer make the page long.** Each VLAN is one compact row (name, VLAN number, device count). Click a row to open its devices; one row is open at a time, and the VLAN of a device you select opens by itself.
+- A group shows its first 5 VLANs and "+ N more VLANs · Show all" (and "Show fewer VLANs"); the open or selected VLAN is always visible. The heading shows how many VLANs the group has.
+- A search box above the groups (shown when there are more than 5 VLANs) finds a VLAN, device name, IP or MAC across all groups and opens only the VLANs with a matching device.
+
 ## 0.20.1
 
 - Status: the warm standbys are tagged **STANDBY** in the group's fallback order (green when connected, amber while connecting) with "connected, takes over at once if the active one fails", and a collapsed long order always shows them.

@@ -85,6 +85,12 @@
   .vc.direct { background: var(--dbg); border: 1px dashed var(--dline); }
   .vc.dsum { padding: 14px; gap: 4px; }
   .vh { display: flex; align-items: center; gap: 10px; min-height: 40px; }
+  .vc.cmp { padding: 6px 14px; gap: 0; } .vc .vh[data-vtoggle] { cursor: pointer; } .vc.cmp .vh { min-height: 34px; }
+  .vh > span.vn { font-size: 14px; line-height: 20px; color: var(--ink); } .vh > span.vn small { font-size: 12px; color: var(--muted); margin-left: 6px; }
+  .vh > span.chev { margin-left: auto; font-size: 14px; color: var(--muted); }
+  .vc.cmp .vn { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .vmore { font-size: 13px; color: var(--accentink); font-weight: 500; cursor: pointer; padding: 0 4px; } .vmore:hover { text-decoration: underline; }
+  .vfilter { margin: 18px 0 4px; } .vfilter input { box-sizing: border-box; width: 340px; max-width: 100%; height: 36px; font: inherit; font-size: 14px; padding: 0 12px; border: 1px solid var(--line2); border-radius: 10px; background: var(--card); color: var(--ink); }
   .dsum .vh { min-height: 28px; }
   .vh > span:last-child { font-size: 12px; line-height: 18px; color: var(--muted); } .vh small { font-size: inherit; }
   button, nav button, h1 { line-height: normal; } .vh b { font-size: 16px; color: var(--ink); }
@@ -236,7 +242,7 @@
     <button data-tab="settings">Settings</button>
   </nav>
 
-  <section id="tab-status"><div id="map"><svg id="links"></svg><div class="loading"><span class="spin big"></span><div>Loading from UniFi...</div></div></div></section>
+  <section id="tab-status"><div class="vfilter hide" id="vfilterBox"><input id="vfilter" type="search" placeholder="Find a VLAN, device, IP or MAC" aria-label="Find a VLAN or device"></div><div id="map"><svg id="links"></svg><div class="loading"><span class="spin big"></span><div>Loading from UniFi...</div></div></div></section>
 
   <section id="tab-events" class="hide"><div class="card" id="events"></div></section>
 
@@ -319,6 +325,9 @@ const tcolor = (t) => t.status === "CONNECTED" ? "ok" : (t.status || t.enabled) 
 const tlabel = (t) => t.status === "CONNECTED" ? "connected" : t.status ? t.status.toLowerCase() : t.enabled ? "starting" : "disconnected";
 let selected = null;           // {kind: "tun", g, name} | {kind: "dev", mac}
 const vsearch = {}, vexp = {}, poolOpen = new Set();
+let vopenId = null, vfilter = "";            // the one open VLAN row, and the filter box on top of the Status page
+const netsAll = new Set();                   // groups whose VLAN list is shown in full
+const NETCAP = 5;
 let toastTimer = null;
 const mapData = () => (status && status.map) || { groups: [], direct: [] };
 function toast(msg, ms = 4000, spin = false) { const el = $("#toast"); clearTimeout(toastTimer); if (!msg) { el.classList.add("hide"); return; } el.innerHTML = (spin ? '<span class="spin" style="margin-right:8px"></span>' : "") + esc(msg); el.classList.remove("hide"); toastTimer = setTimeout(() => el.classList.add("hide"), ms); }
@@ -331,7 +340,7 @@ function devRow(d) {
     <span>${d.name && d.name !== d.ip ? esc(d.name) : '<span class="muted">unnamed</span>'}${d.bypass ? " ↗" : ""}${d.overridden ? ' <b class="warn">⚠</b>' : ""}</span><span>${esc(d.ip || "")}</span><span>${rate(d.rate_bps)}</span></div>`;
 }
 function devList(n) {
-  const q = (vsearch[n.id] || "").trim().toLowerCase(), exp = !!vexp[n.id];
+  const q = (vsearch[n.id] || (netNameHit(n) ? "" : vfilter) || "").trim().toLowerCase(), exp = !!vexp[n.id];
   const list = n.devices.filter((d) => !q || [d.name, d.ip, d.mac].some((x) => (x || "").toLowerCase().includes(q)));
   const byp = list.filter((d) => d.bypass), rest = list.filter((d) => !d.bypass);
   const shown = exp || q ? list : rest.slice(0, Math.max(0, 6 - Math.min(byp.length, 2))).concat(byp.slice(0, 2));
@@ -343,18 +352,35 @@ function netAddr(c) {
   const bits = +m[5], ip = ((+m[1] << 24) | (+m[2] << 16) | (+m[3] << 8) | +m[4]) >>> 0, mask = bits === 0 ? 0 : (0xFFFFFFFF << (32 - bits)) >>> 0, n = (ip & mask) >>> 0;
   return [n >>> 24, (n >>> 16) & 255, (n >>> 8) & 255, n & 255].join(".") + "/" + bits;
 }
+const fq = () => vfilter.trim().toLowerCase();
+const netNameHit = (n) => { const q = fq(); return !!q && [n.name, n.vlan != null ? "vlan " + n.vlan : "", n.subnet].some((x) => (x || "").toLowerCase().includes(q)); };
+const devHit = (d) => { const q = fq(); return !!q && [d.name, d.ip, d.mac].some((x) => (x || "").toLowerCase().includes(q)); };
+const netMatches = (n) => !fq() || netNameHit(n) || n.devices.some(devHit);
+const isOpenNet = (n) => vopenId === n.id || (selected && selected.kind === "dev" && n.devices.some((d) => d.mac === selected.mac)) || (!!fq() && !netNameHit(n) && n.devices.some(devHit));
 function vlanCard(n, direct) {
-  const dl = devList(n);
   const sub = [n.vlan != null ? "VLAN " + n.vlan : null, netAddr(n.subnet), `${n.count} device${n.count === 1 ? "" : "s"}`].filter(Boolean).join(" · ");
-  return `<div class="vc ${direct ? "direct" : ""}" data-net="${esc(n.id)}"><div class="vh"><span class="dot ${direct ? "idle" : "b"}"></span><span><b>${esc(n.name)}</b><br><small>${esc(sub)}</small></span></div>
+  const open = isOpenNet(n), short = [n.vlan != null ? "VLAN " + n.vlan : null, `${n.count} device${n.count === 1 ? "" : "s"}`].filter(Boolean).join(" · "), dot = `<span class="dot ${direct ? "idle" : "b"}"></span>`;
+  const head = `<div class="vh" data-vtoggle="${esc(n.id)}" role="button" tabindex="0" aria-expanded="${open}">${dot}<span class="vn"><b>${esc(n.name)}</b><small>${esc(open ? sub : short)}</small></span><span class="chev">${open ? "▾" : "▸"}</span></div>`;
+  if (!open) return `<div class="vc cmp ${direct ? "direct" : ""}" data-net="${esc(n.id)}">${head}</div>`;
+  const dl = devList(n);
+  return `<div class="vc ${direct ? "direct" : ""}" data-net="${esc(n.id)}">${head}
     ${n.count > 6 ? `<input class="vs" data-net="${esc(n.id)}" placeholder="Find a device or IP" aria-label="Find a device in ${esc(n.name)}" value="${esc(vsearch[n.id] || "")}">` : ""}
     <div class="vlist ${dl.expanded ? "exp" : ""}" data-net="${esc(n.id)}">${dl.html}</div>
-    ${n.count > 6 && !(vsearch[n.id] || "").trim() ? `<div class="vfr"><span class="vf" data-net="${esc(n.id)}">${vexp[n.id] ? "Show fewer" : `Show all ${n.count} devices`}</span>${vexp[n.id] ? "" : `<span class="muted">${n.count - 6} more</span>`}</div>` : ""}</div>`;
+    ${n.count > 6 && !(vsearch[n.id] || "").trim() && !fq() ? `<div class="vfr"><span class="vf" data-net="${esc(n.id)}">${vexp[n.id] ? "Show fewer" : `Show all ${n.count} devices`}</span>${vexp[n.id] ? "" : `<span class="muted">${n.count - 6} more</span>`}</div>` : ""}</div>`;
+}
+function netsHtml(g) {      // a group's VLAN rows: filtered, capped at NETCAP with "Show all", the open or selected one always visible
+  const list = g.networks.filter(netMatches);
+  if (!list.length) return fq() && g.networks.length ? '<div class="muted">No VLAN or device of this group matches.</div>' : '<div class="muted">No VLAN is routed through this VPN client right now. That is set in UniFi\'s routing policies.</div>';
+  const capped = !fq() && list.length > NETCAP && !netsAll.has(g.name);
+  const shown = capped ? list.filter((n, i) => i < NETCAP || isOpenNet(n)) : list;
+  const more = !fq() && list.length > NETCAP ? `<div class="vmore" data-vmore="${esc(g.name)}" role="button" tabindex="0">${capped ? `+ ${list.length - shown.length} more VLANs · Show all` : "Show fewer VLANs"}</div>` : "";
+  return shown.map((n) => vlanCard(n, false)).join("") + more;
 }
 function updateVlist(id) {
   const n = [...mapData().groups.flatMap((g) => g.networks), ...mapData().direct].find((x) => x.id === id), card = document.querySelector(`.vc[data-net="${CSS.escape(id)}"]`);
   if (!n || !card) return;
   const dl = devList(n), list = card.querySelector(".vlist");
+  if (!list) return;
   list.innerHTML = dl.html; list.classList.toggle("exp", dl.expanded);
   const vf = card.querySelector(".vf"); if (vf) { vf.textContent = vexp[id] ? "Show fewer" : `Show all ${n.count} devices`; vf.parentElement.classList.toggle("hide", !!(vsearch[id] || "").trim()); const more = vf.parentElement.querySelector(".muted"); if (more) more.classList.toggle("hide", !!vexp[id]); }
   drawLinks();
@@ -398,7 +424,7 @@ const legendHtml = (can) => `<div class="legend"><b>LEGEND</b><div><i style="bac
   <p class="hint">Click a device to light up its path through the map. Click a VPN client for its details panel.</p>`;
 function directBox(m) {
   const total = m.direct.reduce((a, n) => a + n.count, 0), plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
-  if (directOpen) return m.direct.map((n) => vlanCard(n, true)).join("") + '<div class="vf" id="directToggle">Show fewer</div>';
+  if (directOpen || fq()) return m.direct.filter(netMatches).map((n) => vlanCard(n, true)).join("") + '<div class="vf" id="directToggle">Show fewer</div>';
   return `<div class="vc direct dsum"><div class="vh"><span class="dot idle"></span><b style="font-size:14px">No VPN policy · ${plural(total, "device")}</b></div>
     ${m.direct.slice(0, 3).map((n) => `<div class="dev"><i class="idle"></i><span>${esc(n.name)}</span><span>${plural(n.count, "device")}</span><span></span></div>`).join("")}
     <div class="vf" id="directToggle">Show all ${plural(m.direct.length, "VLAN")} and devices</div></div>`;
@@ -455,7 +481,7 @@ function groupBlock(g, can, first, last, m) {
   return `<section class="gblock" data-g="${esc(g.name)}"><div class="gstrip ${r ? "two" : ""}"><div class="gr"><b class="gname">${esc(g.name)}</b><span class="pill ${st[0]}">${st[1]}</span>
       <span class="muted grow">${note}${conflict}</span>
       ${g.unmanaged ? "" : !g.has_order ? `<button class="act primary" data-goorder="${esc(g.name)}">Set the fallback order</button>` : `<button class="act" data-gact="${g.paused ? "resume" : "pause"}" data-g="${esc(g.name)}" ${can ? "" : "disabled"}>${g.paused ? "Start automatic failover" : "Stop automatic failover"}</button>`}</div>${rotRow}</div>
-    <div class="gcols"><div class="colv"><div class="colh">VLANs and their devices</div>${g.networks.map((n) => vlanCard(n, false)).join("") || '<div class="muted">No VLAN is routed through this VPN client right now. That is set in UniFi\'s routing policies.</div>'}${last ? ownCard(m) : ""}${withDirect ? directBox(m) : ""}</div>${laneHtml(g, can, behind)}
+    <div class="gcols"><div class="colv"><div class="colh">VLANs and their devices${g.networks.length > 1 ? " · " + g.networks.length : ""}</div>${netsHtml(g)}${last ? ownCard(m) : ""}${withDirect ? directBox(m) : ""}</div>${laneHtml(g, can, behind)}
     <div class="colr"><div class="colh">Internet via the VPN</div>${inet}${showNormal ? normalNode(m) : ""}</div>${showNormal ? '<div class="dlabel">straight to the internet, no VPN</div>' : ""}</div></section>`;
 }
 let directOpen = false;
@@ -470,6 +496,7 @@ function renderMap(d) {
   if (!html) html = d.loading || !d.last_tick ? '<div class="loading"><span class="spin big"></span><div>Loading from UniFi...</div></div>'
     : '<div class="card muted">UniFi reported no networks to show.</div>';
   $("#map").innerHTML = '<svg id="links"></svg>' + html;
+  $("#vfilterBox").classList.toggle("hide", m.groups.reduce((a, g) => a + g.networks.length, 0) + m.direct.length <= NETCAP);
   renderDrawer(); requestAnimationFrame(drawLinks);
 }
 
@@ -614,10 +641,14 @@ mapEl.addEventListener("click", (e) => {
   const bk = e.target.closest("[data-gblk]"); if (bk) { blockerAction(bk.dataset.g, bk.dataset.gblk, bk.dataset.r); return; }
   const gb = e.target.closest("[data-gact]"); if (gb) { act(`groups/${encodeURIComponent(gb.dataset.g)}/${gb.dataset.gact}`); return; }
   if (e.target.closest("#directToggle")) { directOpen = !directOpen; renderMap(status); return; }
+  const vt = e.target.closest("[data-vtoggle]"); if (vt) { vopenId = vopenId === vt.dataset.vtoggle ? null : vt.dataset.vtoggle; if (vopenId === null) selected = selected && selected.kind === "dev" ? null : selected; renderMap(status); return; }
+  const vm = e.target.closest("[data-vmore]"); if (vm) { const k = vm.dataset.vmore; if (netsAll.has(k)) netsAll.delete(k); else netsAll.add(k); renderMap(status); return; }
   const vf = e.target.closest(".vf"); if (vf) { vexp[vf.dataset.net] = !vexp[vf.dataset.net]; updateVlist(vf.dataset.net); return; }
   const dv = e.target.closest(".dev"); if (dv) { selected = { kind: "dev", mac: dv.dataset.mac }; renderMap(status); return; }
   const t = e.target.closest("[data-tun]"); if (t) { selected = { kind: "tun", g: t.dataset.g, name: t.dataset.tun }; renderMap(status); }
 });
+mapEl.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches("[data-vtoggle],[data-vmore]")) { e.preventDefault(); e.target.click(); } });
+$("#vfilter").addEventListener("input", (e) => { vfilter = e.target.value; renderMap(status); });
 mapEl.addEventListener("input", (e) => { const vs = e.target.closest(".vs"); if (vs) { vsearch[vs.dataset.net] = vs.value; updateVlist(vs.dataset.net); } });
 mapEl.addEventListener("toggle", (e) => { const d = e.target; if (d.matches && d.matches("details.pool")) { if (d.open) poolOpen.add(d.dataset.g); else poolOpen.delete(d.dataset.g); drawLinks(); } }, true);
 
