@@ -2,6 +2,7 @@ import httpx
 import pytest
 
 from vpn_watchdog.app import App
+from vpn_watchdog.config import parse_config
 from vpn_watchdog.ha_api import HaApi, label
 
 SERVICES = [
@@ -61,3 +62,28 @@ def test_standalone_without_ha_reports_unavailable(tmp_path, monkeypatch):
     cfgp.write_text("unifi: {api_key: k}\nstate_file: " + str(tmp_path / "s.json") + "\ngroups:\n  - {name: g, networks: [n], order: [T1]}\n")
     out = App(str(cfgp), env={}).ha_notify_services()
     assert out["available"] is False and out["services"] == []
+
+
+def test_set_group_order_writes_the_sequence_and_keeps_expect_country(tmp_path):
+    f = tmp_path / "c.yaml"
+    f.write_text("unifi: {api_key: k}\nstate_file: " + str(tmp_path / "s.json") + "\ngroups:\n  - name: g\n    networks: [n]\n"
+                 "    order: [A, {tunnel: B, expect_country: DE}, C]\n")
+    a = App(str(f), env={})
+    assert a.set_group_order("g", ["C", "B", "A", "D"]) is None
+    g = parse_config(f.read_text(), {}).groups[0]
+    assert [(i.tunnel, i.expect_country) for i in g.order] == [("C", None), ("B", "DE"), ("A", None), ("D", None)]
+    assert (tmp_path / "c.yaml.bak").exists()
+    assert a.set_group_order("g", ["A", "A"]) == "a tunnel is listed twice"
+    assert "unknown group" in a.set_group_order("nope", ["A"])
+    assert a.set_group_order("g", "A") == "order must be a list of tunnel names"
+    assert [i.tunnel for i in parse_config(f.read_text(), {}).groups[0].order] == ["C", "B", "A", "D"]       # refusals changed nothing
+
+
+def test_set_group_order_refuses_tunnels_unifi_does_not_have(tmp_path):
+    from vpn_watchdog.models import Snapshot, Tunnel
+    f = tmp_path / "c.yaml"
+    f.write_text("unifi: {api_key: k}\nstate_file: " + str(tmp_path / "s.json") + "\ngroups:\n  - {name: g, networks: [n], order: [A]}\n")
+    a = App(str(f), env={})
+    a.engine._snap = Snapshot({"i": Tunnel("i", "A", True)}, {}, [], {})
+    assert "unknown tunnel(s): Z" in a.set_group_order("g", ["A", "Z"])
+    assert a.set_group_order("g", ["A"]) is None

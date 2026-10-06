@@ -33,6 +33,9 @@ def make(fail=None):
             return httpx.Response(200, json={"connections": [{"network_id": "t1", "status": "CONNECTED", "remote_ip": "1.2.3.4", "rx_rate_bps": 10, "tx_rate_bps": 20}]})
         if p.endswith("/trafficroutes"):
             return httpx.Response(200, json=ROUTES)
+        if p.endswith("/stat/sta"):
+            return httpx.Response(200, json={"data": [{"mac": "AA:BB", "name": "TV", "ip": "10.0.50.5", "network": "vlan50", "tx_bytes-r": 1000, "rx_bytes-r": 24000, "is_wired": True},
+                                                      {"mac": "CC:DD", "hostname": "phone", "ip": "10.0.50.6", "network": "vlan50"}]})
         if p.endswith("/stat/health"):
             return httpx.Response(200, json={"data": [{"subsystem": "wan", "wan_ip": "92.0.0.1"}]})
         return httpx.Response(200, json={})
@@ -87,3 +90,10 @@ def test_http_errors_raise_without_leaking_the_key():
     c2, _ = make(fail=503)
     with pytest.raises(UniFiError):
         c2.snapshot()
+
+
+def test_snapshot_reads_devices_with_a_bit_rate():
+    c, _ = make()
+    cl = c.snapshot().clients
+    assert cl["aa:bb"] == {"name": "TV", "ip": "10.0.50.5", "network": "vlan50", "rate_bps": 200_000, "wired": True}    # (1000+24000) bytes/s * 8
+    assert cl["cc:dd"]["name"] == "phone" and cl["cc:dd"]["rate_bps"] is None

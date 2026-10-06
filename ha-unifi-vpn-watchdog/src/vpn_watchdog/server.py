@@ -114,6 +114,9 @@ class StatusServer:
                     eng.submit(parts[2], parts[1])
                 elif len(parts) == 3 and parts[0] == "groups" and parts[2] in ("switch", "test") and body.get("tunnel"):
                     eng.submit(parts[2], parts[1], body["tunnel"])
+                elif len(parts) == 3 and parts[0] == "groups" and parts[2] == "order" and isinstance(body.get("order"), list):
+                    err = outer.app.set_group_order(parts[1], body["order"])
+                    return self._send(400 if err else 200, {"error": err})
                 elif parts == ["check-now"]:
                     eng.wake.set()
                 elif parts == ["config", "validate"]:

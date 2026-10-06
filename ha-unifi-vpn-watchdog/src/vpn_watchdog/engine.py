@@ -53,6 +53,7 @@ class Engine:
         self._status: dict[str, Any] = {}
         self._overlap_warned: set[str] = set()
         self._noted: dict[str, str] = {}
+        self._busy = False
         self._blocked_notified: dict[str, float] = {}
         self.listeners: list = []   # callables(status_dict) invoked after each tick (MQTT publisher)
 
@@ -66,12 +67,21 @@ class Engine:
 
     def status(self) -> dict[str, Any]:
         with self._lock:
-            return dict(self._status)
+            st = dict(self._status)
+        st["loading"] = self._busy or self.last_tick is None      # reading UniFi right now, or nothing read yet
+        return st
 
     def set_config(self, cfg: Config) -> None:
         self.cfg = cfg
 
     def tick(self) -> None:
+        self._busy = True
+        try:
+            self._tick()
+        finally:
+            self._busy = False
+
+    def _tick(self) -> None:
         try:
             snap = self.unifi.snapshot()
         except UniFiError as e:
@@ -491,57 +501,79 @@ class Engine:
             self._commit(g, st, gs, target, "manual switch", "switch")
 
     # ------------------------------------------------------------------ status export
-    def _network_map(self, snap: Snapshot, groups: dict[str, Any]) -> list[dict[str, Any]]:
-        """One entry per VLAN: its devices, the VPN clients whose routing policy carries it (the one that is on is the active
-        path), the group that manages it, and devices that bypass the VPN."""
+    def _map(self, snap: Snapshot, groups: dict[str, Any]) -> dict[str, Any]:
+        """What the Status page draws: per group its VLANs (with their devices), the fallback lane (the user's order, with
+        live status), the tunnels not in the order, and the VPN exit; plus the VLANs that have no VPN policy."""
         vpn_ids = set(snap.tunnels)
-        by_net: dict[str, GroupCfg] = {}
+        now = self.clock.now()
+        byp: dict[str, dict[str, Any]] = {}
+        for r in snap.routes:
+            for mac in r.target_macs:
+                byp[mac] = {"goes_to": snap.networks.get(r.network_id or "", "the normal internet connection"),
+                            "policy": r.description, "on": r.enabled}
+        devs: dict[str, list[dict[str, Any]]] = {}
+        for mac, c in snap.clients.items():
+            b = byp.get(mac)
+            devs.setdefault(c.get("network") or "", []).append({
+                "mac": mac, "name": c.get("name") or "", "ip": c.get("ip"), "rate_bps": c.get("rate_bps"),
+                "active": (c.get("rate_bps") or 0) > 800, "wired": c.get("wired", False),
+                "bypass": ({"goes_to": b["goes_to"], "policy": b["policy"]} if b and b["on"] else None),
+            })
+
+        def card(nid: str) -> dict[str, Any]:
+            name = snap.networks.get(nid, nid)
+            info = snap.network_info.get(nid, {})
+            lst = sorted(devs.get(name, []), key=lambda d: (d["bypass"] is None, -(d["rate_bps"] or 0), (d["name"] or d["ip"] or d["mac"]).lower()))
+            return {"id": nid, "name": name, "vlan": info.get("vlan"), "subnet": info.get("subnet"), "count": len(lst),
+                    "bypass_count": sum(1 for d in lst if d["bypass"]), "devices": lst}
+
+        def tinfo(g: GroupCfg, t: Tunnel, active_id: str | None, policies: dict[str, Route]) -> dict[str, Any]:
+            c = snap.connections.get(t.id)
+            ts = self.store.tunnels.get(t.id)
+            pol = policies.get(t.id)
+            item = next((i for i in g.order if i.tunnel == t.name), None)
+            return {"name": t.name, "position": position_of(g, t), "active": t.id == active_id, "enabled": t.enabled,
+                    "status": c.status if c else None, "rx_bps": c.rx_bps if c else None, "tx_bps": c.tx_bps if c else None,
+                    "server": c.remote_ip if c else None, "has_policy": pol is not None, "policy_on": bool(pol and pol.enabled),
+                    "policy": pol.description if pol else None, "kill_switch": bool(pol and pol.kill_switch),
+                    "quarantined_for": max(0, int((ts.quarantined_until if ts else 0) - now)),
+                    "last_reason": ts.last_reason if ts else "", "expect_country": item.expect_country if item else None}
+
+        used: set[str] = set()
+        out_groups: list[dict[str, Any]] = []
         for g in self.cfg.groups:
+            nets: list[str] = []
             for n in g.networks:
                 try:
-                    by_net.setdefault(self._net_id(snap, n), g)
+                    nets.append(self._net_id(snap, n))
                 except UniFiError:
                     pass
-        counts: dict[str, int] = {}
-        for c in snap.clients.values():
-            counts[c.get("network") or ""] = counts.get(c.get("network") or "", 0) + 1
-        out: list[dict[str, Any]] = []
-        for nid, name in snap.networks.items():
-            if nid in vpn_ids or name.startswith("Internet") or name == "One-Click VPN":
-                continue
-            info = snap.network_info.get(nid, {})
-            g = by_net.get(nid)
-            pols = [r for r in snap.routes if nid in r.target_networks and r.network_id in snap.tunnels and not r.target_macs]
-            first_on = next((r for r in pols if r.enabled), None)        # UniFi applies the first policy that is on
-            tunnels = []
-            for r in pols:
-                t = snap.tunnels[r.network_id]
-                c = snap.connections.get(t.id)
-                ts = self.store.tunnels.get(t.id)
-                tunnels.append({
-                    "name": t.name, "enabled": t.enabled, "status": c.status if c else None,
-                    "rx_bps": c.rx_bps if c else None, "tx_bps": c.tx_bps if c else None,
-                    "policy": r.description, "policy_on": r.enabled, "kill_switch": r.kill_switch, "active": r is first_on,
-                    "position": position_of(g, t) if g else None,
-                    "quarantined_for": max(0, int((ts.quarantined_until if ts else 0) - self.clock.now())),
-                    "last_reason": ts.last_reason if ts else "",
-                })
-            tunnels.sort(key=lambda x: (not x["active"], x["position"] or 10**6, x["name"].lower()))
-            bypass = []
-            for r in snap.routes:
-                for mac in sorted(r.target_macs):
-                    cl = snap.clients.get(mac)
-                    if cl and cl.get("network") == name:
-                        bypass.append({"mac": mac, "name": cl.get("name") or "", "ip": cl.get("ip"),
-                                       "goes_to": snap.networks.get(r.network_id or "", "the normal internet connection"),
-                                       "policy": r.description, "on": r.enabled})
-            gstat = groups.get(g.name, {}) if g else {}
-            out.append({"id": nid, "name": name, "vlan": info.get("vlan"), "subnet": info.get("subnet"),
-                        "clients": counts.get(name, 0), "group": g.name if g else None,
-                        "paused": bool(gstat.get("paused")), "last_probe": gstat.get("last_probe") if first_on else None,
-                        "tunnels": tunnels, "bypass": bypass})
-        out.sort(key=lambda n: (n["vlan"] is None, n["vlan"] if n["vlan"] is not None else 0, n["name"].lower()))
-        return out
+            used.update(nets)
+            routes = self._group_routes(g, snap)
+            policies = {r.network_id: r for r in routes if r.network_id}
+            active_route = next((r for r in routes if r.enabled), None)
+            active_id = active_route.network_id if active_route else None
+            order = resolve_order(g, list(snap.tunnels.values()))
+            in_order = {t.id for t in order}
+            pool = sorted((t for t in snap.tunnels.values() if t.id not in in_order), key=lambda t: t.name.lower())
+            gstat = groups.get(g.name, {})
+            act = snap.tunnels.get(active_id or "")
+            ac = snap.connections.get(active_id or "")
+            probe = gstat.get("last_probe") or {}
+            out_groups.append({
+                "name": g.name, "paused": gstat.get("paused", False), "healthy": gstat.get("healthy"), "decision": gstat.get("decision", ""),
+                "exhausted": gstat.get("exhausted", False), "jobs": gstat.get("jobs", {}), "has_order": bool(g.order),
+                "active": act.name if act else None, "networks": [card(n) for n in nets],
+                "lane": ([tinfo(g, act, active_id, policies)] if act and act.id not in in_order else []) + [tinfo(g, t, active_id, policies) for t in order],
+                "pool": [{"name": t.name, "status": (snap.connections.get(t.id).status if snap.connections.get(t.id) else None),
+                          "enabled": t.enabled} for t in pool],
+                "exit": {"ip": probe.get("ip") if probe.get("ok") else None, "country": probe.get("country") if probe.get("ok") else None,
+                         "server": ac.remote_ip if ac else None},
+            })
+        direct = [card(nid) for nid, name in snap.networks.items()
+                  if nid not in vpn_ids and nid not in used and not name.startswith("Internet") and name != "One-Click VPN"]
+        direct.sort(key=lambda n: (n["vlan"] is None, n["vlan"] if n["vlan"] is not None else 0, n["name"].lower()))
+        return {"groups": out_groups, "direct": direct, "wan_ip": snap.wan_ip}
 
     def _record(self, event: str, message: str, level: str = "info") -> None:
         rec = getattr(self.notifier, "record", None)
@@ -605,7 +637,7 @@ class Engine:
         status = {
             "last_tick": self.last_tick, "error": self.last_error,
             "groups": groups, "tunnels": tunnels, "direct_routes": direct,
-            "networks": self._network_map(snap, groups) if snap is not None else [],
+            "map": self._map(snap, groups) if snap is not None else {"groups": [], "direct": [], "wan_ip": None},
             "events": list(getattr(self.notifier, "history", []))[:60],
             "interval_seconds": self.cfg.interval_seconds,
         }

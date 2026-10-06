@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.0
+- **New Status page: the network map.** Each VPN group is a row: its VLANs on the left, every device with its IP and live rate (search box, "show all N"),
+  an animated path through the active VPN client to the internet, and the fallback order in the middle as numbered cards. Devices that bypass the VPN
+  are marked and drawn with their own path when selected. VLANs with no VPN policy sit in a "No VPN policy" row with a dashed path to the normal connection.
+- **Drag to reorder the fallback order.** Drag a client up or down in the lane, drag a tunnel from the "not in the order" list up into the lane to add it,
+  or drop a client on that list to remove it. Alt + Arrow Up/Down moves the focused client from the keyboard; the details panel has Move up/down buttons
+  (works on touch screens too). The order is saved with a validated write (`POST /api/groups/{name}/order`).
+- Click a client or a device for a details panel (status, traffic, VPN server, policy, position, last failure; actions to switch, test, move, add, remove).
+- Loading spinners: while UniFi is being read for the first time, in the header while a refresh is in progress, in Settings while they load, and while an order is saved.
+- Status API: `map` replaces the per-VLAN list; `loading` says whether UniFi is being read.
+
 ## 0.7.1
 - The UI now uses the full window width: the network map adds columns as the window grows, the Settings cards and the alert editor flow
   into columns, and nothing is capped at a fixed width (it still collapses to one column on narrow screens).

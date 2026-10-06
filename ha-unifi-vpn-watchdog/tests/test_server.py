@@ -37,6 +37,7 @@ class StubApp:
         return err
     def ha_notify_services(self): return {"available": True, "current": "notify.a", "services": [{"service": "notify.a", "label": "A"}], "error": None}
     def set_notify_service(self, s): self.chosen = s; return None
+    def set_group_order(self, g, names): self.order_call = (g, names); return "a tunnel is listed twice" if len(set(names)) != len(names) else None
     def test_notify(self, s=None): return None
 
 
@@ -146,3 +147,13 @@ def test_settings_endpoints_need_token_and_round_trip(srv):
     assert app.saved_form == {"interval_seconds": 30}
     code, body = call(base + "/api/settings", "POST", {"values": {"interval_seconds": 1}}, token="tok")
     assert code == 400 and "greater than or equal" in json.loads(body)["error"]
+
+
+def test_reorder_endpoint_needs_the_token_forwards_the_list_and_reports_errors(srv):
+    app, base = srv
+    url = base + "/api/groups/g1/order"
+    assert call(url, "POST", {"order": ["A", "B"]})[0] == 401
+    assert call(url, "POST", {"order": ["B", "A"]}, token="tok")[0] == 200 and app.order_call == ("g1", ["B", "A"])
+    code, body = call(url, "POST", {"order": ["A", "A"]}, token="tok")
+    assert code == 400 and "twice" in json.loads(body)["error"]
+    assert call(url, "POST", {"nope": 1}, token="tok")[0] == 404

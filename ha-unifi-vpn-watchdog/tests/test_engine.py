@@ -278,3 +278,28 @@ def test_the_standby_section_is_gone_and_rejected_with_a_reason():
     from vpn_watchdog.config import ConfigError, parse_config
     with pytest.raises(ConfigError, match="standby. was removed.*different exit IPs"):
         parse_config("unifi: {api_key: k}\nstandby: {warm: 2}\ngroups: []\n", env={})
+
+
+def test_status_says_loading_until_unifi_has_been_read_once(make_engine):
+    eng, un, _, _, clock = make_engine()
+    assert eng.status()["loading"] is True            # nothing read yet: the UI shows its spinner
+    run(eng, clock, 1)
+    assert eng.status()["loading"] is False
+
+
+def test_loading_is_true_while_a_cycle_is_running_and_cleared_after_even_on_error(make_engine):
+    eng, un, _, _, clock = make_engine()
+    run(eng, clock, 1)
+    seen = {}
+    orig = un.snapshot
+
+    def spy():
+        seen["during"] = eng.status()["loading"]
+        raise RuntimeError("UniFi exploded")
+
+    un.snapshot = spy
+    try:
+        eng.tick()
+    except RuntimeError:
+        pass
+    assert seen["during"] is True and eng.status()["loading"] is False

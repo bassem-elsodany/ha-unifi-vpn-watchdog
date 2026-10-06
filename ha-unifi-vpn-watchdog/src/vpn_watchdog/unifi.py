@@ -114,8 +114,16 @@ class UniFiClient:
         except UniFiError as e:
             log.debug("could not read clients: %s", e)
             return {}
-        return {c["mac"].lower(): {"name": c.get("name") or c.get("hostname") or "", "ip": c.get("ip"), "network": c.get("network")}
-                for c in raw if c.get("mac")}
+        out = {}
+        for c in raw:
+            if not c.get("mac"):
+                continue
+            rate = None
+            if c.get("tx_bytes-r") is not None or c.get("rx_bytes-r") is not None:
+                rate = int(((c.get("tx_bytes-r") or 0) + (c.get("rx_bytes-r") or 0)) * 8)      # bytes/s -> bit/s
+            out[c["mac"].lower()] = {"name": c.get("name") or c.get("hostname") or "", "ip": c.get("ip"),
+                                     "network": c.get("network"), "rate_bps": rate, "wired": bool(c.get("is_wired"))}
+        return out
 
     def _wan_ip(self) -> str | None:
         try:

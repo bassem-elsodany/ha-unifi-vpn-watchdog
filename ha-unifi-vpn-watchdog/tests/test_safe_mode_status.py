@@ -52,26 +52,44 @@ def test_safe_mode_serves_the_ui_and_starts_normally_once_the_file_is_fixed(tmp_
     assert result.get("ok") is True
 
 
-def test_status_has_a_per_vlan_map_with_the_active_path_and_bypassing_devices(make_engine):
+def test_status_map_has_devices_the_fallback_lane_the_pool_and_direct_vlans(make_engine):
     from vpn_watchdog.models import Route
     eng, un, _, _, clock = make_engine()
     orig = un.snapshot
 
-    def snap_with_clients():
+    def snap_with_devices():
         s = orig()
-        s.network_info = {"net-iot": {"name": "vlan20-iot", "vlan": 20, "subnet": "10.0.20.1/24"}, "net-vpn": {"name": "vlan50-vpn", "vlan": 50, "subnet": "10.0.50.1/24"}}
-        s.clients = {"aa:aa": {"name": "TV", "ip": "10.0.50.5", "network": "vlan50-vpn"}, "bb:bb": {"name": "Meter", "ip": "10.0.20.9", "network": "vlan20-iot"},
-                     "cc:cc": {"name": "Phone", "ip": "10.0.20.10", "network": "vlan20-iot"}}
+        s.networks = {**s.networks, "net-cam": "vlan30-cameras"}
+        s.network_info = {"net-iot": {"name": "vlan20-iot", "vlan": 20, "subnet": "10.0.20.1/24"}, "net-vpn": {"name": "vlan50-vpn", "vlan": 50, "subnet": "10.0.50.1/24"},
+                          "net-cam": {"name": "vlan30-cameras", "vlan": 30, "subnet": "10.0.30.1/24"}}
+        s.clients = {"aa:aa": {"name": "TV", "ip": "10.0.50.5", "network": "vlan50-vpn", "rate_bps": 1_400_000, "wired": True},
+                     "bb:bb": {"name": "Meter", "ip": "10.0.20.9", "network": "vlan20-iot", "rate_bps": 9_000, "wired": False},
+                     "cc:cc": {"name": "Phone", "ip": "10.0.20.10", "network": "vlan20-iot", "rate_bps": 50_000, "wired": False},
+                     "dd:dd": {"name": "Idle plug", "ip": "10.0.20.11", "network": "vlan20-iot", "rate_bps": 0, "wired": False},
+                     "ee:ee": {"name": "Cam", "ip": "10.0.30.2", "network": "vlan30-cameras", "rate_bps": 3_000, "wired": True}}
         return s
 
-    un.snapshot = snap_with_clients
+    un.snapshot = snap_with_devices
     un.routes.append(Route("r-direct", "Meter direct", "net-wan", True, False, frozenset(), frozenset({"bb:bb"}), {}))
     run(eng, clock, 1)
-    nets = {n["name"]: n for n in eng.status()["networks"]}
-    assert list(nets) == ["vlan20-iot", "vlan50-vpn"]                                   # ordered by VLAN id
-    iot = nets["vlan20-iot"]
-    assert (iot["vlan"], iot["subnet"], iot["clients"], iot["group"]) == (20, "10.0.20.1/24", 2, "g1")
-    assert [t["name"] for t in iot["tunnels"]][0] == "Home-Primary" and iot["tunnels"][0]["active"] and iot["tunnels"][0]["position"] == 1
-    assert len(iot["tunnels"]) == 6 and sum(t["active"] for t in iot["tunnels"]) == 1     # every client that carries the VLAN, one active
-    assert iot["bypass"] == [{"mac": "bb:bb", "name": "Meter", "ip": "10.0.20.9", "goes_to": "the normal internet connection", "policy": "Meter direct", "on": True}]
-    assert nets["vlan50-vpn"]["bypass"] == []
+    m = eng.status()["map"]
+    g = m["groups"][0]
+    assert g["name"] == "g1" and g["active"] == "Home-Primary" and g["has_order"]
+    iot = next(n for n in g["networks"] if n["name"] == "vlan20-iot")
+    assert (iot["vlan"], iot["subnet"], iot["count"], iot["bypass_count"]) == (20, "10.0.20.1/24", 3, 1)
+    assert [d["name"] for d in iot["devices"]] == ["Meter", "Phone", "Idle plug"]               # bypassing first, then busiest, then idle
+    assert iot["devices"][0]["bypass"] == {"goes_to": "the normal internet connection", "policy": "Meter direct"}
+    assert [d["active"] for d in iot["devices"]] == [True, True, False]
+    assert [t["name"] for t in g["lane"]] == ["Home-Primary", "Home-Backup", "Cousin vpn 2", "office/berlin", "office/frankfurt", "zzz-last-resort"]
+    assert [t["position"] for t in g["lane"]] == [1, 2, 3, 4, 5, 6] and [t["active"] for t in g["lane"]] == [True] + [False] * 5
+    assert g["lane"][3]["expect_country"] == "DE" and g["lane"][0]["policy_on"] and not g["lane"][1]["policy_on"]
+    assert g["pool"] == [] and g["exit"]["server"] == "9.9.9.9"
+    assert [n["name"] for n in m["direct"]] == ["vlan30-cameras"] and m["direct"][0]["count"] == 1 and m["wan_ip"] == "92.0.0.1"
+
+
+def test_tunnels_outside_the_order_are_in_the_pool(make_engine):
+    eng, un, _, _, clock = make_engine(order="[Home-Primary, Home-Backup]")
+    run(eng, clock, 1)
+    g = eng.status()["map"]["groups"][0]
+    assert [t["name"] for t in g["lane"]] == ["Home-Primary", "Home-Backup"]
+    assert sorted(p["name"] for p in g["pool"]) == ["Cousin vpn 2", "office/berlin", "office/frankfurt", "zzz-last-resort"]

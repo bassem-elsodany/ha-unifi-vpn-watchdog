@@ -96,6 +96,30 @@ class App:
         header = "# Written by the VPN Watchdog settings form (comments are not kept; secrets stay as ${VAR} references).\n"
         return self.save_text(header + yaml.safe_dump(new, sort_keys=False, allow_unicode=True))
 
+    def set_group_order(self, group: str, names: list[str]) -> str | None:
+        """Replace one group's fallback order (what dragging in the map does). Entries keep their expect_country."""
+        if not isinstance(names, list) or not all(isinstance(n, str) and n for n in names):
+            return "order must be a list of tunnel names"
+        if len(set(names)) != len(names):
+            return "a tunnel is listed twice"
+        snap = self.engine.last_snapshot()
+        if snap is not None:
+            known = {t.name for t in snap.tunnels.values()}
+            unknown = [n for n in names if n not in known]
+            if unknown:
+                return f"unknown tunnel(s): {', '.join(unknown)}"
+        try:
+            raw = load_raw(self.config_text())
+        except ConfigError as e:
+            return str(e)
+        g = next((x for x in raw.get("groups", []) if isinstance(x, dict) and x.get("name") == group), None)
+        if g is None:
+            return f"unknown group {group!r}"
+        old = {(i if isinstance(i, str) else i.get("tunnel")): i for i in g.get("order", [])}
+        g["order"] = [old.get(n, n) if isinstance(old.get(n), dict) else n for n in names]
+        header = "# Written by the VPN Watchdog UI (comments are not kept; secrets stay as ${VAR} references).\n"
+        return self.save_text(header + yaml.safe_dump(raw, sort_keys=False, allow_unicode=True))
+
     def current_notify_service(self) -> str | None:
         return next((n.service for n in self.cfg.notifications if n.type == "home_assistant"), None)
 
