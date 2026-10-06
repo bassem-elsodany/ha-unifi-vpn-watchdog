@@ -417,20 +417,38 @@ function ownCard(m) {
       <div class="o3"><span class="tagw">overridden</span> policy #${d.position} is below <b>#${d.applied.position} ${esc(d.applied.policy)}</b>, which applies, so it goes through ${d.applied.kind === "vpn" ? esc(d.applied.tunnel) : "the normal connection"}</div></div>`).join("") : ""}</div>`;
 }
 const normalNode = (m) => `<div class="inet normal" data-role="inet"><span class="dot idle"></span><div><b>Internet</b> · normal connection<div>exit <span class="mono">${esc(m.wan_ip || "your WAN address")}</span></div></div></div>`;
+function blockerLines(g, can, tag) {      // your own policies that stop this group's VLANs from using the watchdog's policy, each with a button that asks first
+  const r = g.routing || {}, dis = can ? "" : "disabled";
+  return (r.blockers || []).map((b) => `<${tag} class="blk" style="color:var(--warn)">⚠ Your routing policy <b>${esc(b.description)}</b> (#${b.position} in UniFi's list) sends ${esc(b.vlans.join(", "))} through ${esc(b.goes_to)} before the watchdog's own policy. <button class="act" data-gblk="blocker-off" data-g="${esc(g.name)}" data-r="${esc(b.id)}" ${dis}>Switch it off…</button></${tag}>`).join("")
+    + (r.switched_off || []).map((x) => `<${tag} class="blk muted">You let the watchdog switch off your policy <b>${esc(x.description)}</b>. <button class="act" data-gblk="blocker-on" data-g="${esc(g.name)}" data-r="${esc(x.id)}" ${dis}>Switch it back on…</button></${tag}>`).join("");
+}
+async function blockerAction(group, kind, rid) {       // nothing is sent to UniFi unless the user confirms here
+  const g = ((status && status.map && status.map.groups) || []).find((x) => x.name === group), r = (g && g.routing) || {};
+  if (kind === "blocker-off") {
+    const b = (r.blockers || []).find((x) => x.id === rid); if (!b) return;
+    const others = b.others.length ? `\n\nIt also covers ${b.others.join(", ")}. Those VLANs will stop using it too.` : "";
+    if (!confirm(`Switch off your routing policy "${b.description}"?\n\nIt is #${b.position} in UniFi's list and switched on. It sends ${b.vlans.join(", ")} through ${b.goes_to}, ahead of the watchdog's own policy for the group "${group}".${others}\n\nThe policy is not deleted. You can switch it back on here at any time.`)) return;
+  } else {
+    const x = (r.switched_off || []).find((y) => y.id === rid); if (!x) return;
+    if (!confirm(`Switch your routing policy "${x.description}" back on?\n\nIt will take the traffic it covers again, ahead of the watchdog's own policy.`)) return;
+  }
+  await act(`groups/${encodeURIComponent(group)}/routing/${kind}`, { route_id: rid, confirmed: true });
+  setTimeout(refresh, 2500);
+}
 function groupBlock(g, can, first, last, m) {
   const st = g.unmanaged ? (g.active ? ["ok", g.healthy ? "CONNECTED" : "CONNECTING"] : ["warn", "NO VPN CLIENT ON"]) : g.exhausted ? ["bad", "NO WORKING TUNNEL"] : g.paused ? ["info", "PAUSED"] : !g.has_order ? ["warn", "NEEDS A FALLBACK ORDER"] : g.healthy ? ["ok", "HEALTHY"] : ["warn", "DEGRADED"];
   const ex = g.exit || {}, act = g.lane.find((t) => t.active);
   const behind = g.networks.reduce((a, n) => a + n.count - n.bypass_count, 0);
   const probe = ex.ip && ex.age != null ? ` · exit-IP test passed ${ex.age}s ago` : "";
   const note = act ? `Active: <b class="mono" style="color:var(--ink);font-weight:500">${esc(act.name)}</b>${act.position ? " · #" + act.position : g.unmanaged ? "" : " · not in the order"}${probe}${g.decision && g.decision !== "healthy" ? " · " + esc(g.decision) : ""}` : esc(g.decision || "no VPN client is switched on");
-  const conflict = (g.conflict ? `<br><span style="color:var(--warn)">⚠ ${esc(g.conflict)}.</span>` : "") + (g.gaps || []).map((x) => `<br><span style="color:var(--warn)">⚠ ${esc(x)}.</span>`).join("");
+  const conflict = (g.conflict ? `<br><span style="color:var(--warn)">⚠ ${esc(g.conflict)}.</span>` : "") + (g.gaps || []).map((x) => `<br><span style="color:var(--warn)">⚠ ${esc(x)}.</span>`).join("") + blockerLines(g, can, "div");
   const exline = ex.ip ? `exit <span class="mono">${esc(ex.ip)}</span>${ex.age != null ? `<br>exit-IP test OK ${ex.age}s ago` : ""}` : ex.server ? `VPN server <span class="mono">${esc(ex.server)}</span>` : "";
   const inet = act ? `<div class="inet" data-role="inet"><span class="dot ok"></span><div><b>Internet</b><div>${exline}</div></div></div>`
     : `<div class="inet bad" data-role="inet"><span class="dot bad"></span><div><b>Internet</b><div>no VPN client is switched on</div></div></div>`;
   const withDirect = last && m.direct.length, showNormal = last && (m.direct.length || (m.own || []).some((d) => d.kind === "normal"));
   const r = g.rotation;
   const rotRow = !r ? "" : `<div class="gr"><span class="pill rot">ROTATION</span>
-      <span class="muted grow">${!r.enabled ? "Off. Turn it on in Settings > Jobs." : r.paused ? `${esc(r.summary)} · stopped` : `${esc(r.summary)} · next in <b>${r.next_in == null ? "..." : esc(fmtIn(r.next_in))}</b>${r.next_to ? ` → ${esc(r.next_to)}` : ""}`}${r.last_ts ? ` · last rotated ${esc(fmtWhen(r.last_ts))}` : ""}</span>
+      <span class="muted grow">${!r.enabled ? "Off. Turn it on in Settings > VPN groups." : r.paused ? `${esc(r.summary)} · stopped` : `${esc(r.summary)} · next in <b>${r.next_in == null ? "..." : esc(fmtIn(r.next_in))}</b>${r.next_to ? ` → ${esc(r.next_to)}` : ""}`}${r.last_ts ? ` · last rotated ${esc(fmtWhen(r.last_ts))}` : ""}</span>
       ${r.enabled ? `<button class="act" data-gact="rotate" data-g="${esc(g.name)}" ${can ? "" : "disabled"}>Rotate now</button><button class="act" data-gact="${r.paused ? "rotation-resume" : "rotation-pause"}" data-g="${esc(g.name)}" ${can ? "" : "disabled"}>${r.paused ? "Start rotation" : "Stop rotation"}</button>` : ""}</div>`;
   return `<section class="gblock" data-g="${esc(g.name)}"><div class="gstrip ${r ? "two" : ""}"><div class="gr"><b class="gname">${esc(g.name)}</b><span class="pill ${st[0]}">${st[1]}</span>
       <span class="muted grow">${note}${conflict}</span>
@@ -591,6 +609,7 @@ const mapEl = $("#map");
 mapEl.addEventListener("click", (e) => {
   const lt = e.target.closest("[data-lane-toggle]"); if (lt) { const n = lt.dataset.laneToggle; if (laneOpen.has(n)) laneOpen.delete(n); else laneOpen.add(n); renderMap(status); return; }
   const go = e.target.closest("[data-goorder]"); if (go) { openGroupOrder(go.dataset.goorder); return; }
+  const bk = e.target.closest("[data-gblk]"); if (bk) { blockerAction(bk.dataset.g, bk.dataset.gblk, bk.dataset.r); return; }
   const gb = e.target.closest("[data-gact]"); if (gb) { act(`groups/${encodeURIComponent(gb.dataset.g)}/${gb.dataset.gact}`); return; }
   if (e.target.closest("#directToggle")) { directOpen = !directOpen; renderMap(status); return; }
   const vf = e.target.closest(".vf"); if (vf) { vexp[vf.dataset.net] = !vexp[vf.dataset.net]; updateVlist(vf.dataset.net); return; }
@@ -737,7 +756,7 @@ function secGroups() {
     : `<div class="gstate gok"><b>Ready.</b> Failover is on: if #1 stops working, the watchdog switches on #2 and switches #1 off.</div>`;
   const live2 = ((status && status.map && status.map.groups) || []).find((x) => x.name === g.name), carrying = live2 ? live2.networks.map((n) => n.name).join(", ") : "";
   const carry = live2 && !live2.declared ? `<div class="note" style="margin:0 0 4px">${carrying ? "Carrying now, read from UniFi: " + esc(carrying) : "No VLAN is routed through this group's VPN client right now (that is set in UniFi's routing policies)."}</div>` : "";
-  const gapsHtml = live2 ? (live2.gaps || []).map((x) => `<div class="gstate gwarn"><b>Warning.</b> ${esc(x)}.</div>`).join("") : "";
+  const gapsHtml = live2 ? (live2.gaps || []).map((x) => `<div class="gstate gwarn"><b>Warning.</b> ${esc(x)}.</div>`).join("") + blockerLines(live2, !!(status && status.can_control), "div") : "";
   const picked = (x, n) => (x.networks || []).some((y) => y.id === n.id || (!y.id && y.name === n.name));
   const takenBy = (n) => { const o = V.groups.find((x, k) => k !== selG && picked(x, n)); return o ? o.name : null; };
   const netCtl = (M.networks || []).length ? `<div style="display:flex;flex-direction:column;gap:8px">${(M.networks || []).map((n) => { const o = takenBy(n); return `<label style="display:flex;align-items:center;gap:10px;font-size:14px"><input type="checkbox" data-netpick="${esc(n.id)}" ${picked(g, n) ? "checked" : ""} ${o ? "disabled" : ""}><span>${esc(n.name)}${n.vlan != null ? " · VLAN " + n.vlan : ""}</span>${o ? `<span class="muted">already in group ${esc(o)}</span>` : ""}</label>`; }).join("")}</div>` : '<div class="muted">No VLAN read from UniFi yet.</div>';
@@ -864,6 +883,7 @@ setEl.addEventListener("click", async (e) => {
   const ed = e.target.closest("[data-edit]"); if (ed) { const n = ed.dataset.edit; if (openAlert.has(n)) openAlert.delete(n); else openAlert.add(n); renderSection(); return; }
   const ph = e.target.closest("[data-ph]"); if (ph && lastField) { const f = lastField, s0 = f.selectionStart ?? f.value.length, e0 = f.selectionEnd ?? s0, tok = "{" + ph.dataset.ph + "}"; f.value = f.value.slice(0, s0) + tok + f.value.slice(e0); f.setSelectionRange(s0 + tok.length, s0 + tok.length); f.focus(); handleField(f); return; }
   if (e.target.id === "notifyTest") { const r = await api("notify/test", "POST", { service: $("#notifySel").value }); notifyMsg = r.ok ? "Sent: check your phone" : (r.data.error || "failed"); const m = $("#notifyMsg"); if (m) m.textContent = notifyMsg; return; }
+  const bk = e.target.closest("[data-gblk]"); if (bk) { blockerAction(bk.dataset.g, bk.dataset.gblk, bk.dataset.r); return; }
   const b = e.target.closest("button[data-act], a[data-act]"); if (!b) return;
   const k = b.dataset.act;
   if (k === "addgroup") { let n = 1; const names = new Set(V.groups.map((x) => x.name)); while (names.has("Group " + n)) n++; V.groups.push({ name: "Group " + n, _orig: null, order: [] }); selG = V.groups.length - 1; renderSection(); return; }

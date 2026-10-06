@@ -151,6 +151,41 @@ class Engine:
         vlans = [n.id for n in g.networks if n.id in lans]
         return routing.plan(g.name, vlans, t, snap)
 
+    def _blockers(self, g: GroupCfg, snap: Snapshot) -> list[dict[str, Any]]:
+        """Your own policies that stop the group's picked VLANs from using the watchdog's policy (groups with routing management on)."""
+        if not g.manage_routing:
+            return []
+        gs = self.store.group(g.name)
+        t = snap.tunnels.get(gs.current_id or "")
+        if t is None or not t.enabled:
+            return []
+        lans = {nid for nid, i in snap.network_info.items() if i.get("purpose") in ("corporate", "guest")}
+        return routing.blockers([n.id for n in g.networks if n.id in lans], t, snap)
+
+    def _blocker_command(self, kind: str, g: GroupCfg, gs: GroupState, route_id: str, snap: Snapshot) -> None:
+        """The user pressed Switch off / Switch back on and confirmed in the web UI. Checked again here: only a policy that really blocks
+        this group's VLAN can be switched off, and only a policy the watchdog switched off can be switched back on."""
+        try:
+            if kind == "blocker-off":
+                b = next((x for x in self._blockers(g, snap) if x["id"] == route_id), None)
+                if b is None:
+                    self._record("routing_refused", f"group {g.name}: that policy does not block this group's VLANs any more, so it was left alone", "warning")
+                    return
+                name = self.unifi.set_route_enabled(route_id, False)
+                gs.switched_off = [x for x in gs.switched_off if x["id"] != route_id] + [{"id": route_id, "description": name}]
+                self._record("routing_blocker_off", f"group {g.name}: you switched off your policy \"{name}\" (it sent {', '.join(b['vlans'])} through {b['goes_to']})")
+            else:
+                item = next((x for x in gs.switched_off if x["id"] == route_id), None)
+                if item is None:
+                    self._record("routing_refused", f"group {g.name}: the watchdog did not switch that policy off, so it was left alone", "warning")
+                    return
+                name = self.unifi.set_route_enabled(route_id, True)
+                gs.switched_off = [x for x in gs.switched_off if x["id"] != route_id]
+                self._record("routing_blocker_on", f"group {g.name}: you switched your policy \"{name}\" back on")
+            self.store.touch()
+        except UniFiError as e:
+            self._record("routing_failed", f"group {g.name}: could not change the policy: {e}", "warning")
+
     def _reconcile_routing(self, snap: Snapshot) -> bool:
         """Groups with routing management on: keep the watchdog's own policies pointed at the active client. True when it wrote."""
         wrote = False
@@ -599,6 +634,8 @@ class Engine:
             gs.rotation_paused = kind == "rotation-pause"
             self.store.touch()
             log.info("group %s: rotation %s", g.name, "paused" if gs.rotation_paused else "resumed")
+        elif kind in ("blocker-off", "blocker-on"):
+            self._blocker_command(kind, g, gs, cmd[2], snap)
         elif kind == "rotate":
             job, cur = self.cfg.job_for(g.name), snap.tunnels.get(gs.current_id or "")
             ladder = resolve_order(g, list(snap.tunnels.values()))
@@ -784,7 +821,8 @@ class Engine:
             gaps += [f"{t.name} has no routing policy for {snap.networks[n]}, so a failover to it would leave that VLAN on the normal internet"
                      for t in order for n in nets if not any(r.network_id == t.id and covers(r, n) for r in vpn_pols)]
             out_groups.append({
-                "routing": {"manage": g.manage_routing, "plan": [a.text for a in self._routing_plan(g, snap)]},
+                "routing": {"manage": g.manage_routing, "plan": [a.text for a in self._routing_plan(g, snap)], "blockers": self._blockers(g, snap),
+                            "switched_off": [x for x in gs.switched_off if any(r.id == x["id"] and not r.enabled for r in snap.routes)]},
                 "gaps": gaps, "declared": bool(declared[g.name]), "name": g.name, "paused": gstat.get("paused", False), "healthy": gstat.get("healthy"), "decision": gstat.get("decision", ""),
                 "exhausted": gstat.get("exhausted", False), "jobs": gstat.get("jobs", {}), "has_order": bool(order), "rotation": gstat.get("rotation"),
                 "conflict": "No routing policy in UniFi sends traffic through this VPN client right now, so nothing is using it" if act and not live_nets else None,

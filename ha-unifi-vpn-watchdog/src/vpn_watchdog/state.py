@@ -43,6 +43,7 @@ class GroupState:
     rotation_sig: str = ""
     rotation_paused: bool = False    # "Stop rotation" on the Status page: pauses only this job, failover keeps running
     rotation_last: str = ""          # what the last run did, in words
+    switched_off: list[dict[str, str]] = field(default_factory=list)   # your routing policies you let the watchdog switch off (id, name): so it can offer to switch them back on
 
 
 def _load_into(cls: type, data: dict[str, Any]):

@@ -114,6 +114,10 @@ class StatusServer:
                     return self._send(400, {"error": "invalid JSON"})
                 if len(parts) == 3 and parts[0] == "groups" and parts[2] in ("rotate", "rotation-pause", "rotation-resume"):
                     eng.submit(parts[2], parts[1])
+                elif len(parts) == 4 and parts[0] == "groups" and parts[2] == "routing" and parts[3] in ("blocker-off", "blocker-on") and body.get("route_id"):
+                    if body.get("confirmed") is not True:
+                        return self._send(400, {"error": "switching one of your routing policies needs the user's confirmation"})
+                    eng.submit(parts[3], parts[1], str(body["route_id"]))
                 elif len(parts) == 3 and parts[0] == "groups" and parts[2] in ("pause", "resume"):
                     eng.submit(parts[2], parts[1])
                 elif len(parts) == 3 and parts[0] == "groups" and parts[2] in ("switch", "test") and body.get("tunnel"):

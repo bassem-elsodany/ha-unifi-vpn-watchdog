@@ -152,3 +152,14 @@ def test_there_is_no_reorder_endpoint_any_more(srv):
     """The fallback order is built in Settings only (saved with the settings form); the Status page cannot change it."""
     app, base = srv
     assert call(base + "/api/groups/g1/order", "POST", {"order": ["B", "A"]}, token="tok")[0] == 404
+
+
+def test_switching_a_policy_off_needs_the_token_and_the_users_confirmation(srv):
+    app, base = srv
+    url = base + "/api/groups/g/routing/blocker-off"
+    assert call(url, "POST", {"route_id": "r1", "confirmed": True})[0] == 401                     # no token
+    assert call(url, "POST", {"route_id": "r1"}, token="tok")[0] == 400                             # not confirmed
+    assert call(url, "POST", {"route_id": "r1", "confirmed": "yes"}, token="tok")[0] == 400         # only a real true counts
+    assert app.engine.submitted == []
+    assert call(url, "POST", {"route_id": "r1", "confirmed": True}, token="tok")[0] == 202
+    assert app.engine.submitted == [("blocker-off", "g", "r1")]

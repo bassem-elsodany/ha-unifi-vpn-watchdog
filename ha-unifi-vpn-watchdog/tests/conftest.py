@@ -85,6 +85,13 @@ class FakeUniFi:
         self.calls.append(("route-update", route_id, network_id))
         self.routes[i] = dataclasses.replace(self.routes[i], network_id=network_id, enabled=enabled)
 
+    def set_route_enabled(self, route_id, enabled):
+        import dataclasses
+        i = next(k for k, r in enumerate(self.routes) if r.id == route_id)
+        self.calls.append(("route-enabled", route_id, enabled))
+        self.routes[i] = dataclasses.replace(self.routes[i], enabled=enabled)
+        return self.routes[i].description
+
     def delete_own_route(self, route_id):
         assert next(r for r in self.routes if r.id == route_id).description.startswith("vpnwd:")
         self.calls.append(("route-delete", route_id))

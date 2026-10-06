@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.19.0
+
+- **Your older policy blocks a picked VLAN? The warning now has a button.** For a group with Routing on, the watchdog finds your own routing policies that UniFi reads before its own policy and that take a picked VLAN somewhere else (switched on, all internet traffic, not for a single device, not already going to the active client). The Status page and the group's settings show them with **Switch it off...**.
+- **Always your confirmation.** The button opens a dialog that names the policy, its place in UniFi's list, the VLANs it sends elsewhere and any other VLANs it also covers. Nothing is sent to UniFi until you confirm; the server refuses the request without the confirmation, and checks again that the policy really is a blocker. The policy is only switched off, never deleted, and a **Switch it back on...** button (also confirmed) appears afterwards. Both actions are recorded in Events.
+- The Status page rotation line no longer points to the removed Jobs section.
+
 ## 0.18.1
 
 - The add-on description (Home Assistant store) and the READMEs describe the current logic: groups of VLANs and VPN clients, failover, optional rotation and optional routing management.

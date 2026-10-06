@@ -16,8 +16,9 @@ def test_routing_is_off_by_default_and_never_touched(make_engine):
     eng, un, _, _, clock = make_engine()
     run(eng, clock, 3)
     assert writes(un) == []
-    assert eng.status()["map"]["groups"][0]["routing"] == {"manage": False, "plan": eng.status()["map"]["groups"][0]["routing"]["plan"]}
-    assert eng.status()["map"]["groups"][0]["routing"]["plan"]            # the preview says what it would do
+    routing = eng.status()["map"]["groups"][0]["routing"]
+    assert routing["manage"] is False and routing["blockers"] == []
+    assert routing["plan"]            # the preview says what it would do
 
 
 def test_switched_on_it_creates_one_own_policy_per_picked_vlan_and_leaves_the_others_alone(make_engine):
@@ -68,3 +69,70 @@ def test_a_failed_write_is_reported_and_retried_later_not_every_cycle(make_engin
     run(eng, clock, 4, step=15)
     assert len(calls) == 1
     assert any(h["event"] == "routing_failed" for h in eng.notifier.history) if hasattr(eng.notifier, "history") else True
+
+
+def user_policy(un, rid="mine", enabled=True, nets=frozenset({"net-iot"})):
+    from vpn_watchdog.models import Route
+    un.routes.insert(0, Route(rid, "my old policy", "wan", enabled, False, nets, frozenset(), {"description": "my old policy"}))
+
+
+def group_status(eng):
+    return eng.status()["map"]["groups"][0]
+
+
+def test_an_older_policy_of_yours_that_takes_a_picked_vlan_elsewhere_is_reported_as_a_blocker(make_engine):
+    eng, un, _, _, clock = make_engine()
+    managed(eng)
+    run(eng, clock, 2)
+    assert group_status(eng)["routing"]["blockers"] == []
+    user_policy(un)
+    run(eng, clock, 1)
+    b = group_status(eng)["routing"]["blockers"]
+    assert [x["id"] for x in b] == ["mine"] and b[0]["vlans"] == ["vlan20-iot"] and b[0]["position"] == 1
+    assert "vlan50-vpn" not in b[0]["vlans"]
+
+
+def test_nothing_is_reported_or_changed_when_routing_is_not_managed(make_engine):
+    eng, un, _, _, clock = make_engine()
+    user_policy(un)
+    run(eng, clock, 3)
+    assert group_status(eng)["routing"]["blockers"] == [] and not [c for c in un.calls if c[0] == "route-enabled"]
+
+
+def test_a_policy_for_one_device_or_one_that_is_off_is_not_a_blocker(make_engine):
+    eng, un, _, _, clock = make_engine()
+    managed(eng)
+    run(eng, clock, 2)
+    user_policy(un, "off", enabled=False)
+    from vpn_watchdog.models import Route
+    un.routes.insert(0, Route("dev", "one device", "wan", True, False, frozenset(), frozenset({"aa:bb"}), {"description": "one device"}))
+    run(eng, clock, 1)
+    assert group_status(eng)["routing"]["blockers"] == []
+
+
+def test_confirmed_switch_off_then_back_on(make_engine):
+    eng, un, _, _, clock = make_engine()
+    managed(eng)
+    run(eng, clock, 2)
+    user_policy(un)
+    run(eng, clock, 1)
+    eng.submit("blocker-off", "g1", "mine")
+    run(eng, clock, 1)
+    assert next(r for r in un.routes if r.id == "mine").enabled is False
+    s = group_status(eng)["routing"]
+    assert s["blockers"] == [] and [x["id"] for x in s["switched_off"]] == ["mine"]
+    eng.submit("blocker-on", "g1", "mine")
+    run(eng, clock, 1)
+    assert next(r for r in un.routes if r.id == "mine").enabled is True and group_status(eng)["routing"]["switched_off"] == []
+
+
+def test_it_refuses_to_switch_off_a_policy_that_is_not_a_blocker_or_to_switch_on_one_it_did_not_switch_off(make_engine):
+    eng, un, _, _, clock = make_engine()
+    managed(eng)
+    run(eng, clock, 2)
+    before = [(r.id, r.enabled) for r in un.routes]
+    eng.submit("blocker-off", "g1", "route-Home-Backup")             # a policy of yours that blocks nothing
+    eng.submit("blocker-on", "g1", "route-Home-Backup")              # one the watchdog never switched off
+    run(eng, clock, 1)
+    assert [(r.id, r.enabled) for r in un.routes] == before
+    assert [h["event"] for h in eng.notifier.history].count("routing_refused") == 2 if hasattr(eng.notifier, "history") else True

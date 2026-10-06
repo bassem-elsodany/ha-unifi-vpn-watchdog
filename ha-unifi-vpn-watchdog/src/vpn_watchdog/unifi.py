@@ -188,3 +188,15 @@ class UniFiClient:
         raw = self._own_route_raw(route_id)
         self._request("DELETE", self._v2(f"trafficroutes/{route_id}"))
         log.info("routing policy deleted: %s", raw.get("description"))
+
+    def set_route_enabled(self, route_id: str, enabled: bool) -> str:
+        """Switch one routing policy on or off (never anything else about it). Only used after you confirmed it in the web UI
+        and the engine checked that the policy really blocks a group's VLAN (or is one you let the watchdog switch off). Returns its name."""
+        raw = next((r for r in (self._request("GET", self._v2("trafficroutes")) or []) if r.get("_id") == route_id), None)
+        if raw is None:
+            raise UniFiError(f"routing policy {route_id} not found")
+        if bool(raw.get("enabled")) != enabled:
+            raw["enabled"] = enabled
+            self._request("PUT", self._v2(f"trafficroutes/{route_id}"), json=raw)
+            log.info("routing policy %s enabled=%s (confirmed by the user)", raw.get("description"), enabled)
+        return str(raw.get("description", ""))

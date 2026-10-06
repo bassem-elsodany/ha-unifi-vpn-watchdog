@@ -58,3 +58,35 @@ def new_route_body(a: Action, kill_switch: bool = False) -> dict:
     return {"description": a.description, "enabled": True, "matching_target": "INTERNET", "network_id": a.tunnel_id,
             "kill_switch_enabled": kill_switch, "next_hop": "", "domains": [], "ip_addresses": [], "ip_ranges": [], "regions": [],
             "target_devices": [{"network_id": a.network_id, "type": "NETWORK"}]}
+
+
+def blockers(vlans: list[str], tunnel: Tunnel | None, snap: Snapshot) -> list[dict]:
+    """Policies of yours that UniFi reads before the watchdog's own policy and that take a picked VLAN somewhere else.
+
+    A blocker is switched on, catches all internet traffic, is not the watchdog's own, is not for a single device, covers a picked
+    VLAN, sits above the watchdog's policy for that VLAN (or there is none yet) and does not already go to the active client."""
+    lans = {nid for nid, i in snap.network_info.items() if i.get("purpose") in ("corporate", "guest")}
+
+    def covers(r: Route, n: str) -> bool:
+        return n in r.target_networks or (r.all_clients and n in lans)
+
+    def live(r: Route) -> bool:
+        t = snap.tunnels.get(r.network_id or "")
+        return r.enabled and r.matching == "INTERNET" and (t is None or t.enabled)
+
+    found: dict[str, dict] = {}
+    for n in vlans:
+        mine = next((i for i, r in enumerate(snap.routes) if owned(r) and r.target_networks == frozenset({n})), len(snap.routes))
+        for i, r in enumerate(snap.routes[:mine]):
+            if owned(r) or r.target_macs or not live(r) or not covers(r, n) or (tunnel is not None and r.network_id == tunnel.id):
+                continue
+            b = found.setdefault(r.id, {"id": r.id, "description": r.description, "position": i + 1,
+                                        "goes_to": snap.networks.get(r.network_id or "", "the normal internet connection"), "vlans": [], "others": []})
+            if snap.networks.get(n, n) not in b["vlans"]:
+                b["vlans"].append(snap.networks.get(n, n))
+    for r in snap.routes:
+        b = found.get(r.id)
+        if b is not None:
+            covered = lans if r.all_clients else (r.target_networks & lans)
+            b["others"] = sorted(snap.networks.get(n, n) for n in covered if snap.networks.get(n, n) not in b["vlans"])
+    return list(found.values())
