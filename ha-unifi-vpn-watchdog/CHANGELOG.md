@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.15.2
+
+- A group keeps its VLANs when none of its VPN clients is on: it also claims VLANs that a routing policy of one of its clients names, unless UniFi really sends them through another client.
+- Warning on the Status page and in Settings > VPN groups when a client in the order has no routing policy for one of the group's VLANs (a failover to it would leave that VLAN on the normal internet).
+- Settings > VPN groups: the "Timed rotation" row is gone; rotation is set up under Jobs only.
+
 ## 0.15.1
 
 - Status: a long fallback order no longer fills the page. A group with more than five clients in its order shows the first three (and the active one) and one dashed line, "+ N more in the fallback order · Show all"; pressing it shows every client and reads "Show fewer". Short orders show in full as before.
