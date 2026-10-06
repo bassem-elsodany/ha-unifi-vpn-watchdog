@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.24.1
+
+- The phone layout of 0.24.0 is reverted: the web UI is exactly as in 0.23.0 again (the hold command stays). A new phone design will be agreed before anything is built.
+
 ## 0.24.0
 
 - **Hold command** for speed tests: `POST /api/hold {tunnel, seconds}` (control token or HA ingress) makes the watchdog leave one VPN client switched on for up to ten minutes, so a speed test of a standby or idle client is not undone by the clean-up. Nothing uses it unless you run the speed tools.
