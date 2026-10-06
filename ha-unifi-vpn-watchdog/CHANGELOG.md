@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.25.2
+
+- Phone app: removed the extra space above the title and under the tab bar (inside the Home Assistant app the page already sits below the phone's notch, so the safe-area padding doubled it), and tightened the top of every screen.
+
 ## 0.25.1
 
 - Phone app: housekeeping of the stylesheet (a class was defined twice); no visible change.
