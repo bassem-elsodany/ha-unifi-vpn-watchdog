@@ -25,10 +25,14 @@ class Notifier:
         self._last: dict[tuple, float] = {}
         self.history: deque[dict[str, Any]] = deque(maxlen=200)   # shown in the UI "Events" tab
         self._http = httpx.Client(timeout=8, transport=transport)
+        self.checks: deque[dict[str, Any]] = deque(maxlen=100)    # one line per check cycle; only filled when the log level is DEBUG
 
     def record(self, event: str, message: str, level: str = "info") -> None:
         """History only (no push notification)."""
         self.history.appendleft({"ts": self.clock.now(), "event": event, "level": level, "message": message})
+
+    def record_check(self, message: str) -> None:
+        self.checks.appendleft({"ts": self.clock.now(), "event": "check", "level": "info", "message": message})
 
     def emit(self, event: str, title: str = "", message: str = "", level: str | None = None, key: str | None = None,
              **fields: Any) -> None:

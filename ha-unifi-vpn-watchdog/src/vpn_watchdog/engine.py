@@ -81,6 +81,16 @@ class Engine:
         finally:
             self._busy = False
 
+    def _log_check(self, snap: Snapshot) -> None:
+        parts = [f"read UniFi: {len(snap.tunnels)} VPN clients, {len(snap.routes)} policies, {len(snap.clients)} devices"]
+        for g in self.cfg.groups:
+            gs = self.store.group(g.name)
+            cur = snap.tunnels.get(gs.current_id or "")
+            parts.append(f"{g.name}: {gs.last_decision or 'no decision yet'}" + (f" (active {cur.name})" if cur else ""))
+        msg = "; ".join(parts)
+        log.debug("check: %s", msg)
+        self.notifier.record_check(msg)
+
     def _tick(self) -> None:
         try:
             snap = self.unifi.snapshot()
@@ -104,6 +114,8 @@ class Engine:
             self._disconnect_unused(self.unifi.snapshot())
         except UniFiError as e:
             log.warning("disconnecting unused tunnels skipped: %s", e)
+        if log.isEnabledFor(logging.DEBUG):       # DEBUG log level: every check cycle also shows up in the Events tab
+            self._log_check(snap)
         self.last_tick = self.clock.now()
         self.store.save()
         self._publish(snap)
@@ -713,7 +725,7 @@ class Engine:
             "last_tick": self.last_tick, "error": self.last_error,
             "groups": groups, "tunnels": tunnels, "direct_routes": direct,
             "map": self._map(snap, groups) if snap is not None else {"groups": [], "direct": [], "own": [], "own_off": [], "wan_ip": None},
-            "events": list(getattr(self.notifier, "history", []))[:60],
+            "events": sorted(list(getattr(self.notifier, "history", []))[:60] + list(getattr(self.notifier, "checks", [])), key=lambda e: -e["ts"])[:100],
             "interval_seconds": self.cfg.interval_seconds,
         }
         with self._lock:

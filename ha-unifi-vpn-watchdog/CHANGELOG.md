@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.1
+
+- With the log level on DEBUG, every check cycle now also appears in the Events tab (what was read from UniFi and each group's verdict) and in the add-on log. Before, DEBUG only changed the add-on log, and a healthy check logged nothing. The Events tab otherwise still lists only real events (switch, failback, alerts). Changing the log level needs an add-on restart.
+
 ## 0.11.0
 
 - Status: every device with its own route now shows which policy applies (its position in the UniFi list, and its name).

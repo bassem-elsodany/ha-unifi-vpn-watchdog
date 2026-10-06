@@ -389,3 +389,21 @@ def test_a_device_policy_below_its_vlan_policy_is_overridden_and_says_which_poli
     iot = next(n for n in m["groups"][0]["networks"] if n["name"] == "vlan20-iot")
     dv = {d["name"]: d for d in iot["devices"]}
     assert dv["washer"]["overridden"] and not dv["washer"]["bypass"] and dv["ac_energy"]["bypass"]["position"] == 1 and not dv["ac_energy"]["overridden"]
+
+
+def test_debug_log_level_adds_every_check_cycle_to_the_events_list(make_engine):
+    import logging
+    eng, *_ = make_engine(active="Home-Primary")
+    root = logging.getLogger("vpn_watchdog")
+    old = root.level
+    root.setLevel(logging.INFO)
+    try:
+        eng.tick()
+        assert not [e for e in eng.status()["events"] if e["event"] == "check"]
+        root.setLevel(logging.DEBUG)
+        eng.tick()
+        eng.tick()
+    finally:
+        root.setLevel(old)
+    checks = [e for e in eng.status()["events"] if e["event"] == "check"]
+    assert len(checks) == 2 and "read UniFi" in checks[0]["message"] and "g1" in checks[0]["message"]

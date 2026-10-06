@@ -119,6 +119,10 @@ class FakeTester:
 class RecordingNotifier:
     def __init__(self):
         self.events: list[tuple[str, str]] = []
+        self.checks: list[dict] = []
+
+    def record_check(self, message):
+        self.checks.append({"ts": 0, "event": "check", "level": "info", "message": message})
 
     def emit(self, event, title, message, level="info", key=None, **fields):
         self.events.append((event, title))
