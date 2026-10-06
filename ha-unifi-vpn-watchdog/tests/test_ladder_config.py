@@ -114,3 +114,12 @@ def test_group_overrides_merge_over_globals():
 def test_bad_override_is_rejected_at_load():
     with pytest.raises(ConfigError):
         parse_config(BASE.replace("{name: a,", "{name: a, overrides: {detection: {nope: 1}},"), env={"K": "x"})
+
+
+def test_the_shipped_example_and_template_configs_are_valid():
+    """Regression: the example kept a removed setting and failed validation after a release."""
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    env = {"UNIFI_API_KEY": "k", "WATCHDOG_CONTROL_TOKEN": "t"}
+    for rel in ("config/config.example.yaml", "src/vpn_watchdog/templates/ha_config.yaml"):
+        parse_config((root / rel).read_text(), env=env)

@@ -32,7 +32,6 @@ switching:
   connect_timeout_seconds: 40
   min_hold_seconds: 60            # hard failures (tunnel not CONNECTED) bypass this
   max_switches_per_hour: 6
-  rename_route_to_tunnel: true    # route description always equals the active tunnel name
   quarantine: {base_seconds: 120, factor: 2, max_seconds: 3600}
   on_exhausted: keep              # keep | kill_switch (block traffic instead of leaking when nothing works)
 
