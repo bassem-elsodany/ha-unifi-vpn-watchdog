@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.2
+
+- The Status page can no longer change the fallback order: no dragging of VPN clients, no grip handles, no Alt+arrow keys, and no Move up / Move down / Add / Remove buttons in the details panel (Switch and Test stay). The order is built in Settings > VPN groups only. The reorder API call is gone too.
+
 ## 0.14.1
 
 - Building a group's fallback order never sends you to another page: it is all in Settings > VPN groups. The old "Reorder on the Status page" button is gone for good, and the empty lane on Status now points to the Settings editor.

@@ -104,9 +104,8 @@
   .bhead b { display: block; font-size: 13px; line-height: 16px; font-weight: 600; letter-spacing: .06em; color: var(--muted); }
   .bhead div { font-size: 13px; line-height: 20px; margin-top: 8px; color: var(--muted); }
   .lane { display: flex; flex-direction: column; margin-top: 24px; border-radius: 12px; min-height: 40px; }
-  .lane.dropend { box-shadow: 0 6px 0 0 var(--accent); }
   .lc { position: relative; display: flex; align-items: center; gap: 12px; min-height: 76px; padding: 10px 18px; background: var(--card); border: 1px solid var(--line2); border-radius: 12px; font-size: 13px; line-height: 22px; color: var(--muted); }
-  .lc[draggable=true] { cursor: grab; } .lc.active { min-height: 104px; padding: 14px 18px; border: 2px solid var(--ok); background: var(--okbg); color: var(--sub); }
+  .lc.active { min-height: 104px; padding: 14px 18px; border: 2px solid var(--ok); background: var(--okbg); color: var(--sub); }
   .lc.own { border-color: var(--own); } .lc.own > .dot { background: var(--own); }
   .ownc { padding: 12px 14px; gap: 0; } .ownc .vh { min-height: 28px; } .orow { padding: 7px 0; font-size: 13px; }
   .orow .o1 { display: flex; justify-content: space-between; gap: 8px; } .orow .o1 span:last-child { font: 12px 'IBM Plex Mono', ui-monospace, Menlo, monospace; color: var(--muted); }
@@ -114,7 +113,7 @@
   .orow .o3 { font-size: 12px; color: var(--muted); margin-top: 1px; } .orow .o3 b { font-weight: 600; color: var(--ink); } .orow.off .o1 > span:first-child { color: var(--muted); }
   .offh { border-top: 1px solid var(--hair); margin-top: 6px; padding-top: 10px; font-size: 12px; font-weight: 600; letter-spacing: .06em; color: var(--muted); }
   .tagw { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--warnbg); color: var(--warnink); } .dev .warn { color: var(--warn); }
-  .lc.sel { outline: 2px solid var(--accent); outline-offset: 2px; } .lc.dragging { opacity: .35; } .lc.dropbefore { box-shadow: 0 -6px 0 0 var(--accent); }
+  .lc.sel { outline: 2px solid var(--accent); outline-offset: 2px; }
   .lc:focus-visible { outline: 2px solid var(--accent); }
   .lc > .dot { flex: none; width: 12px; height: 12px; }
   .lc .lb { min-width: 0; flex: 1; } .lc .mono { font: 500 14px/22px 'IBM Plex Mono', ui-monospace, Menlo, monospace; word-break: break-all; color: var(--ink); } .lc.active .mono { font-size: 15px; }
@@ -122,16 +121,14 @@
   .l1 { display: block; font-size: 12px; line-height: 22px; } .lc.active .l1 b { font-size: 12px; font-weight: 600; color: var(--okink); }
   .num { display: inline-block; padding: 1px 7px; margin-right: 8px; border-radius: 6px; background: var(--chip); color: var(--chipink); font-size: 12px; font-weight: 600; }
   .lc.active .num { background: var(--ok); color: #fff; }
-  .grip { position: absolute; left: 5px; top: 50%; margin-top: -8px; width: 8px; height: 16px; background-image: radial-gradient(var(--muted) 1.5px, transparent 1.6px); background-size: 5px 5px; opacity: 0; }
-  .lc:hover .grip, .lc:focus-visible .grip { opacity: .8; }
+  .grip { flex: none; width: 10px; height: 16px; background-image: radial-gradient(var(--muted) 1.5px, transparent 1.6px); background-size: 5px 5px; }
   .lgap { height: 48px; display: flex; align-items: center; padding-left: calc(50% + 12px); font-size: 13px; line-height: 16px; color: var(--muted); }
   .pool { margin-top: 16px; border: 1px dashed var(--idle2); border-radius: 16px; padding: 0 14px; font-size: 13px; color: var(--chipink); }
   .pool summary { cursor: pointer; list-style: none; min-height: 30px; display: flex; align-items: center; justify-content: center; text-align: center; } .pool summary::-webkit-details-marker { display: none; }
   .pool:not(details) { min-height: 32px; display: flex; align-items: center; justify-content: center; } .pool[open] { padding-bottom: 8px; }
-  .pool.over { border-color: var(--bad); background: var(--badbg); } .dragging-any .pool { border-color: var(--bad); }
   .pchips { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 0 4px; }
   .pc { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line2); border-radius: 999px; padding: 3px 10px; font: 12px 'IBM Plex Mono', ui-monospace, Menlo, monospace; background: var(--card); cursor: pointer; color: var(--ink); }
-  .pc[draggable=true] { cursor: grab; } .pc.sel { border-color: var(--accent); background: var(--accentbg); }
+  .pc.sel { border-color: var(--accent); background: var(--accentbg); }
   .inet { display: flex; align-items: center; gap: 12px; min-height: 104px; padding: 14px 18px; border: 1px solid var(--line2); border-radius: 12px; background: var(--card); font-size: 13px; line-height: 22px; color: var(--muted); }
   .inet > .dot { flex: none; width: 12px; height: 12px; } .inet b { font-size: 16px; color: var(--ink); } .inet .mono { color: var(--ink); }
   .inet.bad { border-color: var(--bad); background: var(--badbg); }
@@ -325,7 +322,6 @@ const tcolor = (t) => t.status === "CONNECTED" ? "ok" : (t.status || t.enabled) 
 const tlabel = (t) => t.status === "CONNECTED" ? "connected" : t.status ? t.status.toLowerCase() : t.enabled ? "starting" : "disconnected";
 let selected = null;           // {kind: "tun", g, name} | {kind: "dev", mac}
 const vsearch = {}, vexp = {}, poolOpen = new Set();
-let drag = null;               // {g, name, from: "lane" | "pool"}
 let toastTimer = null;
 const mapData = () => (status && status.map) || { groups: [], direct: [] };
 function toast(msg, ms = 4000, spin = false) { const el = $("#toast"); clearTimeout(toastTimer); if (!msg) { el.classList.add("hide"); return; } el.innerHTML = (spin ? '<span class="spin" style="margin-right:8px"></span>' : "") + esc(msg); el.classList.remove("hide"); toastTimer = setTimeout(() => el.classList.add("hide"), ms); }
@@ -376,9 +372,9 @@ function laneCard(g, t, can, behind) {
   const num = inOrder ? `<span class="num">#${t.position}</span>` : g.unmanaged ? "" : '<span class="num" title="Not in the fallback order">--</span>';
   const head = t.active ? `<div class="l1">${num}<b>ACTIVE · ${behind} device${behind === 1 ? "" : "s"} behind it</b></div><div class="mono">${esc(t.name)}</div>`
     : `<div class="l1">${num}<span class="mono">${esc(t.name)}</span></div>`;
-  return `<div class="lc ${t.active ? "active" : ""} ${(t.carries || []).length ? "own" : ""} ${sel}" data-g="${esc(g.name)}" data-tun="${esc(t.id)}" ${inOrder ? `data-pos="${t.position}"` : ""} ${inOrder && can ? 'draggable="true" data-drag="lane"' : ""}
-      tabindex="0" aria-label="${esc(t.name)}${inOrder ? ", position " + t.position : ", not in the order"}${can && inOrder ? ". Alt plus arrow up or down moves it." : ""}">
-    ${inOrder && can ? '<span class="grip" aria-hidden="true"></span>' : ""}<span class="dot ${c}"></span>
+  return `<div class="lc ${t.active ? "active" : ""} ${(t.carries || []).length ? "own" : ""} ${sel}" data-g="${esc(g.name)}" data-tun="${esc(t.id)}" ${inOrder ? `data-pos="${t.position}"` : ""}
+      tabindex="0" aria-label="${esc(t.name)}${inOrder ? ", position " + t.position : ", not in the order"}">
+    <span class="dot ${c}"></span>
     <div class="lb">${head}<div class="sub">${sub}</div></div></div>`;
 }
 function laneHtml(g, can, behind) {
@@ -389,15 +385,15 @@ function laneHtml(g, can, behind) {
     if (nx) parts.push(`<div class="lgap">${nx.position != null && t.position != null ? `if #${t.position} fails` : ""}</div>`);
   });
   const empty = g.unmanaged || g.lane.some((t) => t.position != null) ? "" : '<div class="muted" style="padding:10px 4px">No fallback order yet. Press "Set the fallback order" above to build it in Settings.</div>';
-  const pool = g.pool.length ? `<details class="pool" data-g="${esc(g.name)}" ${poolOpen.has(g.name) ? "open" : ""}><summary>+ ${g.pool.length} more tunnel${g.pool.length === 1 ? " is" : "s are"} ${g.unmanaged ? "have a policy for these networks" : "not in the fallback order" + (can ? " \u00b7 add them" : "")}</summary>
-      <div class="pchips">${g.pool.map((p) => `<span class="pc ${selected && selected.name === p.id ? "sel" : ""}" data-g="${esc(g.name)}" data-tun="${esc(p.id)}" ${can && !g.unmanaged ? 'draggable="true" data-drag="pool"' : ""}><span class="dot ${tcolor(p)}"></span>${esc(p.name)}</span>`).join("")}</div></details>`
+  const pool = g.pool.length ? `<details class="pool" data-g="${esc(g.name)}" ${poolOpen.has(g.name) ? "open" : ""}><summary>+ ${g.pool.length} more tunnel${g.pool.length === 1 ? " is" : "s are"} ${g.unmanaged ? "have a policy for these networks" : "not in the fallback order"}</summary>
+      <div class="pchips">${g.pool.map((p) => `<span class="pc ${selected && selected.name === p.id ? "sel" : ""}" data-g="${esc(g.name)}" data-tun="${esc(p.id)}" ><span class="dot ${tcolor(p)}"></span>${esc(p.name)}</span>`).join("")}</div></details>`
     : g.unmanaged ? "" : `<div class="pool" data-g="${esc(g.name)}"><span class="muted" style="font-size:13px">Every tunnel is in the fallback order.</span></div>`;
   return `<div class="colm"><div class="band"><div class="bhead">${g.unmanaged ? '<b>VPN CLIENT IN USE</b><div class="muted">UniFi sends these networks through the first routing policy that is switched on.</div>'
       : `<b>GROUP ${esc(g.name.toUpperCase())} \u00b7 FALLBACK ORDER</b><div class="muted">#1 carries the traffic. If it fails, #2 takes over, then #3.</div>`}</div>
     <div class="lane" data-g="${esc(g.name)}">${parts.join("") + empty}</div>${pool}</div></div>`;
 }
 const legendHtml = (can) => `<div class="legend"><b>LEGEND</b><div><i style="background:var(--ok)"></i>connected / device active</div><div><i style="background:var(--warn)"></i>↗ own route: normal connection</div><div><i style="background:var(--own)"></i>↗ own route: another VPN client</div><div><i style="background:var(--idle2)"></i>idle / disconnected</div></div>
-  <p class="hint">Click a device to light up its path through the map. Click a VPN client for its details panel.${can ? " Drag a client up or down to change the order." : ""}</p>`;
+  <p class="hint">Click a device to light up its path through the map. Click a VPN client for its details panel.</p>`;
 function directBox(m) {
   const total = m.direct.reduce((a, n) => a + n.count, 0), plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
   if (directOpen) return m.direct.map((n) => vlanCard(n, true)).join("") + '<div class="vf" id="directToggle">Show fewer</div>';
@@ -572,8 +568,6 @@ function renderDrawer() {
   if (can) {
     if (!t.active) acts.push(`<button class="act primary" data-d="switch">Switch ${esc(grp.name)} to this client now</button>`);
     acts.push('<button class="act" data-d="test">Test it</button>');
-    if (pos) acts.push(`<button class="act" data-d="up" ${pos === 1 ? "disabled" : ""}>Move up</button><button class="act" data-d="down">Move down</button><button class="act" data-d="remove">Remove from the order</button>`);
-    else acts.push('<button class="act" data-d="add">Add to the fallback order (last)</button>');
   }
   el.innerHTML = `<div class="row"><b class="mono" style="font-size:15px;word-break:break-all">${esc(t.name)}</b><span class="grow"></span><button class="act" data-d="close">Close</button></div>
     <p><span class="pill ${tcolor(t) === "ok" ? "ok" : tcolor(t) === "warn" ? "warn" : "info"}">${tlabel(t)}</span> ${t.active ? '<span class="pill ok">active path</span>' : ""} ${pos ? `<span class="pill info">position #${pos}</span>` : '<span class="pill warn">not in the order</span>'} ${t.policy_on ? '<span class="pill ok">policy on</span>' : '<span class="pill info">policy off</span>'}</p>
@@ -583,18 +577,6 @@ function renderDrawer() {
     ${acts.length ? `<div class="row">${acts.join("")}</div>` : (can ? "" : '<p class="muted">Enter the control token to act on this client.</p>')}`;
   el.classList.remove("hide");
 }
-async function postOrder(g, order) {
-  toast("Saving the new order...", 60000, true);
-  const r = await api(`groups/${encodeURIComponent(g)}/order`, "POST", { order });
-  if (!r.ok) alert(r.data.error || "The order could not be saved.");
-  if (r.ok && V) {   // keep an open Settings form in step with the new order instead of discarding unsaved edits
-    const grp = V.groups.find((x) => x.name === g), o = JSON.parse(orig), og = o.groups.find((x) => x.name === g);
-    if (grp) { const old = Object.fromEntries(grp.order.map((i) => [i.id || i.tunnel, i])); grp.order = order.map((id) => old[id] || { tunnel: tunName(id), id, expect_country: "" }); if (og) { og.order = JSON.parse(JSON.stringify(grp.order)); orig = JSON.stringify(o); } }
-  }
-  toast(r.ok ? "Order saved. It takes effect within a few seconds." : "");
-  setTimeout(refresh, 1500);
-}
-const orderOf = (g) => { const grp = mapData().groups.find((x) => x.name === g); return grp ? grp.lane.filter((t) => t.position != null).map((t) => t.id) : []; };      // ids: a rename in UniFi never breaks an action
 const tunName = (id) => { for (const g of mapData().groups) { const t = g.lane.find((x) => x.id === id) || g.pool.find((x) => x.id === id); if (t) return t.name; } return id; };
 
 function openGroupOrder(name) {            // from the Status header: Settings > VPN groups with that group selected
@@ -603,7 +585,7 @@ function openGroupOrder(name) {            // from the Status header: Settings >
   if (V) { const i = V.groups.findIndex((x) => x.name === name); if (i >= 0) selG = i; pendingGroup = null; renderSettings(); }
 }
 
-/* clicks, search, drag and drop on the map */
+/* clicks and search on the map */
 const mapEl = $("#map");
 mapEl.addEventListener("click", (e) => {
   const go = e.target.closest("[data-goorder]"); if (go) { openGroupOrder(go.dataset.goorder); return; }
@@ -616,59 +598,13 @@ mapEl.addEventListener("click", (e) => {
 mapEl.addEventListener("input", (e) => { const vs = e.target.closest(".vs"); if (vs) { vsearch[vs.dataset.net] = vs.value; updateVlist(vs.dataset.net); } });
 mapEl.addEventListener("toggle", (e) => { const d = e.target; if (d.matches && d.matches("details.pool")) { if (d.open) poolOpen.add(d.dataset.g); else poolOpen.delete(d.dataset.g); drawLinks(); } }, true);
 
-function dropIndex(lane, y) {
-  const cards = [...lane.querySelectorAll(".lc[data-pos]")].filter((c) => !c.classList.contains("dragging"));
-  for (let i = 0; i < cards.length; i++) { const r = cards[i].getBoundingClientRect(); if (y < r.top + r.height / 2) return i; }
-  return cards.length;
-}
-function clearDrop() { document.querySelectorAll(".dropbefore").forEach((x) => x.classList.remove("dropbefore")); document.querySelectorAll(".dropend,.over").forEach((x) => x.classList.remove("dropend", "over")); }
-function showDrop(lane, idx) {
-  clearDrop();
-  const cards = [...lane.querySelectorAll(".lc[data-pos]")].filter((c) => !c.classList.contains("dragging"));
-  if (idx < cards.length) cards[idx].classList.add("dropbefore"); else lane.classList.add("dropend");
-}
-mapEl.addEventListener("dragstart", (e) => {
-  const el = e.target.closest("[data-drag]"); if (!el) return;
-  drag = { g: el.dataset.g, name: el.dataset.tun, from: el.dataset.drag };
-  e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", drag.name);
-  requestAnimationFrame(() => el.classList.add("dragging")); document.body.classList.add("dragging-any");
-});
-mapEl.addEventListener("dragend", () => { drag = null; clearDrop(); document.body.classList.remove("dragging-any"); document.querySelectorAll(".dragging").forEach((x) => x.classList.remove("dragging")); });
-mapEl.addEventListener("dragover", (e) => {
-  if (!drag) return;
-  const lane = e.target.closest(".lane"), pool = e.target.closest(".pool");
-  if (lane && lane.dataset.g === drag.g) { e.preventDefault(); showDrop(lane, dropIndex(lane, e.clientY)); }
-  else if (pool && pool.dataset.g === drag.g && drag.from === "lane") { e.preventDefault(); clearDrop(); pool.classList.add("over"); }
-});
-mapEl.addEventListener("drop", async (e) => {
-  if (!drag) return;
-  const lane = e.target.closest(".lane"), pool = e.target.closest(".pool"), { g, name, from } = drag;
-  let order = orderOf(g).filter((n) => n !== name);
-  if (lane && lane.dataset.g === g) order.splice(dropIndex(lane, e.clientY), 0, name);
-  else if (pool && pool.dataset.g === g && from === "lane") { /* removed from the order */ }
-  else return;
-  e.preventDefault(); clearDrop(); drag = null; document.body.classList.remove("dragging-any");
-  await postOrder(g, order);
-});
-mapEl.addEventListener("keydown", (e) => {   // keyboard: Alt + Arrow Up / Down moves the focused client
-  if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
-  const lc = e.target.closest(".lc[data-pos]"); if (!lc || !(status && status.can_control)) return;
-  e.preventDefault();
-  const order = orderOf(lc.dataset.g), i = order.indexOf(lc.dataset.tun), j = i + (e.key === "ArrowUp" ? -1 : 1);
-  if (i < 0 || j < 0 || j >= order.length) return;
-  [order[i], order[j]] = [order[j], order[i]]; postOrder(lc.dataset.g, order);
-});
 $("#drawer").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-d]"); if (!b) return;
   const k = b.dataset.d;
   if (k === "close") { selected = null; renderMap(status); return; }
-  const g = selected.g, name = selected.name, order = orderOf(g), i = order.indexOf(name);
+  const g = selected.g, name = selected.name;
   if (k === "switch") { if (confirm(`Move ${g} to ${tunName(name)} now?`)) act(`groups/${encodeURIComponent(g)}/switch`, { tunnel: name }); return; }
   if (k === "test") { act(`groups/${encodeURIComponent(g)}/test`, { tunnel: name }); return; }
-  if (k === "add") return postOrder(g, order.concat([name]));
-  if (k === "remove") return postOrder(g, order.filter((n) => n !== name));
-  if (k === "up" && i > 0) { [order[i - 1], order[i]] = [order[i], order[i - 1]]; return postOrder(g, order); }
-  if (k === "down" && i >= 0 && i < order.length - 1) { [order[i + 1], order[i]] = [order[i], order[i + 1]]; return postOrder(g, order); }
 });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && selected) { selected = null; renderMap(status); } });
 

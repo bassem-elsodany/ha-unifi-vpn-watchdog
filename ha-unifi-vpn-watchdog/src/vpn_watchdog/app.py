@@ -97,43 +97,6 @@ class App:
         header = "# Written by the VPN Watchdog settings form (comments are not kept; secrets stay as ${VAR} references).\n"
         return self.save_text(header + yaml.safe_dump(new, sort_keys=False, allow_unicode=True))
 
-    def set_group_order(self, group: str, refs: list[str]) -> str | None:
-        """Replace one group's fallback order (what dragging in the map does). `refs` are tunnel ids (a name is accepted too).
-        Entries keep their expect_country, and are stored by id so a rename in UniFi never loses one."""
-        if not isinstance(refs, list) or not all(isinstance(n, str) and n for n in refs):
-            return "order must be a list of tunnel names"
-        snap = self.engine.last_snapshot()
-        picked: list[tuple[str | None, str]] = []          # (id, name)
-        unknown = []
-        for ref in refs:
-            t = snap.tunnel_by_ref(ref) if snap is not None else None
-            if snap is not None and t is None:
-                unknown.append(ref)
-            picked.append((t.id, t.name) if t else (None, ref))
-        if unknown:
-            return f"unknown tunnel(s): {', '.join(unknown)}"
-        keys = [i or n for i, n in picked]
-        if len(set(keys)) != len(keys):
-            return "a tunnel is listed twice"
-        try:
-            raw = load_raw(self.config_text())
-        except ConfigError as e:
-            return str(e)
-        g = next((x for x in raw.get("groups", []) if isinstance(x, dict) and x.get("name") == group), None)
-        if g is None:
-            return f"unknown group {group!r}"
-        old = [i if isinstance(i, dict) else {"tunnel": i} for i in g.get("order", [])]
-        out = []
-        for tid, name in picked:
-            prev = next((o for o in old if (tid and o.get("id") == tid) or (not o.get("id") and o.get("tunnel") == name)), {})
-            entry = {"tunnel": name, **({"id": tid} if tid else {})}
-            if prev.get("expect_country"):
-                entry["expect_country"] = prev["expect_country"]
-            out.append(entry)
-        g["order"] = out
-        header = "# Written by the VPN Watchdog UI (comments are not kept; secrets stay as ${VAR} references).\n"
-        return self.save_text(header + yaml.safe_dump(raw, sort_keys=False, allow_unicode=True))
-
     def persist_refs(self) -> None:
         """The engine followed a rename or filled in ids: write the ids and current names back to config.yaml (once)."""
         eng = self.engine

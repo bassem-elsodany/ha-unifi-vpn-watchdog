@@ -81,9 +81,6 @@ class SafeApp:
     def save_settings(self, form: dict) -> str | None:
         return self._refuse
 
-    def set_group_order(self, group: str, names: list) -> str | None:
-        return self._refuse
-
     def ha_notify_services(self) -> dict:
         return {"available": False, "current": None, "services": [], "error": None}
 
