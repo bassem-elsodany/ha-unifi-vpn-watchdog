@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.1
+- **Status page rebuilt to the approved design (Option A), pixel for pixel**: the same colours, 48 px page margins, 300 / flexible / 240 px columns, 104 px active tunnel card and Internet node, 76 px tunnel cards with 48 px "if #N fails" gaps, section labels directly above their cards, the dashed "straight to the internet" line with its own Internet node, the pill for tunnels outside the order, and VLAN subtitles with the network address (10.0.20.0/24). It fills wide windows and stacks on narrow ones.
+- Fixed a regression from 0.9.0: the Settings field style reused the rank badge's class name, so the "#1 / #2" badges turned into big input-like boxes on the Status page. A test now fails if any CSS class is defined twice.
+- No group configured yet (fresh install or an emptied config): the Status page shows your VLANs, the direct internet path and a "Create your first VPN group" panel with a button, instead of a bare "No VPN policy" box.
+- Removed text that was not in the design or interpreted tunnel names ("expects XX", the country next to the exit IP, "next check of a higher tunnel in Ns"). "Resume all" only appears while something is paused.
+
 ## 0.9.0
 - **Settings redesigned** (approved design): a section list on the left (Detection, Switching, VPN groups, Notifications) and one flat page per section,
   with no boxes inside boxes. Rows put the label and help on the left and the control on the right, with units inside the fields and the plain-sentence
