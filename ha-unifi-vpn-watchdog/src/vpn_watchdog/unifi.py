@@ -39,6 +39,7 @@ class UniFiClient:
         transport: httpx.BaseTransport | None = None,
     ):
         self.cfg = cfg
+        self._known_cache: tuple[float, dict[str, dict[str, Any]]] | None = None
         self._http = httpx.Client(
             base_url=f"{cfg.url.rstrip('/')}/proxy/network",
             headers={"X-API-Key": cfg.api_key},
@@ -107,7 +108,22 @@ class UniFiClient:
             if c.get("network_id")
         }
         routes = [self._parse_route(r) for r in routes_raw]
-        return Snapshot(tunnels, connections, routes, networks, self._wan_ip(), network_info, self._clients())
+        return Snapshot(tunnels, connections, routes, networks, self._wan_ip(), network_info, self._clients(), self._known())
+
+    def _known(self) -> dict[str, dict[str, Any]]:
+        """Every device UniFi has seen (for picking a device in a group), read at most every two minutes. Failure is not fatal."""
+        if self._known_cache and time.time() - self._known_cache[0] < 120:
+            return self._known_cache[1]
+        try:
+            raw = (self._request("GET", self._s("rest/user")) or {}).get("data", [])
+        except UniFiError as e:
+            log.debug("could not read known clients: %s", e)
+            return self._known_cache[1] if self._known_cache else {}
+        out = {c["mac"].lower(): {"name": c.get("name") or c.get("hostname") or "", "ip": c.get("last_ip") or c.get("fixed_ip"),
+                                  "network": c.get("last_connection_network_name"), "network_id": c.get("last_connection_network_id")}
+               for c in raw if c.get("mac")}
+        self._known_cache = (time.time(), out)
+        return out
 
     def _clients(self) -> dict[str, dict[str, Any]]:
         """Connected devices: only what the network map needs (name, ip, network). Failure is not fatal."""
@@ -178,9 +194,11 @@ class UniFiClient:
         self._request("POST", self._v2("trafficroutes"), json=body)
         log.info("routing policy created: %s", body["description"])
 
-    def update_own_route(self, route_id: str, network_id: str, enabled: bool = True) -> None:
+    def update_own_route(self, route_id: str, network_id: str, enabled: bool = True, target_devices: list | None = None) -> None:
         raw = self._own_route_raw(route_id)
         raw["network_id"], raw["enabled"] = network_id, enabled
+        if target_devices is not None:
+            raw["target_devices"] = target_devices
         self._request("PUT", self._v2(f"trafficroutes/{route_id}"), json=raw)
         log.info("routing policy %s now goes through %s", raw.get("description"), network_id)
 

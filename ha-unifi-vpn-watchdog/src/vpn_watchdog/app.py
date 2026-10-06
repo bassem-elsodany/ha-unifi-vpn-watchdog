@@ -114,8 +114,12 @@ class App:
             if g is None:
                 continue
             new = group_raw(g)
-            if rg.get("order", []) != new["order"] or rg.get("networks", []) != new.get("networks", []):
+            if rg.get("order", []) != new["order"] or rg.get("networks", []) != new.get("networks", []) or rg.get("devices", []) != new.get("devices", []):
                 rg["order"] = new["order"]
+                if "devices" in new:
+                    rg["devices"] = new["devices"]
+                else:
+                    rg.pop("devices", None)
                 if "networks" in new:
                     rg["networks"] = new["networks"]
                 else:

@@ -348,7 +348,7 @@ const fq = () => vfilter.trim().toLowerCase();
 const netNameHit = (n) => { const q = fq(); return !!q && [n.name, n.vlan != null ? "vlan " + n.vlan : "", n.subnet].some((x) => (x || "").toLowerCase().includes(q)); };
 const devHit = (d) => { const q = fq(); return !!q && [d.name, d.ip, d.mac].some((x) => (x || "").toLowerCase().includes(q)); };
 const netMatches = (n) => !fq() || netNameHit(n) || n.devices.some(devHit);
-const allNets = (m) => m.groups.flatMap((g) => g.networks.map((n) => ({ n, g }))).concat(m.direct.map((n) => ({ n, g: null })));     // every VLAN, with the group it belongs to (null: no VPN)
+const allNets = (m) => m.groups.flatMap((g) => g.networks.map((n) => ({ n, g })).concat(g.device_net ? [{ n: g.device_net, g }] : [])).concat(m.direct.map((n) => ({ n, g: null })));     // every VLAN, with the group it belongs to (null: no VPN)
 function devList(n) {               // the devices shown inside the picked VLAN's box: the first few, "Show all" for the rest, a search box when there are many
   const q = (vsearch[n.id] || (netNameHit(n) ? "" : vfilter) || "").trim().toLowerCase(), exp = !!vexp[n.id];
   const list = n.devices.filter((d) => !q || [d.name, d.ip, d.mac].some((x) => (x || "").toLowerCase().includes(q)));
@@ -358,7 +358,7 @@ function devList(n) {               // the devices shown inside the picked VLAN'
   return { html: shown.map(devRow).join("") || `<div class="muted" style="padding:6px 0">${none}</div>`, total: list.length, expanded: exp || !!q };
 }
 function netBox(n, g, sel) {        // one VLAN as a box in the list on the left: click it and the group and the egress on the right follow, and its devices open inside the box
-  const sub = [n.vlan != null ? "VLAN " + n.vlan : null, sel ? netAddr(n.subnet) : null, `${n.count} device${n.count === 1 ? "" : "s"}`].filter(Boolean).join(" · ");
+  const sub = [n.vlan != null ? "VLAN " + n.vlan : (String(n.id).startsWith("grp-dev:") ? "devices of the group" : null), sel ? netAddr(n.subnet) : null, `${n.count} device${n.count === 1 ? "" : "s"}`].filter(Boolean).join(" · ");
   const head = `<div class="vh" data-vpick="${esc(n.id)}" role="button" tabindex="0" aria-pressed="${sel}"><span class="dot ${g ? "b" : "idle"}"></span><span class="vn"><b>${esc(n.name)}</b><small>${esc(sub)}</small></span><span class="gtag ${g ? "" : "nv"}">${g ? esc(g.unmanaged ? "no group" : g.name) : "no VPN"}</span></div>`;
   if (!sel) return `<div class="vc cmp ${g ? "" : "direct"}" data-net="${esc(n.id)}">${head}</div>`;
   const dl = devList(n);
@@ -473,7 +473,7 @@ function renderMap(d) {
   const m = d.map || { groups: [], direct: [] }, can = !!d.can_control;
   const all = allNets(m), shownAll = all.filter((x) => netMatches(x.n));
   let cur = null;
-  if (selected && selected.kind === "dev") cur = all.find((x) => x.n.devices.some((dv) => dv.mac === selected.mac)) || null;       // a selected device picks its VLAN
+  if (selected && selected.kind === "dev") cur = all.find((x) => String(x.n.id).startsWith("grp-dev:") && x.n.devices.some((dv) => dv.mac === selected.mac)) || all.find((x) => x.n.devices.some((dv) => dv.mac === selected.mac)) || null;       // a selected device picks its VLAN
   if (!cur) cur = shownAll.find((x) => x.n.id === selNet) || shownAll[0] || null;
   if (cur) { selNet = cur.n.id; try { localStorage.setItem("wd_net", selNet); } catch (e) {} }
   const left = { html: shownAll.map((x) => netBox(x.n, x.g, cur && x.n.id === cur.n.id)).join("") || (all.length ? '<div class="muted">No VLAN or device matches.</div>' : ""), count: all.length };
@@ -749,7 +749,7 @@ function secSwitching() {
 }
 let ordOpen = false, ordDrag = null, pendingGroup = null;
 const GINTRO = `<div class="glead"><h1>VPN groups</h1><p><b>A group is a set of VLANs and an ordered list of VPN clients.</b> The watchdog keeps one of the clients switched on. If it stops working, it switches on the next one in your order and switches the failed one off. By default it changes nothing else in UniFi: your routing policies decide which VLANs use a VPN client, and the watchdog warns you when they do not match the group. Switch on <b>Routing</b> and it keeps its own policy for each picked VLAN pointed at the active client.</p>
-  <div class="gsteps"><div class="gst"><i>1</i><span><b>Pick the VLANs</b> this group is for.</span></div>
+  <div class="gsteps"><div class="gst"><i>1</i><span><b>Pick the VLANs and/or devices</b> this group is for. A device gets its own policy, kept above every VLAN policy.</span></div>
   <div class="gst"><i>2</i><span><b>Build the fallback order:</b> add the VPN clients you trust, #1 first. <b>Until you do, the group only watches and never switches.</b></span></div>
   <div class="gst"><i>3</i><span>Optional: turn on <b>Rotation</b> (move to another client on a timer) and <b>Routing</b> (the watchdog keeps its own policy per picked VLAN on the active client).</span></div></div></div>`;
 function secGroups() {
@@ -801,6 +801,15 @@ function secGroups() {
   const keepCtl = `<div style="display:flex;flex-direction:column;gap:8px"><div style="display:flex;align-items:center;gap:12px"><select class="fld" style="width:260px" data-path="groups.${selG}.keep_ready" data-t="num" aria-label="VPN clients kept ready">${[1, 2, 3, 4, 5].map((n) => `<option value="${n}" ${n === kr ? "selected" : ""}>${n === 1 ? "Only the active one" : "The active one + " + (n - 1) + " standby" + (n > 2 ? "s" : "")}</option>`).join("")}</select></div>
     ${kr > 1 ? `<div class="note" style="margin:0">${warmNow.length ? "Standbys now: " + warmNow.map((w) => esc(w.name) + (w.connected ? " (connected)" : " (connecting)")).join(", ") : "No standby yet."}${g.order.length < kr ? " Your fallback order has only " + g.order.length + " client" + (g.order.length === 1 ? "" : "s") + "." : ""}</div>` : ""}
     ${kr > 1 && !g.manage_routing ? '<div class="note" style="margin:0;color:var(--warn)">Routing is off: if one of your own policies for a standby sits above the active one\'s in UniFi, traffic can leave through the standby. Turn Routing on to keep it on the active client.</div>' : ""}</div>`;
+  const clients = M.clients || [], mine = g.devices || [];
+  const devOwner = (mac) => { const o = V.groups.find((x, k) => k !== selG && (x.devices || []).some((d) => d.mac === mac)); return o ? o.name : null; };
+  const devLabel = (d) => { const c = clients.find((x) => x.mac === d.mac); return (c && c.name) || d.name || "unnamed device"; };
+  const devPool = clients.filter((c) => !mine.some((d) => d.mac === c.mac));
+  const devCtl = `<div style="display:flex;flex-direction:column;gap:8px">
+    ${mine.map((d, i) => { const c = clients.find((x) => x.mac === d.mac); return `<div style="display:flex;align-items:center;gap:10px;border:1px solid var(--line2);border-radius:10px;padding:8px 12px"><div style="min-width:0;flex:1"><b style="font-size:14px">${esc(devLabel(d))}</b><div class="muted mono" style="font-size:12px;overflow-wrap:anywhere">${esc([d.mac, c && c.ip, c && c.network, c && !c.online ? "offline" : null].filter(Boolean).join(" · "))}</div></div><button class="ib" data-act="dev-del" data-i="${i}" aria-label="Remove ${esc(devLabel(d))}">✕</button></div>`; }).join("") || '<div class="muted">No device in this group.</div>'}
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><select id="devAdd" class="fld" style="width:300px" aria-label="Add a device"><option value="">Add a device...</option>${devPool.map((c) => { const o = devOwner(c.mac); return `<option value="${esc(c.mac)}" ${o ? "disabled" : ""}>${esc(c.name || c.mac)}${c.ip ? " · " + esc(c.ip) : ""}${c.network ? " · " + esc(c.network) : ""}${c.online ? "" : " (offline)"}${o ? " · in group " + esc(o) : ""}</option>`; }).join("")}</select><button class="btn" data-act="dev-add" ${devPool.length ? "" : "disabled"}>Add</button></div>
+    ${mine.length && !g.manage_routing ? '<div class="note" style="margin:0;color:var(--warn)">Routing is off: devices are only routed when Routing is on.</div>' : ""}
+    <div class="note" style="margin:0">A device keeps one MAC address. A phone or laptop with a private (rotating) Wi-Fi address would not match: use a TV, camera or other fixed device.</div></div>`;
   const rplan = (live2 && live2.routing && live2.routing.plan) || [];
   const routeCtl = `<div style="display:flex;flex-direction:column;gap:8px"><div style="display:flex;align-items:center;gap:12px">${(g.networks || []).length ? tog(`groups.${selG}.manage_routing`) : '<span class="muted">Pick at least one VLAN first.</span>'}<span style="font-size:14px">${g.manage_routing ? "The watchdog manages routing for this group" : "You manage routing in UniFi"}</span></div>${g.manage_routing && rplan.length ? `<div class="note" style="margin:0">Applying now: ${rplan.map(esc).join("; ")}.</div>` : ""}</div>`;
   const badge = (ok, missing) => ok ? '<span class="bdg ok">done</span>' : `<span class="bdg ${missing}">${missing === "req" ? "required" : "optional"}</span>`;
@@ -809,6 +818,7 @@ function secGroups() {
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:8px"><input class="gname" data-path="groups.${selG}.name" data-t="str" value="${esc(g.name)}" placeholder="Group name" aria-label="Group name"><button class="btn danger" data-act="delgroup">Delete group</button></div>
     ${state}${g.order.length ? carry : ""}${gapsHtml}
     ${sr("VLANs", badge((g.networks || []).length > 0, "opt"), "The VLANs this group is for. The watchdog checks UniFi's routing policies against them and warns you when one does not go through this group. With Routing on, it keeps its own policy for them.", netCtl)}
+    ${sr("Devices", badge(mine.length > 0, "opt"), "Devices this group routes through its VPN clients, one by one (for example a TV). Their policy is kept above every VLAN policy in UniFi, so a device in a VLAN that another group routes still goes through this group.", devCtl)}
     ${sr("Routing", '<span class="bdg opt">optional</span>', "Off: you keep the routing policies in UniFi yourself. On: the watchdog keeps its own policy for each picked VLAN pointed at the active VPN client. It only ever edits policies named \"vpnwd: ...\".", routeCtl)}
     ${sr("Failover", '<span class="bdg opt">built in</span>', "If the active VPN client stops working, traffic moves to the next one in the fallback order.", foCtl)}
     ${sr("Rotation", '<span class="bdg opt">optional</span>', "Move to another VPN client on a timer, every few hours, days or weeks.", rotCtl)}
@@ -912,10 +922,16 @@ setEl.addEventListener("click", async (e) => {
   const bk = e.target.closest("[data-gblk]"); if (bk) { blockerAction(bk.dataset.g, bk.dataset.gblk, bk.dataset.r); return; }
   const b = e.target.closest("button[data-act], a[data-act]"); if (!b) return;
   const k = b.dataset.act;
-  if (k === "addgroup") { let n = 1; const names = new Set(V.groups.map((x) => x.name)); while (names.has("Group " + n)) n++; V.groups.push({ name: "Group " + n, _orig: null, order: [], networks: [], manage_routing: true }); selG = V.groups.length - 1; renderSection(); return; }
+  if (k === "addgroup") { let n = 1; const names = new Set(V.groups.map((x) => x.name)); while (names.has("Group " + n)) n++; V.groups.push({ name: "Group " + n, _orig: null, order: [], networks: [], devices: [], manage_routing: true }); selG = V.groups.length - 1; renderSection(); return; }
   if (k === "delgroup") { const dg = V.groups[selG]; if (!dg || !confirm(`Delete the group "${dg.name}"? The watchdog stops managing it. Its routing policies stay in UniFi untouched.`)) return; V.jobs = V.jobs.filter((j) => j.group !== dg.name); V.groups.splice(selG, 1); selG = 0; renderSection(); return; }
   if (k === "deljob") { const n = b.dataset.g; V.jobs = V.jobs.filter((j) => j.group !== n); openJob.delete(n); renderSection(); return; }
   if (k === "rotatenow") { await act(`groups/${encodeURIComponent(b.dataset.g)}/rotate`); toast("Rotating " + b.dataset.g + "..."); return; }
+  if (k === "dev-add" || k === "dev-del") {
+    const g = V.groups[selG];
+    if (k === "dev-add") { const mac = $("#devAdd").value, c = (M.clients || []).find((x) => x.mac === mac); if (!mac) return; g.devices = (g.devices || []).concat([{ mac, name: (c && c.name) || "" }]); }
+    else g.devices = (g.devices || []).filter((_, j) => j !== +b.dataset.i);
+    renderSection(); return;
+  }
   if (k === "ord-show") { e.preventDefault(); ordOpen = !ordOpen; renderSection(); return; }
   if (k.startsWith("ord-")) {
     const g = V.groups[selG], i = +b.dataset.i;

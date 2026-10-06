@@ -24,6 +24,10 @@ def normalize(cfg: Config, snap: Snapshot) -> bool:
             used.add(t.id)
             if item.id != t.id or item.tunnel != t.name:
                 item.id, item.tunnel, changed = t.id, t.name, True
+        for dev in g.devices:                                  # a device is matched by MAC; its name is only a label
+            known = snap.clients.get(dev.mac) or snap.known.get(dev.mac) or {}
+            if known.get("name") and dev.name != known["name"]:
+                dev.name, changed = known["name"], True
         for net in g.networks:                                  # a VLAN is followed by id the same way
             nid = net.id if net.id in snap.networks else None
             if nid is None:
@@ -39,6 +43,8 @@ def group_raw(g: GroupCfg) -> dict:
     out: dict = {
         "order": [{k: v for k, v in (("tunnel", i.tunnel), ("id", i.id), ("expect_country", i.expect_country)) if v} for i in g.order],
     }
+    if g.devices:
+        out["devices"] = [{k: v for k, v in (("mac", d.mac), ("name", d.name)) if v} for d in g.devices]
     if g.networks:
         out["networks"] = [{k: v for k, v in (("id", n.id), ("name", n.name)) if v} for n in g.networks]
     return out

@@ -60,6 +60,7 @@ class Snapshot:
     wan_ip: str | None = None
     network_info: dict[str, dict[str, Any]] = field(default_factory=dict)   # id -> {name, vlan, subnet, purpose}
     clients: dict[str, dict[str, Any]] = field(default_factory=dict)        # mac -> {name, ip, network}
+    known: dict[str, dict[str, Any]] = field(default_factory=dict)          # every device UniFi knows, online or not: mac -> {name, ip, network, network_id}
 
     def tunnel_by_ref(self, ref: str) -> Tunnel | None:
         """A tunnel by its UniFi id, or (for a caller that only has a name) by its name."""

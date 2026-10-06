@@ -51,6 +51,7 @@ def extract(cfg: Config) -> dict[str, Any]:
                 "_orig": g.name,
                 "order": [{"tunnel": i.tunnel, "id": i.id, "expect_country": i.expect_country or ""} for i in g.order],
                 "networks": [{"id": n.id, "name": n.name} for n in g.networks],
+                "devices": [{"mac": d.mac, "name": d.name} for d in g.devices],
                 "manage_routing": g.manage_routing,
                 "keep_ready": g.keep_ready,
             }
@@ -122,6 +123,15 @@ def apply(raw: dict[str, Any], form: dict[str, Any]) -> dict[str, Any]:
                 g["manage_routing"] = True
             else:
                 g.pop("manage_routing", None)
+            devs = []
+            for d in fg.get("devices", []):
+                d = {"mac": d} if isinstance(d, str) else d
+                if str(d.get("mac") or "").strip():
+                    devs.append({k: v for k, v in (("mac", str(d["mac"]).strip().lower()), ("name", str(d.get("name") or "").strip())) if v})
+            if devs:
+                g["devices"] = devs
+            else:
+                g.pop("devices", None)
             nets = []
             for n in fg.get("networks", []):
                 n = {"name": n} if isinstance(n, str) else n
@@ -174,5 +184,7 @@ def meta(snap: Snapshot | None) -> dict[str, Any]:
         "tunnels": [{"id": t.id, "name": t.name, "enabled": t.enabled} for t in tunnels],
         "networks": sorted(({"id": i, "name": n, "vlan": snap.network_info.get(i, {}).get("vlan")} for i, n in snap.networks.items()
                             if snap.network_info.get(i, {}).get("purpose") in ("corporate", "guest")), key=lambda x: (x["vlan"] is None, x["vlan"] or 0, x["name"].lower())),
+        "clients": sorted(({"mac": m, "name": c.get("name") or "", "ip": c.get("ip"), "network": c.get("network"), "online": m in snap.clients}
+                           for m, c in snap.known.items()), key=lambda x: ((x["name"] or x["mac"]).lower())),
         "ready": True,
     }

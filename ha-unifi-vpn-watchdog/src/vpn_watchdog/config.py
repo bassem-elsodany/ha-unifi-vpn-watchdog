@@ -129,6 +129,25 @@ class NetRef(_M):
         return self
 
 
+class DevRef(_M):
+    """A device (by MAC) that a group routes through its VPN clients, for example a TV. The MAC is what counts; the name is a label."""
+    mac: str
+    name: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _plain(cls, v: Any) -> Any:
+        return {"mac": v} if isinstance(v, str) else v
+
+    @model_validator(mode="after")
+    def _norm(self) -> "DevRef":
+        m = re.sub(r"[^0-9a-fA-F]", "", self.mac).lower()
+        if len(m) != 12:
+            raise ValueError(f"{self.mac!r} is not a MAC address")
+        self.mac = ":".join(m[i:i + 2] for i in range(0, 12, 2))
+        return self
+
+
 class OrderItem(_M):
     """One position in the fallback order."""
     tunnel: str                          # the tunnel's name when it was chosen: a label, and how an older config is matched the first time
@@ -145,6 +164,7 @@ class OrderItem(_M):
 class GroupCfg(_M):
     name: str
     networks: list[NetRef] = Field(default_factory=list)   # the VLANs this group is for (read-only: the watchdog only checks UniFi's routing policies against them)
+    devices: list[DevRef] = Field(default_factory=list)    # devices (by MAC) routed through this group's VPN clients, ahead of any VLAN policy
     order: list[OrderItem] = Field(default_factory=list)   # fallback sequence: #1 is the most preferred, then #2, #3, ...
     kill_switch: bool | None = None      # ignored (it was a routing-policy setting)
     keep_ready: int = Field(1, ge=1, le=10)   # VPN clients kept switched on and connected: the active one plus (this - 1) standbys, the next ones in the fallback order
@@ -161,6 +181,9 @@ class GroupCfg(_M):
         self.name = self.name.strip()
         if not self.name:
             raise ValueError("a group needs a name")
+        macs = [d.mac for d in self.devices]
+        if len(set(macs)) != len(macs):
+            raise ValueError(f"group {self.name!r}: a device is listed twice")
         keys = [i.id or i.tunnel for i in self.order]
         dup = sorted({i.tunnel for i in self.order if keys.count(i.id or i.tunnel) > 1})
         if dup:

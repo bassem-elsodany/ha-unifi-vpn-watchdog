@@ -44,6 +44,8 @@ class FakeUniFi:
         self.enabled = {tid(n) for n in (enabled if enabled is not None else {active})}
         self.calls: list[tuple] = []
         self.routes: list[Route] = []
+        self.clients: dict = {}        # online devices: mac -> {name, ip, network_id, ...}
+        self.known: dict = {}          # every known device (the device picker)
         if with_policies:
             for n in TUNNELS:
                 self.routes.append(self._mk(f"route-{n}", n, n == active))
@@ -70,20 +72,23 @@ class FakeUniFi:
                 conns[i] = Connection(i, "CONNECTING" if bad else "CONNECTED", None if bad else "9.9.9.9",
                                       None if bad else (0 if i in self.muted else 5000), None if bad else 6000)
         info = {i: {"name": n, "vlan": None, "subnet": None, "purpose": "corporate"} for i, n in NETS.items()}
-        return Snapshot(tunnels, conns, list(self.routes), dict(NETS), "92.0.0.1", info)
+        return Snapshot(tunnels, conns, list(self.routes), dict(NETS), "92.0.0.1", info, dict(self.clients), dict(self.known))
 
     def create_own_route(self, body):
         assert body["description"].startswith("vpnwd:")
         self.calls.append(("route-create", body["description"], body["network_id"]))
-        nets = frozenset(t["network_id"] for t in body["target_devices"])
-        self.routes.append(Route(f"own-{len(self.routes)}", body["description"], body["network_id"], True, False, nets, frozenset(), dict(body)))
+        nets = frozenset(t["network_id"] for t in body["target_devices"] if t.get("type") == "NETWORK")
+        macs = frozenset(t["client_mac"] for t in body["target_devices"] if t.get("type") == "CLIENT")
+        self._seq = getattr(self, "_seq", 0) + 1
+        self.routes.append(Route(f"own-{self._seq}", body["description"], body["network_id"], body.get("enabled", True), False, nets, macs, dict(body)))
 
-    def update_own_route(self, route_id, network_id, enabled=True):
+    def update_own_route(self, route_id, network_id, enabled=True, target_devices=None):
         import dataclasses
         i = next(k for k, r in enumerate(self.routes) if r.id == route_id)
         assert self.routes[i].description.startswith("vpnwd:")
         self.calls.append(("route-update", route_id, network_id))
-        self.routes[i] = dataclasses.replace(self.routes[i], network_id=network_id, enabled=enabled)
+        macs = self.routes[i].target_macs if target_devices is None else frozenset(t["client_mac"] for t in target_devices)
+        self.routes[i] = dataclasses.replace(self.routes[i], network_id=network_id, enabled=enabled, target_macs=macs)
 
     def set_route_enabled(self, route_id, enabled):
         import dataclasses

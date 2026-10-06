@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.23.0
+
+- **Device groups.** A group can route devices (by MAC address) as well as VLANs: Settings > VPN groups > Devices lists the devices UniFi knows (online or not). With Routing on, the watchdog keeps ONE policy of its own for all the group's devices, `vpnwd: <group> › devices`, on the group's active VPN client, and moves it on failover. Rotation, standbys and failover work as for any group, so a TV can rotate over its own list of VPN clients every day.
+- **Device policies always come first.** UniFi uses the first live policy in its list and a new policy always lands at the end, so the watchdog keeps its device policies above its VLAN policies: when a device policy sits below one of its VLAN policies, the VLAN policy is created again (so it lands below) and the old copy is deleted afterwards. The VLAN is never without a policy, and only the watchdog's own policies are touched. A policy of yours above a device's policy shows up as a blocker, with the same confirmed "Switch it off..." button.
+- A device belongs to one group (the first one that lists it routes it); a warning explains an overlap with a VLAN that another group routes, and a device in a group with Routing off.
+- Status: a group's devices are a box in the VLAN list (tagged with the group); click it and its devices open inside it while the group and the egress follow, like a VLAN. The watchdog's own device policy is not shown as a device "with its own route".
+- A deleted group's device policy is removed with the group, like its VLAN policies.
+
 ## 0.22.2
 
 - **A new group manages its own routing by default** (the Routing switch starts on): once it has picked VLANs and a client is active, the watchdog creates its one policy per VLAN and moves it on failover. You don't create any route per VPN client.

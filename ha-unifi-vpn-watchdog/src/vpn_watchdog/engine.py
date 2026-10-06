@@ -66,6 +66,7 @@ class Engine:
         self._noted: dict[str, str] = {}
         self._warm: dict[str, set[str]] = {}         # group -> the standby VPN clients kept on and connected (keep_ready)
         self._warm_since: dict[str, float] = {}      # standby id -> when it was switched on as a standby (to give up on one that never connects)
+        self._dev_owners: dict[str, str] = {}       # device MAC -> the group that routes it (a device belongs to one group)
         self._orphan_seen: dict[str, int] = {}       # policy id -> consecutive cycles its group has been missing from the config
         self._route_fail: dict[str, float] = {}     # group -> when its routing last failed to apply (retried after a pause, not every cycle)
         self._busy = False
@@ -119,6 +120,10 @@ class Engine:
         if normalize(self.cfg, snap):                     # a rename in UniFi, or a config that only had names: follow the ids
             self.refs_changed = True
         self._owners = self._claims(snap)
+        self._dev_owners = {}
+        for g in self.cfg.groups:
+            for d in g.devices:
+                self._dev_owners.setdefault(d.mac, g.name)
         if self._drain_commands(snap):                     # a command switched clients on or off: look again before deciding anything
             snap = self.unifi.snapshot()
             self._snap = snap
@@ -146,6 +151,10 @@ class Engine:
         self._publish(snap)
 
     # ------------------------------------------------------------------ per-group loop
+    def _group_devices(self, g: GroupCfg) -> list[str]:
+        """The devices this group routes: those that no earlier group has already claimed."""
+        return [d.mac for d in g.devices if self._dev_owners.get(d.mac) in (None, g.name)]
+
     def _routing_plan(self, g: GroupCfg, snap: Snapshot) -> list[routing.Action]:
         """What the watchdog would change so the group's picked VLANs go through its active client."""
         gs = self.store.group(g.name)
@@ -154,7 +163,7 @@ class Engine:
             return []
         lans = {nid for nid, i in snap.network_info.items() if i.get("purpose") in ("corporate", "guest")}
         vlans = [n.id for n in g.networks if n.id in lans]
-        return routing.plan(g.name, vlans, t, snap)
+        return routing.plan(g.name, vlans, self._group_devices(g), t, snap)
 
     def _maintain_warm(self, g: GroupCfg, snap: Snapshot) -> None:
         """keep_ready > 1: keep the next (keep_ready - 1) VPN clients of the fallback order switched on and connected, so a failover to
@@ -198,7 +207,7 @@ class Engine:
         if t is None or not t.enabled:
             return []
         lans = {nid for nid, i in snap.network_info.items() if i.get("purpose") in ("corporate", "guest")}
-        return routing.blockers([n.id for n in g.networks if n.id in lans], t, snap)
+        return routing.blockers([n.id for n in g.networks if n.id in lans], self._group_devices(g), t, snap)
 
     def _blocker_command(self, kind: str, g: GroupCfg, gs: GroupState, route_id: str, snap: Snapshot) -> None:
         """The user pressed Switch off / Switch back on and confirmed in the web UI. Checked again here: only a policy that really blocks
@@ -237,7 +246,7 @@ class Engine:
                     if a.kind == "create":
                         self.unifi.create_own_route(routing.new_route_body(a))
                     elif a.kind == "update":
-                        self.unifi.update_own_route(a.route_id, a.tunnel_id)
+                        self.unifi.update_own_route(a.route_id, a.tunnel_id, True, routing.device_target(a.macs) if a.macs else None)
                     else:
                         self.unifi.delete_own_route(a.route_id)
                 except UniFiError as e:
@@ -248,7 +257,28 @@ class Engine:
                 wrote = True
                 self._record("routing_changed", f"group {g.name}: {a.text}")
                 log.info("group %s: %s", g.name, a.text)
-        return self._clean_orphans(snap) or wrote
+        fixed = self._fix_order(self.unifi.snapshot() if wrote else snap)
+        return self._clean_orphans(snap) or wrote or fixed
+
+    def _fix_order(self, snap: Snapshot) -> bool:
+        """Device policies must come before VLAN policies (UniFi uses the first live one). A new policy lands at the end of UniFi's list, so the
+        watchdog's VLAN policies that sit above a device policy are created again (they land below it) and the old ones are deleted afterwards:
+        the VLAN always has a policy, and only the watchdog's own policies are touched."""
+        if self.clock.now() - self._route_fail.get("*order", -1e9) < 300:
+            return False
+        wrote = False
+        for r in routing.order_fix(snap):
+            try:
+                if not routing.has_twin_below(snap, r):
+                    self.unifi.create_own_route(routing.clone_body(r))
+                self.unifi.delete_own_route(r.id)
+            except UniFiError as e:
+                self._route_fail["*order"] = self.clock.now()
+                self._record("routing_failed", f"could not move the policy \"{r.description}\" below the device policies: {e}", "warning")
+                break
+            wrote = True
+            self._record("routing_changed", f"moved the policy \"{r.description}\" below the device policies (a device policy must come first in UniFi's list)")
+        return wrote
 
     def _clean_orphans(self, snap: Snapshot) -> bool:
         """A deleted group takes its own policies with it. Only after its group has been missing for 3 cycles in a row, and never when
@@ -771,6 +801,8 @@ class Engine:
         for mac, e in eff.items():
             c = snap.clients.get(mac, {})
             r = snap.routes[e["own"]]
+            if routing.owned(r) or (e["win"] is not None and routing.owned(snap.routes[e["win"]])):
+                continue                       # a device routed by one of the watchdog's groups is shown with its group, not as an "own route"
             row = {"mac": mac, "name": c.get("name") or "", "ip": c.get("ip"), "network": snap.networks.get(snap.client_network(c) or "", c.get("network") or ""),
                    "position": e["own"] + 1, "total": total, **dest(r)}
             if e["applied"]:
@@ -882,13 +914,32 @@ class Engine:
             if not g.manage_routing:           # you manage the policies: a client without one for the VLAN would leave it on the normal internet after a failover
                 gaps += [f"{t.name} has no routing policy for {snap.networks[n]}, so a failover to it would leave that VLAN on the normal internet"
                          for t in order for n in nets if not any(r.network_id == t.id and covers(r, n) for r in vpn_pols)]
+
+            owner_of_vlan = {n: gn for gn, lst in declared.items() for n in lst}
+            dev_rows: list[dict[str, Any]] = []
+            for d in g.devices:
+                c, k = snap.clients.get(d.mac) or {}, snap.known.get(d.mac) or {}
+                label = c.get("name") or k.get("name") or d.name or d.mac
+                if self._dev_owners.get(d.mac) not in (None, g.name):
+                    gaps.append(f"{label} is already in group {self._dev_owners[d.mac]}, so this group does not route it")
+                    continue
+                dn = snap.client_network(c or k) if (c or k) else None
+                if dn and owner_of_vlan.get(dn) not in (None, g.name):
+                    gaps.append(f"{label} is in {snap.networks.get(dn, dn)}, which group {owner_of_vlan[dn]} routes; this group's policy takes priority for {label}")
+                dev_rows.append({"mac": d.mac, "name": label if label != d.mac else "", "ip": c.get("ip") or k.get("ip"), "rate_bps": c.get("rate_bps"),
+                                 "active": (c.get("rate_bps") or 0) > 800, "wired": c.get("wired", False), "bypass": None, "overridden": False,
+                                 "online": d.mac in snap.clients})
+            if g.devices and not g.manage_routing:
+                gaps.append("this group has devices but Routing is off: the watchdog only routes devices (or VLANs) when Routing is on")
+            device_net = {"id": f"grp-dev:{g.name}", "name": f"{g.name} · devices", "vlan": None, "subnet": None, "count": len(dev_rows),
+                          "bypass_count": 0, "devices": dev_rows} if dev_rows else None
             out_groups.append({
                 "keep_ready": g.keep_ready,
                 "warm": [{"name": snap.tunnels[i].name, "connected": bool(snap.connections.get(i) and snap.connections[i].connected)}
                          for i in sorted(self._warm.get(g.name, ()), key=lambda i: next((k for k, t in enumerate(order) if t.id == i), 99)) if i in snap.tunnels],
                 "routing": {"manage": g.manage_routing, "plan": [a.text for a in self._routing_plan(g, snap)], "blockers": self._blockers(g, snap),
                             "switched_off": [x for x in gs.switched_off if any(r.id == x["id"] and not r.enabled for r in snap.routes)]},
-                "gaps": gaps, "declared": bool(declared[g.name]), "name": g.name, "paused": gstat.get("paused", False), "healthy": gstat.get("healthy"), "decision": gstat.get("decision", ""),
+                "device_net": device_net, "gaps": gaps, "declared": bool(declared[g.name]), "name": g.name, "paused": gstat.get("paused", False), "healthy": gstat.get("healthy"), "decision": gstat.get("decision", ""),
                 "exhausted": gstat.get("exhausted", False), "jobs": gstat.get("jobs", {}), "has_order": bool(order), "rotation": gstat.get("rotation"),
                 "conflict": "No routing policy in UniFi sends traffic through this VPN client right now, so nothing is using it" if act and not live_nets else None,
                 "active": act.name if act else None, "networks": [card(n) for n in nets],
