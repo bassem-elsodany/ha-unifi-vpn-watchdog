@@ -29,9 +29,9 @@ def test_extract_reads_effective_values_including_defaults():
     assert v["interval_seconds"] == 15 and v["detection"]["failure_threshold"] == 3
     assert v["switching"]["on_exhausted"] == "keep" and v["failback"]["enabled"] is True
     assert "prefer_different_city" not in v["switching"]
-    assert v["groups"][0]["order"] == [{"tunnel": "Home-Primary", "expect_country": ""},
-                                       {"tunnel": "Office Berlin", "expect_country": "DE"},
-                                       {"tunnel": "Last resort", "expect_country": ""}]
+    assert v["groups"][0]["order"] == [{"tunnel": "Home-Primary", "id": None, "expect_country": ""},
+                                       {"tunnel": "Office Berlin", "id": None, "expect_country": "DE"},
+                                       {"tunnel": "Last resort", "id": None, "expect_country": ""}]
 
 
 def test_apply_changes_values_and_preserves_what_the_form_does_not_own():
@@ -102,7 +102,7 @@ def test_meta_lists_networks_and_tunnels_without_any_interpretation():
     snap = Snapshot({"id-a": t("Home 1"), "id-b": t("Home 2"), "id-c": t("zeta")}, {}, [],
                     {"id-a": "Home 1", "id-b": "Home 2", "id-c": "zeta", "n1": "vlan20-iot", "n2": "Internet 1", "n3": "One-Click VPN"})
     m = settings.meta(snap)
-    assert m["networks"] == ["vlan20-iot"]
+    assert m["networks"] == [{"id": "n1", "name": "vlan20-iot"}]
     assert [x["name"] for x in m["tunnels"]] == ["Home 1", "Home 2", "zeta"]
     assert "countries" not in m
     assert settings.meta(None)["ready"] is False

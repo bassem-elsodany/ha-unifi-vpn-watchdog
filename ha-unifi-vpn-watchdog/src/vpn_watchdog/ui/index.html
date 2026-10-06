@@ -359,14 +359,14 @@ function updateVlist(id) {
 
 function laneCard(g, t, can, behind) {
   const inOrder = t.position != null, c = tcolor(t);
-  const sel = selected && selected.kind === "tun" && selected.name === t.name ? "sel" : "";
+  const sel = selected && selected.kind === "tun" && selected.name === t.id ? "sel" : "";
   const sub = t.active ? `connected · ${bps(t.rx_bps || 0)} ↓ · ${bps(t.tx_bps || 0)} ↑ · policy on`
     : t.quarantined_for ? `cooling down ${t.quarantined_for}s · ${esc(t.last_reason || "failed")}`
     : (t.carries || []).length ? `${tlabel(t)} · carries ${t.carries.length} device${t.carries.length === 1 ? "" : "s"} with its own route` : `${tlabel(t)} · ready to take over`;
   const num = inOrder ? `<span class="num">#${t.position}</span>` : g.unmanaged ? "" : '<span class="num" title="Not in the fallback order">--</span>';
   const head = t.active ? `<div class="l1">${num}<b>ACTIVE · ${behind} device${behind === 1 ? "" : "s"} behind it</b></div><div class="mono">${esc(t.name)}</div>`
     : `<div class="l1">${num}<span class="mono">${esc(t.name)}</span></div>`;
-  return `<div class="lc ${t.active ? "active" : ""} ${(t.carries || []).length ? "own" : ""} ${sel}" data-g="${esc(g.name)}" data-tun="${esc(t.name)}" ${inOrder ? `data-pos="${t.position}"` : ""} ${inOrder && can ? 'draggable="true" data-drag="lane"' : ""}
+  return `<div class="lc ${t.active ? "active" : ""} ${(t.carries || []).length ? "own" : ""} ${sel}" data-g="${esc(g.name)}" data-tun="${esc(t.id)}" ${inOrder ? `data-pos="${t.position}"` : ""} ${inOrder && can ? 'draggable="true" data-drag="lane"' : ""}
       tabindex="0" aria-label="${esc(t.name)}${inOrder ? ", position " + t.position : ", not in the order"}${can && inOrder ? ". Alt plus arrow up or down moves it." : ""}">
     ${inOrder && can ? '<span class="grip" aria-hidden="true"></span>' : ""}<span class="dot ${c}"></span>
     <div class="lb">${head}<div class="sub">${sub}</div></div></div>`;
@@ -380,7 +380,7 @@ function laneHtml(g, can, behind) {
   });
   const empty = g.unmanaged || g.lane.some((t) => t.position != null) ? "" : '<div class="muted" style="padding:10px 4px">No fallback order yet. Open the list below and drag tunnels up here.</div>';
   const pool = g.pool.length ? `<details class="pool" data-g="${esc(g.name)}" ${poolOpen.has(g.name) ? "open" : ""}><summary>+ ${g.pool.length} more tunnel${g.pool.length === 1 ? " is" : "s are"} ${g.unmanaged ? "have a policy for these networks" : "not in the fallback order" + (can ? " \u00b7 add them" : "")}</summary>
-      <div class="pchips">${g.pool.map((p) => `<span class="pc ${selected && selected.name === p.name ? "sel" : ""}" data-g="${esc(g.name)}" data-tun="${esc(p.name)}" ${can && !g.unmanaged ? 'draggable="true" data-drag="pool"' : ""}><span class="dot ${tcolor(p)}"></span>${esc(p.name)}</span>`).join("")}</div></details>`
+      <div class="pchips">${g.pool.map((p) => `<span class="pc ${selected && selected.name === p.id ? "sel" : ""}" data-g="${esc(g.name)}" data-tun="${esc(p.id)}" ${can && !g.unmanaged ? 'draggable="true" data-drag="pool"' : ""}><span class="dot ${tcolor(p)}"></span>${esc(p.name)}</span>`).join("")}</div></details>`
     : g.unmanaged ? "" : `<div class="pool" data-g="${esc(g.name)}"><span class="muted" style="font-size:13px">Every tunnel is in the fallback order.</span></div>`;
   return `<div class="colm"><div class="band"><div class="bhead">${g.unmanaged ? '<b>VPN CLIENT IN USE</b><div class="muted">UniFi sends these networks through the first routing policy that is switched on.</div>'
       : `<b>GROUP ${esc(g.name.toUpperCase())} \u00b7 FALLBACK ORDER</b><div class="muted">#1 carries the traffic. If it fails, #2 takes over, then #3.</div>`}</div>
@@ -402,7 +402,7 @@ function ownCard(m) {
   if (!(m.own || []).length && !off.length) return "";
   const n = (m.own || []).length;
   return `<div class="vc ownc"><div class="vh"><span class="dot" style="background:var(--own)"></span><b style="font-size:14px">Devices with their own route · ${n}</b></div>
-    ${(m.own || []).map((d) => `<div class="orow" data-mac="${esc(d.mac)}" data-kind="${d.kind}" ${d.tunnel ? `data-tun="${esc(d.tunnel)}"` : ""}><div class="o1"><span>${ownName(d)}</span><span>${esc(d.ip || "")}</span></div>
+    ${(m.own || []).map((d) => `<div class="orow" data-mac="${esc(d.mac)}" data-kind="${d.kind}" ${d.tunnel_id ? `data-tun="${esc(d.tunnel_id)}"` : ""}><div class="o1"><span>${ownName(d)}</span><span>${esc(d.ip || "")}</span></div>
       <div class="o2" title="${esc(d.kind === "vpn" ? d.tunnel : "normal connection")}">${esc(d.network || "")}${d.network ? " · " : ""}${ownDest(d)}</div>
       <div class="o3">Applies: policy <b>#${d.position}</b> of ${d.total} · ${esc(d.policy)}</div></div>`).join("")}
     ${off.length ? `<div class="offh">NOT APPLIED · ${off.length}</div>` + off.map((d) => `<div class="orow off" data-mac="${esc(d.mac)}"><div class="o1"><span>${ownName(d)}</span><span>${esc(d.ip || "")}</span></div>
@@ -540,7 +540,7 @@ if (window.ResizeObserver) new ResizeObserver(() => { clearTimeout(linkTimer); l
 window.addEventListener("resize", () => { clearTimeout(linkTimer); linkTimer = setTimeout(drawLinks, 80); });
 
 /* details panel */
-function findTun(g, name) { const grp = mapData().groups.find((x) => x.name === g); if (!grp) return []; return [grp, grp.lane.find((t) => t.name === name) || grp.pool.find((t) => t.name === name)]; }
+function findTun(g, name) { const grp = mapData().groups.find((x) => x.name === g); if (!grp) return []; return [grp, grp.lane.find((t) => t.id === name) || grp.pool.find((t) => t.id === name)]; }
 function renderDrawer() {
   const el = $("#drawer");
   if (!selected) { el.classList.add("hide"); return; }
@@ -578,12 +578,13 @@ async function postOrder(g, order) {
   if (!r.ok) alert(r.data.error || "The order could not be saved.");
   if (r.ok && V) {   // keep an open Settings form in step with the new order instead of discarding unsaved edits
     const grp = V.groups.find((x) => x.name === g), o = JSON.parse(orig), og = o.groups.find((x) => x.name === g);
-    if (grp) { const old = Object.fromEntries(grp.order.map((i) => [i.tunnel, i])); grp.order = order.map((n) => old[n] || { tunnel: n, expect_country: "" }); if (og) { og.order = JSON.parse(JSON.stringify(grp.order)); orig = JSON.stringify(o); } }
+    if (grp) { const old = Object.fromEntries(grp.order.map((i) => [i.id || i.tunnel, i])); grp.order = order.map((id) => old[id] || { tunnel: tunName(id), id, expect_country: "" }); if (og) { og.order = JSON.parse(JSON.stringify(grp.order)); orig = JSON.stringify(o); } }
   }
   toast(r.ok ? "Order saved. It takes effect within a few seconds." : "");
   setTimeout(refresh, 1500);
 }
-const orderOf = (g) => { const grp = mapData().groups.find((x) => x.name === g); return grp ? grp.lane.filter((t) => t.position != null).map((t) => t.name) : []; };
+const orderOf = (g) => { const grp = mapData().groups.find((x) => x.name === g); return grp ? grp.lane.filter((t) => t.position != null).map((t) => t.id) : []; };      // ids: a rename in UniFi never breaks an action
+const tunName = (id) => { for (const g of mapData().groups) { const t = g.lane.find((x) => x.id === id) || g.pool.find((x) => x.id === id); if (t) return t.name; } return id; };
 
 /* clicks, search, drag and drop on the map */
 const mapEl = $("#map");
@@ -644,7 +645,7 @@ $("#drawer").addEventListener("click", (e) => {
   const k = b.dataset.d;
   if (k === "close") { selected = null; renderMap(status); return; }
   const g = selected.g, name = selected.name, order = orderOf(g), i = order.indexOf(name);
-  if (k === "switch") { if (confirm(`Move ${g} to ${name} now?`)) act(`groups/${encodeURIComponent(g)}/switch`, { tunnel: name }); return; }
+  if (k === "switch") { if (confirm(`Move ${g} to ${tunName(name)} now?`)) act(`groups/${encodeURIComponent(g)}/switch`, { tunnel: name }); return; }
   if (k === "test") { act(`groups/${encodeURIComponent(g)}/test`, { tunnel: name }); return; }
   if (k === "add") return postOrder(g, order.concat([name]));
   if (k === "remove") return postOrder(g, order.filter((n) => n !== name));
@@ -759,9 +760,10 @@ function secGroups() {
     <div class="note" style="padding:0 28px">A group is a set of networks that share one VPN and one fallback order. Create one per purpose.</div></div>`;
   const g = V.groups[selG];
   if (!g) return `<div class="gm">${left}<div class="gd"><p class="lead">No group yet. Until you add one the watchdog only watches.</p></div></div>`;
-  const known = new Set(M.networks || []);
-  const chips = (M.networks || []).concat(g.networks.filter((n) => !known.has(n))).map((n) => `<span class="tc ${g.networks.includes(n) ? "on" : ""}" role="checkbox" tabindex="0" aria-checked="${g.networks.includes(n)}" data-chip="${esc(n)}">${g.networks.includes(n) ? "✓ " : ""}${esc(n)}${known.has(n) ? "" : " (not found)"}</span>`).join("") || '<span class="muted">Waiting for the first UniFi check...</span>';
-  const names = g.order.map((i) => i.tunnel), all = (M.tunnels || []).map((t) => t.name), pool = all.filter((n) => !names.includes(n));
+  const knownIds = new Set((M.networks || []).map((n) => n.id)), has = (n) => g.networks.some((x) => x.id === n.id || (!x.id && x.name === n.name));
+  const gone = g.networks.filter((x) => !(M.networks || []).some((n) => n.id === x.id || (!x.id && n.name === x.name)));
+  const chips = (M.networks || []).map((n) => ({ ...n, nf: false })).concat(gone.map((n) => ({ ...n, nf: true }))).map((n) => `<span class="tc ${n.nf || has(n) ? "on" : ""}" role="checkbox" tabindex="0" aria-checked="${n.nf || has(n)}" data-chip="${esc(n.id || n.name)}">${n.nf || has(n) ? "✓ " : ""}${esc(n.name)}${n.nf ? " (not found)" : ""}</span>`).join("") || '<span class="muted">Waiting for the first UniFi check...</span>';
+  const live = Object.fromEntries((M.tunnels || []).map((t) => [t.id, t.name])), names = g.order.map((i) => (i.id && live[i.id]) || i.tunnel), pool = (M.tunnels || []).filter((t) => !g.order.some((i) => i.id === t.id || (!i.id && i.tunnel === t.name)));
   const order = names.length ? names.slice(0, 4).map((n, i) => `<span class="opill"><b>#${i + 1}</b>${esc(n)}</span>`).join('<span class="muted">→</span>') + (names.length > 4 ? `<span class="muted">+${names.length - 4} more</span>` : "") : '<span class="muted">No order yet.</span>';
   return `<div class="gm">${left}<div class="gd">
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:6px"><input class="gname" data-path="groups.${selG}.name" data-t="str" value="${esc(g.name)}" placeholder="Group name" aria-label="Group name"><button class="btn danger" data-act="delgroup">Delete group</button></div>
@@ -882,7 +884,7 @@ setEl.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === "
 setEl.addEventListener("click", async (e) => {
   const sec = e.target.closest("[data-sec]"); if (sec) { sset = sec.dataset.sec; try { localStorage.setItem("wd_sset", sset); } catch (x) {} renderSection(); return; }
   const sg = e.target.closest("[data-seg]"); if (sg) { const t = sg.dataset.t, v = sg.dataset.val; set(V, sg.dataset.seg, t === "tri" ? (v === "null" ? null : v === "true") : v); renderSection(); return; }
-  const ch = e.target.closest("[data-chip]"); if (ch) { const g = V.groups[selG], n = ch.dataset.chip; g.networks = g.networks.includes(n) ? g.networks.filter((x) => x !== n) : g.networks.concat([n]); renderSection(); return; }
+  const ch = e.target.closest("[data-chip]"); if (ch) { const g = V.groups[selG], key = ch.dataset.chip, mine = (x) => (x.id || x.name) === key || x.name === key; g.networks = g.networks.some(mine) ? g.networks.filter((x) => !mine(x)) : g.networks.concat([(M.networks || []).find((n) => n.id === key) || { id: null, name: key }]); renderSection(); return; }
   const gs = e.target.closest("[data-gsel]"); if (gs) { selG = +gs.dataset.gsel; renderSection(); return; }
   const je = e.target.closest("[data-jedit]"); if (je) { const n = je.dataset.jedit; if (openJob.has(n)) openJob.delete(n); else openJob.add(n); renderSection(); return; }
   const gj = e.target.closest("[data-gojob]"); if (gj) { selG = +gj.dataset.gojob; sset = "groups"; renderSection(); return; }
@@ -898,7 +900,7 @@ setEl.addEventListener("click", async (e) => {
   if (k === "addjob") { const grp = $("#addGroup") && $("#addGroup").value; if (!grp) return; V.jobs.push({ kind: "rotation", group: grp, enabled: true, every: 1, unit: "days", at: "03:00", go_to: "next" }); openJob.add(grp); addOpen = false; renderSection(); return; }
   if (k === "deljob") { const n = b.dataset.g; V.jobs = V.jobs.filter((j) => j.group !== n); openJob.delete(n); renderSection(); return; }
   if (k === "rotatenow") { await act(`groups/${encodeURIComponent(b.dataset.g)}/rotate`); toast("Rotating " + b.dataset.g + "..."); return; }
-  if (k === "addall") { const g = V.groups[selG], used = new Set(g.order.map((x) => x.tunnel)); (M.tunnels || []).map((t) => t.name).filter((n) => !used.has(n)).forEach((n) => g.order.push({ tunnel: n, expect_country: "" })); renderSection(); return; }
+  if (k === "addall") { const g = V.groups[selG]; (M.tunnels || []).filter((t) => !g.order.some((x) => x.id === t.id || (!x.id && x.tunnel === t.name))).forEach((t) => g.order.push({ tunnel: t.name, id: t.id, expect_country: "" })); renderSection(); return; }
   if (k === "gostatus") { document.querySelector("nav button[data-tab=status]").click(); }
 });
 

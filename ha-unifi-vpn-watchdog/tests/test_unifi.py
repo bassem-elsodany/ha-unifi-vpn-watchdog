@@ -95,7 +95,7 @@ def test_http_errors_raise_without_leaking_the_key():
 def test_snapshot_reads_devices_with_a_bit_rate():
     c, _ = make()
     cl = c.snapshot().clients
-    assert cl["aa:bb"] == {"name": "TV", "ip": "10.0.50.5", "network": "vlan50", "rate_bps": 200_000, "wired": True}    # (1000+24000) bytes/s * 8
+    assert cl["aa:bb"] == {"name": "TV", "ip": "10.0.50.5", "network": "vlan50", "network_id": None, "rate_bps": 200_000, "wired": True}    # (1000+24000) bytes/s * 8
     assert cl["cc:dd"]["name"] == "phone" and cl["cc:dd"]["rate_bps"] is None
 
 

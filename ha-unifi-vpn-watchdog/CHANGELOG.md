@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.13.0
+
+- **Everything that points at UniFi now points at its id, not only its name.** A group's VLANs and the tunnels in its fallback order are stored with their UniFi id (`id`) and a name label. Renaming a VPN client or a VLAN in UniFi changes nothing: the order, the position numbers, the country typed for a position and the group's VLANs all stay, and the label in `config.yaml` follows the new name. A config that only has names (every config before this version) gets its ids filled in automatically on the first UniFi reading, and is rewritten once.
+- A VPN client or VLAN that was deleted and recreated (new id, same name) is found again by its name; one that was deleted for good stays in the config as "missing" and is skipped, never guessed.
+- Devices are placed on their VLAN by the VLAN's id (UniFi's `network_id`), not by the VLAN's name.
+- Status follows UniFi even for managed groups: a VLAN of a group that UniFi routes through another client right now is drawn where it really goes, not under the group's active tunnel.
+- A routing policy that targets all devices is shown as covering every VLAN.
+- The Status page and the Settings form talk to the watchdog by id (switching, testing, reordering, ticking VLANs).
+
 ## 0.12.2
 
 - Fixed: Status put every VLAN that a VPN policy lists under the same VPN client. When VLAN 20 and VLAN 50 are routed to different clients (policies narrowed to one VLAN each), both showed on whichever client was first in UniFi's list, because the other, switched-off policies still listed both VLANs. Now each VLAN is drawn under the policy UniFi actually applies to it (the first enabled one in its list); VLANs on the same client share a block, VLANs on different clients get a block each.

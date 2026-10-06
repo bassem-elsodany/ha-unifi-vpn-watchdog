@@ -116,9 +116,28 @@ class FailbackCfg(_M):
     stable_seconds: int = Field(300, ge=0)
 
 
+class NetRef(_M):
+    """A VLAN of a group. The UniFi id is what counts (a rename in UniFi changes nothing); the name is a label, and the way an
+    older config that only has names is found again the first time (the id is then filled in automatically)."""
+    id: str | None = None
+    name: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _plain(cls, v: Any) -> Any:
+        return {"name": v} if isinstance(v, str) else v
+
+    @model_validator(mode="after")
+    def _need_one(self) -> "NetRef":
+        if not (self.id or self.name):
+            raise ValueError("a network needs an id or a name")
+        return self
+
+
 class OrderItem(_M):
     """One position in the fallback order."""
-    tunnel: str                          # exact tunnel name as it is in UniFi, whatever it is called
+    tunnel: str                          # the tunnel's name when it was chosen: a label, and how an older config is matched the first time
+    id: str | None = None                # the tunnel's UniFi id: what is matched first, so renaming the VPN client in UniFi changes nothing
     expect_country: str | None = None    # optional, typed by you: country the exit-IP test must see for this tunnel
 
     @model_validator(mode="after")
@@ -130,7 +149,7 @@ class OrderItem(_M):
 
 class GroupCfg(_M):
     name: str
-    networks: list[str]                  # network names (or ids) whose internet traffic the route steers
+    networks: list[NetRef]               # VLANs whose internet traffic the group's policies steer (by UniFi id; a name alone is accepted and upgraded)
     order: list[OrderItem] = Field(default_factory=list)   # fallback sequence: #1 is the most preferred, then #2, #3, ...
     kill_switch: bool | None = None      # None = leave the route's kill switch alone
     overrides: dict[str, Any] = Field(default_factory=dict)  # deep-merged over detection/switching/failback
@@ -147,8 +166,8 @@ class GroupCfg(_M):
             raise ValueError("a group needs a name")
         if not self.networks:
             raise ValueError(f"group {self.name!r} needs at least one network: tick the networks that should use the VPN")
-        names = [i.tunnel for i in self.order]
-        dup = sorted({n for n in names if names.count(n) > 1})
+        keys = [i.id or i.tunnel for i in self.order]
+        dup = sorted({i.tunnel for i in self.order if keys.count(i.id or i.tunnel) > 1})
         if dup:
             raise ValueError(f"group {self.name!r}: tunnel listed twice in the fallback order: {dup}")
         return self

@@ -6,26 +6,36 @@ from __future__ import annotations
 
 from .config import GroupCfg
 from .models import Tunnel
+from .refs import item_for
 
 
 def resolve_order(group: GroupCfg, tunnels: list[Tunnel]) -> list[Tunnel]:
-    """The configured sequence as Tunnel objects. Names that do not exist in UniFi (yet) are skipped."""
+    """The configured sequence as Tunnel objects, matched by UniFi id (a name only for a config not upgraded yet).
+    Entries that do not exist in UniFi (any more) are skipped."""
+    by_id = {t.id: t for t in tunnels}
     by_name = {t.name: t for t in tunnels}
-    return [by_name[i.tunnel] for i in group.order if i.tunnel in by_name]
+    out: list[Tunnel] = []
+    for i in group.order:
+        t = by_id.get(i.id or "") or (by_name.get(i.tunnel) if not i.id else None)
+        if t is not None and t not in out:
+            out.append(t)
+    return out
 
 
 def missing(group: GroupCfg, tunnels: list[Tunnel]) -> list[str]:
+    """Labels of the order entries UniFi does not have (deleted, or never existed)."""
+    ids = {t.id for t in tunnels}
     names = {t.name for t in tunnels}
-    return [i.tunnel for i in group.order if i.tunnel not in names]
+    return [i.tunnel for i in group.order if not ((i.id in ids) if i.id else (i.tunnel in names))]
 
 
 def position_of(group: GroupCfg, tunnel: Tunnel | None) -> int | None:
     """1-based position of `tunnel` in the configured order, or None if it is not listed."""
     if tunnel is None:
         return None
-    for i, item in enumerate(group.order, start=1):
-        if item.tunnel == tunnel.name:
-            return i
+    for n, item in enumerate(group.order, start=1):
+        if item_for(group, tunnel.id, tunnel.name) is item:
+            return n
     return None
 
 
@@ -36,10 +46,8 @@ def position_label(group: GroupCfg, tunnel: Tunnel | None) -> str:
 
 def expected_country(group: GroupCfg, tunnel: Tunnel) -> str | None:
     """Country the exit-IP test must see, only if the user typed one for this position."""
-    for item in group.order:
-        if item.tunnel == tunnel.name:
-            return item.expect_country
-    return None
+    item = item_for(group, tunnel.id, tunnel.name)
+    return item.expect_country if item else None
 
 
 def candidates(group: GroupCfg, tunnels: list[Tunnel], current: Tunnel | None) -> list[Tunnel]:

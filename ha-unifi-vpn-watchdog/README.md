@@ -120,6 +120,9 @@ See [config/config.example.yaml](config/config.example.yaml); every key is docum
 - **Fallback order** (`groups[].order`): the sequence of tunnels, first = most preferred. Each entry is an exact tunnel name,
   or `{tunnel: NAME, expect_country: IT}` if the exit-IP test should check a country that you typed yourself. Tunnels not in the
   list are never used. Empty means the watchdog only watches. Set it in *Settings > Fallback order* (type a position number to move).
+- **Renames are safe.** Groups store each VLAN and each tunnel of the fallback order by its UniFi id, with the name only as a label. Renaming a
+  VPN client or a VLAN in UniFi changes nothing (the label in `config.yaml` follows). The Status page is drawn from UniFi's own state on every check
+  (default every 15 s, or press *Check now*): which policy applies to which VLAN, and to which device, is read, never remembered.
 - **Jobs.** Failover is every group's first job. A group can also have a **rotation** job (Settings > Jobs): every N hours, days or weeks
   (days and weeks at a time of day) the group moves to the next tunnel in its fallback order, or to a random one from the order. The
   new tunnel is connected and tested first; one that fails is skipped. Each job has its own switch; "Rotate now" and "Stop rotation"

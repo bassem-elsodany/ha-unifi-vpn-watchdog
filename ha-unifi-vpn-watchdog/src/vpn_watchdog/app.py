@@ -16,6 +16,7 @@ from .clock import Clock
 from .config import Config, ConfigError, NotifyCfg, load_config, load_raw, parse_config
 from . import settings as settings_mod
 from .ha_api import SERVICE_RE, HaApi
+from .refs import group_raw
 from .engine import Engine
 from .ha_mqtt import MqttPublisher
 from .notify import Notifier
@@ -96,18 +97,24 @@ class App:
         header = "# Written by the VPN Watchdog settings form (comments are not kept; secrets stay as ${VAR} references).\n"
         return self.save_text(header + yaml.safe_dump(new, sort_keys=False, allow_unicode=True))
 
-    def set_group_order(self, group: str, names: list[str]) -> str | None:
-        """Replace one group's fallback order (what dragging in the map does). Entries keep their expect_country."""
-        if not isinstance(names, list) or not all(isinstance(n, str) and n for n in names):
+    def set_group_order(self, group: str, refs: list[str]) -> str | None:
+        """Replace one group's fallback order (what dragging in the map does). `refs` are tunnel ids (a name is accepted too).
+        Entries keep their expect_country, and are stored by id so a rename in UniFi never loses one."""
+        if not isinstance(refs, list) or not all(isinstance(n, str) and n for n in refs):
             return "order must be a list of tunnel names"
-        if len(set(names)) != len(names):
-            return "a tunnel is listed twice"
         snap = self.engine.last_snapshot()
-        if snap is not None:
-            known = {t.name for t in snap.tunnels.values()}
-            unknown = [n for n in names if n not in known]
-            if unknown:
-                return f"unknown tunnel(s): {', '.join(unknown)}"
+        picked: list[tuple[str | None, str]] = []          # (id, name)
+        unknown = []
+        for ref in refs:
+            t = snap.tunnel_by_ref(ref) if snap is not None else None
+            if snap is not None and t is None:
+                unknown.append(ref)
+            picked.append((t.id, t.name) if t else (None, ref))
+        if unknown:
+            return f"unknown tunnel(s): {', '.join(unknown)}"
+        keys = [i or n for i, n in picked]
+        if len(set(keys)) != len(keys):
+            return "a tunnel is listed twice"
         try:
             raw = load_raw(self.config_text())
         except ConfigError as e:
@@ -115,10 +122,44 @@ class App:
         g = next((x for x in raw.get("groups", []) if isinstance(x, dict) and x.get("name") == group), None)
         if g is None:
             return f"unknown group {group!r}"
-        old = {(i if isinstance(i, str) else i.get("tunnel")): i for i in g.get("order", [])}
-        g["order"] = [old.get(n, n) if isinstance(old.get(n), dict) else n for n in names]
+        old = [i if isinstance(i, dict) else {"tunnel": i} for i in g.get("order", [])]
+        out = []
+        for tid, name in picked:
+            prev = next((o for o in old if (tid and o.get("id") == tid) or (not o.get("id") and o.get("tunnel") == name)), {})
+            entry = {"tunnel": name, **({"id": tid} if tid else {})}
+            if prev.get("expect_country"):
+                entry["expect_country"] = prev["expect_country"]
+            out.append(entry)
+        g["order"] = out
         header = "# Written by the VPN Watchdog UI (comments are not kept; secrets stay as ${VAR} references).\n"
         return self.save_text(header + yaml.safe_dump(raw, sort_keys=False, allow_unicode=True))
+
+    def persist_refs(self) -> None:
+        """The engine followed a rename or filled in ids: write the ids and current names back to config.yaml (once)."""
+        eng = self.engine
+        if not eng.refs_changed:
+            return
+        eng.refs_changed = False
+        try:
+            raw = load_raw(self.config_text())
+        except ConfigError:
+            return
+        by_name = {g.name: g for g in eng.cfg.groups}
+        changed = False
+        for rg in raw.get("groups", []):
+            g = by_name.get(rg.get("name")) if isinstance(rg, dict) else None
+            if g is None:
+                continue
+            new = group_raw(g)
+            if rg.get("networks") != new["networks"] or rg.get("order", []) != new["order"]:
+                rg["networks"], rg["order"] = new["networks"], new["order"]
+                changed = True
+        if changed:
+            log.info("config: ids and names of VPN clients and VLANs brought in line with UniFi")
+            header = "# Written by the VPN Watchdog (comments are not kept; secrets stay as ${VAR} references).\n"
+            err = self.save_text(header + yaml.safe_dump(raw, sort_keys=False, allow_unicode=True))
+            if err:
+                log.warning("could not write the ids back to the config file: %s", err)
 
     def current_notify_service(self) -> str | None:
         return next((n.service for n in self.cfg.notifications if n.type == "home_assistant"), None)
@@ -231,6 +272,7 @@ class App:
         while not self.stop_event.is_set():
             self.reload_if_changed()
             self.engine.tick()
+            self.persist_refs()
             self.engine.wake.wait(self.cfg.interval_seconds)
             self.engine.wake.clear()
         log.info("shutting down")

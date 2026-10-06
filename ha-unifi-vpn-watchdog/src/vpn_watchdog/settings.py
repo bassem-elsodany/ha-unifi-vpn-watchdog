@@ -52,13 +52,23 @@ def extract(cfg: Config) -> dict[str, Any]:
             {
                 "name": g.name,
                 "_orig": g.name,
-                "networks": list(g.networks),
+                "networks": [{"id": r.id, "name": r.name} for r in g.networks],
                 "kill_switch": g.kill_switch,
-                "order": [{"tunnel": i.tunnel, "expect_country": i.expect_country or ""} for i in g.order],
+                "order": [{"tunnel": i.tunnel, "id": i.id, "expect_country": i.expect_country or ""} for i in g.order],
             }
             for g in cfg.groups
         ],
     }
+
+
+def _netref(n: Any) -> dict[str, Any]:
+    """A VLAN of a group as the form sends it ({id, name}; a bare name from an older client is accepted)."""
+    if isinstance(n, dict):
+        out = {"name": str(n.get("name") or "")}
+        if str(n.get("id") or "").strip():
+            out = {"id": str(n["id"]).strip(), **out}
+        return out
+    return {"name": str(n)}
 
 
 def _num(v: Any, kind=int):
@@ -131,7 +141,7 @@ def apply(raw: dict[str, Any], form: dict[str, Any]) -> dict[str, Any]:
         for fg in form["groups"]:
             g = copy.deepcopy(existing.get(fg.get("_orig") or "", {}))      # keeps per-group overrides across a rename
             g["name"] = str(fg["name"]).strip()
-            g["networks"] = [str(n) for n in fg.get("networks", [])]
+            g["networks"] = [_netref(n) for n in fg.get("networks", [])]
             if fg.get("kill_switch") is None:
                 g.pop("kill_switch", None)
             else:
@@ -142,6 +152,8 @@ def apply(raw: dict[str, Any], form: dict[str, Any]) -> dict[str, Any]:
                 if not name:
                     continue                      # an unfilled row is simply dropped
                 entry: dict[str, Any] = {"tunnel": name}
+                if str(item.get("id") or "").strip():
+                    entry["id"] = str(item["id"]).strip()
                 if str(item.get("expect_country") or "").strip():
                     entry["expect_country"] = str(item["expect_country"]).strip().upper()
                 order.append(entry)
@@ -172,13 +184,14 @@ def meta(snap: Snapshot | None) -> dict[str, Any]:
         return {"networks": [], "tunnels": [], "ready": False, "alert_info": ALERT_INFO}
     tunnel_ids = set(snap.tunnels)
     networks = sorted(
-        n for i, n in snap.networks.items()
-        if i not in tunnel_ids and not n.startswith("Internet") and n != "One-Click VPN"
-    )
+        ({"id": i, "name": n} for i, n in snap.networks.items()
+         if i not in tunnel_ids and ((snap.network_info.get(i) or {}).get("purpose") in ("corporate", "guest")
+                                     if snap.network_info.get(i) else not n.startswith("Internet") and n != "One-Click VPN")),
+        key=lambda x: x["name"].lower())
     tunnels = sorted(snap.tunnels.values(), key=lambda t: t.name.lower())
     return {
         "alert_info": ALERT_INFO,
         "networks": networks,
-        "tunnels": [{"name": t.name, "enabled": t.enabled} for t in tunnels],
+        "tunnels": [{"id": t.id, "name": t.name, "enabled": t.enabled} for t in tunnels],
         "ready": True,
     }

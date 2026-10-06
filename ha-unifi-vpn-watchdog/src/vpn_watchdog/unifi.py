@@ -122,7 +122,7 @@ class UniFiClient:
             if c.get("tx_bytes-r") is not None or c.get("rx_bytes-r") is not None:
                 rate = int(((c.get("tx_bytes-r") or 0) + (c.get("rx_bytes-r") or 0)) * 8)      # bytes/s -> bit/s
             out[c["mac"].lower()] = {"name": c.get("name") or c.get("hostname") or "", "ip": c.get("ip"),
-                                     "network": c.get("network"), "rate_bps": rate, "wired": bool(c.get("is_wired"))}
+                                     "network": c.get("network"), "network_id": c.get("network_id"), "rate_bps": rate, "wired": bool(c.get("is_wired"))}
         return out
 
     def _wan_ip(self) -> str | None:
@@ -145,6 +145,7 @@ class UniFiClient:
             kill_switch=bool(raw.get("kill_switch_enabled")),
             target_networks=frozenset(t["network_id"] for t in targets if t.get("type") == "NETWORK" and t.get("network_id")),
             target_macs=frozenset(t["client_mac"].lower() for t in targets if t.get("type") == "CLIENT" and t.get("client_mac")),
+            all_clients=any(t.get("type") == "ALL_CLIENTS" for t in targets),
             raw=raw,
             matching=raw.get("matching_target") or "INTERNET",
         )

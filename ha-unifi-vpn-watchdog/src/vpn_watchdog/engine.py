@@ -11,11 +11,12 @@ from typing import Any
 
 from . import __version__
 from .clock import Clock
-from .config import Config, GroupCfg, GroupSettings, JobCfg
+from .config import Config, GroupCfg, GroupSettings, JobCfg, NetRef
 from .ladder import candidates, expected_country, failback_targets, missing, position_label, position_of, resolve_order
 from .models import ProbeResult, Route, Snapshot, Tunnel
 from .notify import Notifier
 from .probe import TunnelTester
+from .refs import item_for, net_id, normalize
 from .schedule import next_run, signature, summary
 from .state import GroupState, StateStore
 from .unifi import UniFiClient, UniFiError
@@ -54,6 +55,7 @@ class Engine:
         self._samples: dict[str, deque[tuple[int, int]]] = {}
         self._lock = threading.RLock()
         self._rng = random.Random()
+        self.refs_changed = False        # ids or labels in the config were brought in line with UniFi: the app writes them back to config.yaml
         self._status: dict[str, Any] = {}
         self._overlap_warned: set[str] = set()
         self._noted: dict[str, str] = {}
@@ -105,6 +107,8 @@ class Engine:
             return
         self.last_error = None
         self._snap = snap
+        if normalize(self.cfg, snap):                     # a rename in UniFi, or a config that only had names: follow the ids
+            self.refs_changed = True
         self._drain_commands(snap)
         for g in self.cfg.groups:
             try:
@@ -318,7 +322,7 @@ class Engine:
         snap = self.unifi.snapshot()
         mine = next((r for r in self._group_routes(g, snap) if r.network_id == cand.id), None)
         if mine is None:
-            nets = [self._net_id(snap, n) for n in g.networks]
+            nets = self._group_nets(g, snap)
             self.unifi.create_route(cand.name, cand.id, target_networks=nets, kill_switch=bool(g.kill_switch), enabled=True)
         else:
             self.unifi.set_route(mine, enabled=True, kill_switch=g.kill_switch)
@@ -515,22 +519,34 @@ class Engine:
         self.store.touch()
 
     @staticmethod
-    def _net_id(snap: Snapshot, ref: str) -> str:
-        if ref in snap.networks:
-            return ref
-        for nid, name in snap.networks.items():
-            if name == ref:
-                return nid
-        raise UniFiError(f"network {ref!r} not found in UniFi")
+    def _net_id(snap: Snapshot, ref: NetRef) -> str:
+        nid = net_id(snap.networks, ref)
+        if nid is None:
+            raise UniFiError(f"network {ref.name or ref.id!r} not found in UniFi")
+        return nid
+
+    def _group_nets(self, g: GroupCfg, snap: Snapshot) -> list[str]:
+        """The ids of the group's VLANs that UniFi still has. A deleted VLAN is dropped (and said once); none left is an error."""
+        ids = []
+        for ref in g.networks:
+            nid = net_id(snap.networks, ref)
+            if nid is not None:
+                ids.append(nid)
+            elif f"{g.name}:net:{ref.id or ref.name}" not in self._overlap_warned:
+                self._overlap_warned.add(f"{g.name}:net:{ref.id or ref.name}")
+                log.warning("group %s: the VLAN %r no longer exists in UniFi; ignoring it", g.name, ref.name or ref.id)
+        if not ids:
+            raise UniFiError(f"group {g.name!r}: none of its VLANs exist in UniFi")
+        return ids
 
     def _group_routes(self, g: GroupCfg, snap: Snapshot) -> list[Route]:
         """The group's routing policies: one per tunnel, targeting at least the group's networks. The watchdog only turns
         them on and off (and creates a missing one); it never renames or re-points them."""
-        want = frozenset(self._net_id(snap, n) for n in g.networks)
+        want = frozenset(self._group_nets(g, snap))
         return [r for r in snap.routes if want <= r.target_networks and not r.target_macs and r.network_id in snap.tunnels]
 
     def _warn_overlaps(self, g: GroupCfg, routes: list[Route], snap: Snapshot) -> None:
-        want = frozenset(self._net_id(snap, n) for n in g.networks)
+        want = frozenset(self._group_nets(g, snap))
         mine = {r.id for r in routes}
         on = [r for r in routes if r.enabled]
         if len(on) > 1 and f"{g.name}:multi" not in self._overlap_warned:
@@ -588,14 +604,14 @@ class Engine:
                 return
             self._rotate(g, self.cfg.settings_for(g), gs, job, cur, ladder, "rotate now")
         elif kind == "test":
-            t = snap.tunnel_by_name(cmd[2])
+            t = snap.tunnel_by_ref(cmd[2])
             if t is None:
                 return
             ok, why = self._try(g, t, self.cfg.settings_for(g))
             self._record("test", f"{t.name}: {'OK' if ok else 'FAILED - ' + why}", "info" if ok else "warning")
         elif kind == "switch":
             name = cmd[2]
-            target = snap.tunnel_by_name(name)
+            target = snap.tunnel_by_ref(name)
             if target is None:
                 log.warning("manual switch: tunnel %r not found", name)
                 return
@@ -615,29 +631,31 @@ class Engine:
         now = self.clock.now()
         # Which policy applies to a device: UniFi reads its policy list from the top and the first enabled one that catches
         # all of the device's internet traffic wins, whether it targets the device or the device's VLAN.
-        net_id = {name: nid for nid, name in snap.networks.items()}
         total = len(snap.routes)
+
+        def covers(r: Route, nid: str | None) -> bool:
+            return nid is not None and (nid in r.target_networks or (r.all_clients and nid in lans))
 
         def dest(r: Route) -> dict[str, Any]:
             tun = snap.tunnels.get(r.network_id or "")
-            return {"kind": "vpn" if tun else "normal", "tunnel": tun.name if tun else None, "policy": r.description,
+            return {"kind": "vpn" if tun else "normal", "tunnel": tun.name if tun else None, "tunnel_id": tun.id if tun else None, "policy": r.description,
                     "goes_to": snap.networks.get(r.network_id or "", "the normal internet connection")}
 
         def winner(mac: str, nid: str | None) -> int | None:
             return next((i for i, r in enumerate(snap.routes)
-                         if r.enabled and r.matching == "INTERNET" and (mac in r.target_macs or (nid is not None and nid in r.target_networks))), None)
+                         if r.enabled and r.matching == "INTERNET" and (mac in r.target_macs or covers(r, nid))), None)
 
         eff: dict[str, dict[str, Any]] = {}          # per device that has its own policy: what applies, and whether its own policy is the one
         for mac in sorted({m for r in snap.routes if r.enabled and r.matching == "INTERNET" for m in r.target_macs}):
             c = snap.clients.get(mac, {})
-            win = winner(mac, net_id.get(c.get("network") or ""))
+            win = winner(mac, snap.client_network(c))
             mine = next(i for i, r in enumerate(snap.routes) if r.enabled and r.matching == "INTERNET" and mac in r.target_macs)
             eff[mac] = {"own": mine, "win": win, "applied": win == mine}
         devs: dict[str, list[dict[str, Any]]] = {}
         for mac, c in snap.clients.items():
             e = eff.get(mac)
             b = dest(snap.routes[e["win"]]) | {"position": e["win"] + 1, "total": total} if e and e["applied"] else None
-            devs.setdefault(c.get("network") or "", []).append({
+            devs.setdefault(snap.client_network(c) or "", []).append({
                 "mac": mac, "name": c.get("name") or "", "ip": c.get("ip"), "rate_bps": c.get("rate_bps"),
                 "active": (c.get("rate_bps") or 0) > 800, "wired": c.get("wired", False),
                 "bypass": b, "overridden": bool(e and not e["applied"]),
@@ -649,7 +667,7 @@ class Engine:
         for mac, e in eff.items():
             c = snap.clients.get(mac, {})
             r = snap.routes[e["own"]]
-            row = {"mac": mac, "name": c.get("name") or "", "ip": c.get("ip"), "network": c.get("network") or "",
+            row = {"mac": mac, "name": c.get("name") or "", "ip": c.get("ip"), "network": snap.networks.get(snap.client_network(c) or "", c.get("network") or ""),
                    "position": e["own"] + 1, "total": total, **dest(r)}
             if e["applied"]:
                 own.append(row)
@@ -664,7 +682,7 @@ class Engine:
         def card(nid: str) -> dict[str, Any]:
             name = snap.networks.get(nid, nid)
             info = snap.network_info.get(nid, {})
-            lst = sorted(devs.get(name, []), key=lambda d: (d["bypass"] is None, -(d["rate_bps"] or 0), (d["name"] or d["ip"] or d["mac"]).lower()))
+            lst = sorted(devs.get(nid, []), key=lambda d: (d["bypass"] is None, -(d["rate_bps"] or 0), (d["name"] or d["ip"] or d["mac"]).lower()))
             return {"id": nid, "name": name, "vlan": info.get("vlan"), "subnet": info.get("subnet"), "count": len(lst),
                     "bypass_count": sum(1 for d in lst if d["bypass"]), "devices": lst}
 
@@ -672,8 +690,8 @@ class Engine:
             c = snap.connections.get(t.id)
             ts = self.store.tunnels.get(t.id)
             pol = policies.get(t.id)
-            item = next((i for i in g.order if i.tunnel == t.name), None) if g else None
-            return {"name": t.name, "position": position_of(g, t) if g else None, "active": t.id == active_id, "enabled": t.enabled,
+            item = item_for(g, t.id, t.name) if g else None
+            return {"id": t.id, "name": t.name, "position": position_of(g, t) if g else None, "active": t.id == active_id, "enabled": t.enabled,
                     "status": c.status if c else None, "rx_bps": c.rx_bps if c else None, "tx_bps": c.tx_bps if c else None,
                     "server": c.remote_ip if c else None, "has_policy": pol is not None, "policy_on": bool(pol and pol.enabled),
                     "policy": pol.description if pol else None, "kill_switch": bool(pol and pol.kill_switch),
@@ -683,18 +701,24 @@ class Engine:
 
         used: set[str] = set()
         out_groups: list[dict[str, Any]] = []
+        whole = [r for r in snap.routes if r.enabled and r.matching == "INTERNET" and not r.target_macs]      # in UniFi's list order
+
+        def applied(n: str) -> Route | None:
+            """The policy UniFi applies to a VLAN: the first enabled one in its list that covers it."""
+            return next((r for r in whole if covers(r, n)), None)
+
         for g in self.cfg.groups:
-            nets: list[str] = []
-            for n in g.networks:
-                try:
-                    nets.append(self._net_id(snap, n))
-                except UniFiError:
-                    pass
-            used.update(nets)
-            routes = self._group_routes(g, snap)
+            try:
+                nets = self._group_nets(g, snap)
+                routes = self._group_routes(g, snap)
+            except UniFiError:
+                nets, routes = [], []
             policies = {r.network_id: r for r in routes if r.network_id}
             active_route = next((r for r in routes if r.enabled), None)
             active_id = active_route.network_id if active_route else None
+            # What UniFi does wins over what the group lists: a VLAN of the group that UniFi routes elsewhere right now is drawn where it goes.
+            nets = [n for n in nets if active_id is None or (applied(n) is not None and applied(n).network_id == active_id)]
+            used.update(nets)
             order = resolve_order(g, list(snap.tunnels.values()))
             in_order = {t.id for t in order}
             pool = sorted((t for t in snap.tunnels.values() if t.id not in in_order), key=lambda t: t.name.lower())
@@ -707,29 +731,28 @@ class Engine:
                 "exhausted": gstat.get("exhausted", False), "jobs": gstat.get("jobs", {}), "has_order": bool(g.order), "rotation": gstat.get("rotation"),
                 "active": act.name if act else None, "networks": [card(n) for n in nets],
                 "lane": ([tinfo(g, act, active_id, policies)] if act and act.id not in in_order else []) + [tinfo(g, t, active_id, policies) for t in order],
-                "pool": [{"name": t.name, "status": (snap.connections.get(t.id).status if snap.connections.get(t.id) else None),
+                "pool": [{"id": t.id, "name": t.name, "status": (snap.connections.get(t.id).status if snap.connections.get(t.id) else None),
                           "enabled": t.enabled} for t in pool],
                 "exit": {"ip": probe.get("ip") if probe.get("ok") else None, "country": probe.get("country") if probe.get("ok") else None,
                          "server": ac.remote_ip if ac else None, "age": gstat.get("last_probe_age") if probe.get("ok") else None},
             })
         # What UniFi itself does is shown whether or not the watchdog manages it. For every VLAN that a VPN policy covers, the policy
         # that applies is the first enabled one in UniFi's list that covers it; VLANs that end up on the same VPN client share a block.
-        managed = {r.id for g in self.cfg.groups for r in self._group_routes(g, snap)}
-        vpn_pols = [r for r in snap.routes if r.id not in managed and not r.target_macs and r.network_id in snap.tunnels and (r.target_networks & lans)]
-        whole = [r for r in snap.routes if r.enabled and r.matching == "INTERNET" and not r.target_macs]      # in UniFi's list order
+        vpn_pols = [r for r in snap.routes if not r.target_macs and r.network_id in snap.tunnels]
         by_tunnel: dict[str | None, list[str]] = {}
-        for n in {n for r in vpn_pols for n in r.target_networks & lans}:
+        for n in lans:
             if n in used:
                 continue
-            w = next((r for r in whole if n in r.target_networks), None)
-            if w is not None and w.network_id not in snap.tunnels:
-                continue                                            # an enabled policy sends it to the normal connection: no VPN
-            by_tunnel.setdefault(w.network_id if w else None, []).append(n)
+            w = applied(n)
+            if w is not None and w.network_id in snap.tunnels:
+                by_tunnel.setdefault(w.network_id, []).append(n)
+            elif w is None and any(covers(r, n) for r in vpn_pols):
+                by_tunnel.setdefault(None, []).append(n)           # VPN policies exist for it, but none is switched on
         vlan_of = lambda n: (snap.network_info.get(n, {}).get("vlan") is None, snap.network_info.get(n, {}).get("vlan") or 0, snap.networks[n].lower())
         for key, nets in sorted(by_tunnel.items(), key=lambda kv: (kv[0] is None, min(vlan_of(n) for n in kv[1]))):
             nets.sort(key=vlan_of)
             used.update(nets)
-            rs = [r for r in vpn_pols if r.target_networks & set(nets)]
+            rs = [r for r in vpn_pols if any(covers(r, n) for n in nets)]
             policies = {r.network_id: r for r in rs}
             act = snap.tunnels.get(key or "")
             ac = snap.connections.get(act.id) if act else None
@@ -739,7 +762,7 @@ class Engine:
                 "healthy": bool(ac and ac.connected) if act else None, "decision": "", "exhausted": act is None, "jobs": {}, "has_order": False,
                 "active": act.name if act else None, "networks": [card(n) for n in nets],
                 "lane": [tinfo(None, act, act.id, policies)] if act else [],
-                "pool": [{"name": t.name, "status": (snap.connections.get(t.id).status if snap.connections.get(t.id) else None), "enabled": t.enabled} for t in rest],
+                "pool": [{"id": t.id, "name": t.name, "status": (snap.connections.get(t.id).status if snap.connections.get(t.id) else None), "enabled": t.enabled} for t in rest],
                 "exit": {"ip": None, "country": None, "server": ac.remote_ip if ac else None, "age": None},
             })
         if out_groups:                       # a tunnel that only carries devices with their own route still needs a card to draw the line to
