@@ -72,6 +72,24 @@ class FakeUniFi:
         info = {i: {"name": n, "vlan": None, "subnet": None, "purpose": "corporate"} for i, n in NETS.items()}
         return Snapshot(tunnels, conns, list(self.routes), dict(NETS), "92.0.0.1", info)
 
+    def create_own_route(self, body):
+        assert body["description"].startswith("vpnwd:")
+        self.calls.append(("route-create", body["description"], body["network_id"]))
+        nets = frozenset(t["network_id"] for t in body["target_devices"])
+        self.routes.append(Route(f"own-{len(self.routes)}", body["description"], body["network_id"], True, False, nets, frozenset(), dict(body)))
+
+    def update_own_route(self, route_id, network_id, enabled=True):
+        import dataclasses
+        i = next(k for k, r in enumerate(self.routes) if r.id == route_id)
+        assert self.routes[i].description.startswith("vpnwd:")
+        self.calls.append(("route-update", route_id, network_id))
+        self.routes[i] = dataclasses.replace(self.routes[i], network_id=network_id, enabled=enabled)
+
+    def delete_own_route(self, route_id):
+        assert next(r for r in self.routes if r.id == route_id).description.startswith("vpnwd:")
+        self.calls.append(("route-delete", route_id))
+        self.routes = [r for r in self.routes if r.id != route_id]
+
     def set_tunnel_enabled(self, i, en):
         self.calls.append(("enable", i, en))
         (self.enabled.add if en else self.enabled.discard)(i)

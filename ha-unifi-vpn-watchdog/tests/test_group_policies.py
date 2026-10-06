@@ -17,14 +17,6 @@ def test_it_never_writes_a_routing_policy(make_engine):
     assert un.calls and all(c[0] == "enable" for c in un.calls)
 
 
-def test_the_real_client_has_no_way_to_write_a_routing_policy():
-    from vpn_watchdog.unifi import UniFiClient
-    assert not hasattr(UniFiClient, "set_route") and not hasattr(UniFiClient, "create_route")
-    import inspect, vpn_watchdog.unifi as u
-    src = inspect.getsource(u)
-    assert "trafficroutes" in src and not any(f'"{m}", self._v2("trafficroutes' in src for m in ("PUT", "POST", "DELETE"))
-
-
 def test_a_client_that_is_in_two_groups_stays_with_the_first(make_engine):
     eng, un, *_ = make_engine()
     eng.cfg = eng.cfg.model_copy(update={"groups": [

@@ -5,7 +5,8 @@ Endpoints used (all verified against a UDM Pro SE):
   GET  /api/s/{site}/rest/networkconf/{id}       one object (needed for a full-object PUT)
   PUT  /api/s/{site}/rest/networkconf/{id}       enable / disable a tunnel
   GET  /v2/api/site/{site}/vpn/connections       live tunnel status (CONNECTED / CONNECTING, rx/tx rate)
-  GET /v2/api/site/{site}/trafficroutes policy routes (read only: routing policies are never written)
+  GET  /v2/api/site/{site}/trafficroutes         policy routes (read). Written only when a group has routing management switched
+  POST/PUT/DELETE .../trafficroutes[/{id}]       on, and only for the watchdog's own policies (name starts with `vpnwd:`; see routing.py)
   GET  /api/s/{site}/stat/health                 WAN IP (for leak detection)
 
 The networkconf objects of VPN clients contain the WireGuard private key. They are only ever held in a local
@@ -22,6 +23,7 @@ import httpx
 
 from .config import UnifiCfg
 from .models import Connection, Route, Snapshot, parse_tunnel
+from .routing import PREFIX
 
 log = logging.getLogger("vpn_watchdog.unifi")
 
@@ -160,3 +162,29 @@ class UniFiClient:
         obj["enabled"] = enabled
         self._request("PUT", self._s(f"rest/networkconf/{tunnel_id}"), json=obj)
         log.info("tunnel %s enabled=%s", obj.get("name"), enabled)
+
+    # ------------------------------------------------ the watchdog's own routing policies (never anyone else's)
+    def _own_route_raw(self, route_id: str) -> dict[str, Any]:
+        raw = next((r for r in (self._request("GET", self._v2("trafficroutes")) or []) if r.get("_id") == route_id), None)
+        if raw is None:
+            raise UniFiError(f"routing policy {route_id} not found")
+        if not str(raw.get("description", "")).startswith(PREFIX):
+            raise UniFiError(f"refusing to change routing policy {raw.get('description')!r}: it is not one of the watchdog's own")
+        return raw
+
+    def create_own_route(self, body: dict[str, Any]) -> None:
+        if not str(body.get("description", "")).startswith(PREFIX):
+            raise UniFiError("refusing to create a routing policy that is not named like the watchdog's own")
+        self._request("POST", self._v2("trafficroutes"), json=body)
+        log.info("routing policy created: %s", body["description"])
+
+    def update_own_route(self, route_id: str, network_id: str, enabled: bool = True) -> None:
+        raw = self._own_route_raw(route_id)
+        raw["network_id"], raw["enabled"] = network_id, enabled
+        self._request("PUT", self._v2(f"trafficroutes/{route_id}"), json=raw)
+        log.info("routing policy %s now goes through %s", raw.get("description"), network_id)
+
+    def delete_own_route(self, route_id: str) -> None:
+        raw = self._own_route_raw(route_id)
+        self._request("DELETE", self._v2(f"trafficroutes/{route_id}"))
+        log.info("routing policy deleted: %s", raw.get("description"))

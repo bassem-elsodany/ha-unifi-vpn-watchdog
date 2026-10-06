@@ -51,6 +51,7 @@ def extract(cfg: Config) -> dict[str, Any]:
                 "_orig": g.name,
                 "order": [{"tunnel": i.tunnel, "id": i.id, "expect_country": i.expect_country or ""} for i in g.order],
                 "networks": [{"id": n.id, "name": n.name} for n in g.networks],
+                "manage_routing": g.manage_routing,
             }
             for g in cfg.groups
         ],
@@ -111,6 +112,10 @@ def apply(raw: dict[str, Any], form: dict[str, Any]) -> dict[str, Any]:
             g = copy.deepcopy(existing.get(fg.get("_orig") or "", {}))      # keeps per-group overrides across a rename
             g["name"] = str(fg["name"]).strip()
             g.pop("kill_switch", None)
+            if fg.get("manage_routing"):
+                g["manage_routing"] = True
+            else:
+                g.pop("manage_routing", None)
             nets = []
             for n in fg.get("networks", []):
                 n = {"name": n} if isinstance(n, str) else n

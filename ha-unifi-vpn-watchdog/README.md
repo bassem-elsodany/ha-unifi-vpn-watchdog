@@ -2,7 +2,7 @@
 
 Health-checks the WireGuard VPN clients on a UniFi gateway and, when the one in use stops carrying traffic, **switches on the
 next VPN client from your fallback order and switches the failed one off**. That is the only thing it ever changes in UniFi:
-**a VPN client's on/off switch. Routing policies (which VLANs and devices use which client) are yours and are never written.** Runs as a Docker container or a Home Assistant add-on, has a
+**a VPN client's on/off switch. Routing policies are yours: the watchdog never edits one you made. Only if you switch on "manage routing" for a group does it keep its own policy (named `vpnwd: ...`) per picked VLAN pointed at the active client.** Runs as a Docker container or a Home Assistant add-on, has a
 web UI (status, jobs, start/stop, config editor), and is configured by one hot-reloaded YAML file.
 
 ```
@@ -144,7 +144,7 @@ With no `control_token` set the server is read-only.
 ## Things learned the hard way (all handled in code)
 
 - Disabling a VPN client does not delete or disable its routing policy: UniFi simply skips a policy whose client is off. That is why the watchdog
-  only switches clients and leaves every policy alone.
+  only switches clients and leaves your own policies alone (its own `vpnwd:` policies are moved to the active client).
 - UniFi rejects overlapping client subnets (`SubnetOverlapped`), so each tunnel needs a unique `10.5.x.2/24`.
 - Servers showing 0 % load never connected in testing; pick servers with some load and let the quarantine skip duds.
 - Use `traffic-flows` (UniFi) as independent proof of where traffic exits; the watchdog never trusts a single signal.

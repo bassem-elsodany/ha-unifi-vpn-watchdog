@@ -1,7 +1,7 @@
 """Failover engine: health evaluation, quarantine with backoff, ordered switching, failback.
 
-The only thing it ever changes in UniFi is whether a VPN client is switched on or off. Routing policies (which VLANs and devices go
-through which client) are UniFi's own business: the engine reads them for the Status page and never writes them."""
+It changes two things in UniFi: whether a VPN client is switched on or off, and, only for a group that has routing management switched
+on, the watchdog's own routing policies (named `vpnwd: ...`, see routing.py). Every other routing policy is only read."""
 from __future__ import annotations
 
 import logging
@@ -19,6 +19,7 @@ from .ladder import candidates, expected_country, failback_targets, missing, pos
 from .models import ProbeResult, Route, Snapshot, Tunnel
 from .notify import Notifier
 from .probe import TunnelTester
+from . import routing
 from .refs import item_for, normalize
 from .schedule import next_run, signature, summary
 from .state import GroupState, StateStore
@@ -63,6 +64,7 @@ class Engine:
         self._overlap_warned: set[str] = set()
         self._owners: dict[str, str] = {}           # VPN client id -> the group it belongs to (a client belongs to one group)
         self._noted: dict[str, str] = {}
+        self._route_fail: dict[str, float] = {}     # group -> when its routing last failed to apply (retried after a pause, not every cycle)
         self._busy = False
         self._blocked_notified: dict[str, float] = {}
         self.listeners: list = []   # callables(status_dict) invoked after each tick (MQTT publisher)
@@ -126,9 +128,12 @@ class Engine:
             except Exception:  # noqa: BLE001 - one broken group must not stop the others
                 log.exception("group %s: unexpected error", g.name)
         try:
-            self._disconnect_unused(self.unifi.snapshot())
+            after = self.unifi.snapshot()
+            self._disconnect_unused(after)
+            if self._reconcile_routing(after):
+                self._snap = snap = self.unifi.snapshot()
         except UniFiError as e:
-            log.warning("disconnecting unused tunnels skipped: %s", e)
+            log.warning("disconnecting unused tunnels / routing skipped: %s", e)
         if log.isEnabledFor(logging.DEBUG):       # DEBUG log level: every check cycle also shows up in the Events tab
             self._log_check(snap)
         self.last_tick = self.clock.now()
@@ -136,6 +141,42 @@ class Engine:
         self._publish(snap)
 
     # ------------------------------------------------------------------ per-group loop
+    def _routing_plan(self, g: GroupCfg, snap: Snapshot) -> list[routing.Action]:
+        """What the watchdog would change so the group's picked VLANs go through its active client."""
+        gs = self.store.group(g.name)
+        t = snap.tunnels.get(gs.current_id or "")
+        if t is None or not t.enabled or t.id not in {x.id for x in self._pool(g, snap)}:
+            return []
+        lans = {nid for nid, i in snap.network_info.items() if i.get("purpose") in ("corporate", "guest")}
+        vlans = [n.id for n in g.networks if n.id in lans]
+        return routing.plan(g.name, vlans, t, snap)
+
+    def _reconcile_routing(self, snap: Snapshot) -> bool:
+        """Groups with routing management on: keep the watchdog's own policies pointed at the active client. True when it wrote."""
+        wrote = False
+        for g in self.cfg.groups:
+            if not g.manage_routing or self.store.group(g.name).paused:
+                continue
+            if self.clock.now() - self._route_fail.get(g.name, -1e9) < 300:
+                continue
+            for a in self._routing_plan(g, snap):
+                try:
+                    if a.kind == "create":
+                        self.unifi.create_own_route(routing.new_route_body(a))
+                    elif a.kind == "update":
+                        self.unifi.update_own_route(a.route_id, a.tunnel_id)
+                    else:
+                        self.unifi.delete_own_route(a.route_id)
+                except UniFiError as e:
+                    self._route_fail[g.name] = self.clock.now()
+                    self._record("routing_failed", f"group {g.name}: could not {a.text}: {e}", "warning")
+                    log.error("group %s: routing change failed: %s", g.name, e)
+                    break
+                wrote = True
+                self._record("routing_changed", f"group {g.name}: {a.text}")
+                log.info("group %s: %s", g.name, a.text)
+        return wrote
+
     def _claims(self, snap: Snapshot) -> dict[str, str]:
         """Which group owns which VPN client. A client belongs to one group: if two groups list it, the first group keeps it."""
         owners: dict[str, str] = {}
@@ -743,6 +784,7 @@ class Engine:
             gaps += [f"{t.name} has no routing policy for {snap.networks[n]}, so a failover to it would leave that VLAN on the normal internet"
                      for t in order for n in nets if not any(r.network_id == t.id and covers(r, n) for r in vpn_pols)]
             out_groups.append({
+                "routing": {"manage": g.manage_routing, "plan": [a.text for a in self._routing_plan(g, snap)]},
                 "gaps": gaps, "declared": bool(declared[g.name]), "name": g.name, "paused": gstat.get("paused", False), "healthy": gstat.get("healthy"), "decision": gstat.get("decision", ""),
                 "exhausted": gstat.get("exhausted", False), "jobs": gstat.get("jobs", {}), "has_order": bool(order), "rotation": gstat.get("rotation"),
                 "conflict": "No routing policy in UniFi sends traffic through this VPN client right now, so nothing is using it" if act and not live_nets else None,

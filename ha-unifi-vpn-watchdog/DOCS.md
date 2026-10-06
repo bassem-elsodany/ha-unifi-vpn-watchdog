@@ -23,6 +23,6 @@ tunnel stops carrying traffic.
 - **Logs:** the add-on **Log** tab.
 
 ## Before you rely on it
-The watchdog only switches your VPN clients on and off. UniFi's own routing policies send the VLANs and devices through whichever client is up, so
+The watchdog switches your VPN clients on and off. Unless you switch on "manage routing" for a group (Settings > VPN groups > Routing, off by default), it never touches a routing policy, and UniFi's own routing policies send the VLANs and devices through whichever client is up, so
 keep a routing policy **switched on** in UniFi for every VPN client you put in a group (in the priority order you want). A client whose policy is off
-would be switched on but carry nothing.
+would be switched on but carry nothing. With "manage routing" on you do not need that: the watchdog keeps one policy of its own (named `vpnwd: <group> › <VLAN>`) per picked VLAN pointed at the active client, and never edits or deletes a policy you made. UniFi applies the first live policy in its list, so a policy of yours that covers the same VLAN and sits above the watchdog's one still wins (the Status page warns about it).

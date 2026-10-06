@@ -86,13 +86,37 @@ def test_snapshot_reads_devices_with_a_bit_rate():
 
 
 def test_the_app_never_creates_or_deletes_a_unifi_network():
-    """The watchdog switches existing VPN clients and edits routing policies. It must never create or delete a network/VLAN."""
+    """The watchdog switches existing VPN clients and manages its own routing policies. It must never create or delete a network/VLAN."""
     import re
     from pathlib import Path
     src = (Path(__file__).resolve().parents[1] / "src" / "vpn_watchdog" / "unifi.py").read_text()
     calls = re.findall(r'_request\(\s*"(\w+)",\s*self\.\w+\(f?"([^"]+)"', src)
     assert calls, "found no UniFi requests to check"
     for method, path in calls:
-        assert method != "DELETE", f"{method} {path}"
+        if "trafficroutes" not in path:
+            assert method != "DELETE", f"{method} {path}"          # only the watchdog's own routing policies can be deleted
         if "networkconf" in path:
             assert method in ("GET", "PUT"), f"{method} {path} would create a network"
+
+
+def test_it_refuses_to_change_a_routing_policy_that_is_not_its_own():
+    c, sent = make()
+    for call in (lambda: c.update_own_route("r1", "t1"), lambda: c.delete_own_route("r1"),
+                 lambda: c.create_own_route({"description": "mine", "network_id": "t1"})):
+        with pytest.raises(UniFiError):
+            call()
+    assert not any(m in ("PUT", "POST", "DELETE") and "trafficroutes" in path for m, path, *_ in sent)
+
+
+def test_it_changes_only_policies_named_like_its_own():
+    c, sent = make()
+    c.create_own_route({"description": "vpnwd: g › vlan20-iot", "network_id": "t1", "target_devices": []})
+    assert sent[-1][0] == "POST" and sent[-1][1].endswith("/trafficroutes")
+    ROUTES.append({"_id": "own1", "description": "vpnwd: g › vlan20-iot", "network_id": "t1", "enabled": False, "target_devices": []})
+    try:
+        c.update_own_route("own1", "t2", True)
+        assert sent[-1][0] == "PUT" and sent[-1][2]["network_id"] == "t2" and sent[-1][2]["enabled"] is True
+        c.delete_own_route("own1")
+        assert sent[-1][0] == "DELETE" and sent[-1][1].endswith("/trafficroutes/own1")
+    finally:
+        ROUTES.pop()

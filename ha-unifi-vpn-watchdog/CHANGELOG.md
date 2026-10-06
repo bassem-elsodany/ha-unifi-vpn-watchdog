@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.17.0
+
+- **Manage routing (optional, off by default, per group).** Settings > VPN groups > Routing. When on, the watchdog keeps ONE routing policy of its own per picked VLAN, named `vpnwd: <group> › <VLAN>`, pointed at the group's active VPN client, and moves it when a failover happens. Turning it on shows what will be written and asks first.
+- **Hard limit:** it only ever creates, edits or deletes policies whose name starts with `vpnwd:`; the UniFi client refuses to change any other policy. It still never creates or deletes a network or VLAN. A failed write is recorded in Events and retried after five minutes, not every cycle.
+- UniFi applies the first live policy in its list, so one of your own policies above the watchdog's still wins; the Status page warns when a picked VLAN is routed through a client outside the group.
+
 ## 0.16.0
 
 - **You pick the VLANs of a group** (Settings > VPN groups > VLANs). A group is now its VLANs plus its ordered VPN clients, so the Status page always shows which VLANs belong to which group, even when every client is down. VLANs are followed by their UniFi id, so a rename in UniFi changes nothing. A VLAN belongs to one group.
