@@ -261,11 +261,7 @@
 <aside id="drawer" class="drawer hide"></aside>
 <div id="toast" class="hide"></div>
 
-<div class="savebar hide" id="savebar">
-  <span class="dot warn"></span><b id="chgTitle">Unsaved changes</b><span class="muted" id="chg">Applied within one check cycle after you save.</span>
-  <span class="grow"></span><span id="saveMsg"></span>
-  <button class="act" id="discard">Discard</button><button class="act primary" id="saveSettings">Save &amp; apply</button>
-</div>
+<div class="savebar hide" id="savebar"><span id="saveMsg"></span></div>
 
 <script>
 const $ = (s) => document.querySelector(s);
@@ -311,7 +307,7 @@ async function refreshInner() {
   if (data.safe_mode && !window.__safe) { window.__safe = true; showTab("advanced"); }
   $("#tick").textContent = data.last_tick ? "last check " + ago(data.last_tick) : "reading from UniFi...";
   $("#spin").classList.toggle("hide", busyCount <= 0 && !data.loading);
-  ["checkNow", "pauseAll", "resumeAll", "saveCfg", "validate", "saveSettings"].forEach((id) => ($("#" + id).disabled = !can));
+  ["checkNow", "pauseAll", "resumeAll", "saveCfg", "validate"].forEach((id) => ($("#" + id).disabled = !can));
   $("#resumeAll").classList.toggle("hide", !(data.map && data.map.groups.some((g) => g.paused)));
   if (data.version) { const v = $("#ver"); v.textContent = "v" + data.version; v.classList.remove("hide"); }
   renderMap(data); renderEvents(data);
@@ -650,8 +646,7 @@ function changes() {
 }
 function markDirty() {
   const ch = changes(), d = ch.length > 0;
-  $("#savebar").classList.toggle("hide", !d || !$("#tab-settings") || $("#tab-settings").classList.contains("hide"));
-  if (d) { $("#chgTitle").textContent = ch.length === 1 ? "1 unsaved change" : ch.length + " unsaved changes"; $("#chg").textContent = ch.slice(0, 3).map((c) => c.text).join(" · ") + (ch.length > 3 ? ` · and ${ch.length - 3} more` : ""); }
+  if (d) scheduleSave();
   const dirty = new Set(ch.map((c) => SECTION_OF(c.path)));
   document.querySelectorAll(".snav button").forEach((b) => { const i = b.querySelector("i"); if (dirty.has(b.dataset.sec) && !i) b.insertAdjacentHTML("beforeend", "<i></i>"); else if (!dirty.has(b.dataset.sec) && i) i.remove(); });
 }
@@ -891,15 +886,18 @@ setEl.addEventListener("click", async (e) => {
   if (k === "addall") { const g = V.groups[selG]; (M.tunnels || []).filter((t) => !g.order.some((x) => x.id === t.id || (!x.id && x.tunnel === t.name))).forEach((t) => g.order.push({ tunnel: t.name, id: t.id, expect_country: "" })); renderSection(); return; }
 });
 
-let saveTimer = null;
-$("#saveSettings").onclick = async () => {
-  clearTimeout(saveTimer);
-  $("#saveMsg").textContent = "Saving...";
-  const r = await api("settings", "POST", { values: V });
-  if (r.ok) { await loadSettings(); $("#saveMsg").innerHTML = '<span class="pill ok">Saved and applied</span>'; $("#savebar").classList.remove("hide"); saveTimer = setTimeout(() => { $("#saveMsg").textContent = ""; markDirty(); }, 4000); }
-  else $("#saveMsg").innerHTML = '<span class="pill bad">' + esc(r.data.error || "failed").replace(/\n/g, "<br>") + "</span>";
-};
-$("#discard").onclick = () => { V = JSON.parse(orig); renderSettings(); $("#saveMsg").textContent = ""; };
+let saveTimer = null, hideTimer = null, saving = false;
+const saveNote = (html, keep) => { clearTimeout(hideTimer); $("#saveMsg").innerHTML = html; $("#savebar").classList.remove("hide"); if (!keep) hideTimer = setTimeout(() => $("#savebar").classList.add("hide"), 3000); };
+function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(autoSave, 700); }
+async function autoSave() {                    // every settings change is saved and applied a moment after it is made
+  if (saving) { scheduleSave(); return; }
+  if (!V || !changes().length) return;
+  saving = true; saveNote('<span class="spin"></span> Saving...', true);
+  const sent = JSON.stringify(V), r = await api("settings", "POST", { values: V });
+  saving = false;
+  if (r.ok) { if (JSON.stringify(V) === sent) { orig = sent; markDirty(); } else scheduleSave(); saveNote('<span class="pill ok">Saved and applied</span>'); }
+  else saveNote('<span class="pill bad">Not saved: ' + esc(r.data.error || "failed").replace(/\n/g, "<br>") + "</span>", true);
+}
 
 /* ------------------------------------------------------------------ header, tabs, recovery editor */
 $("#checkNow").onclick = () => act("check-now");

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.15.3
+
+- Settings save by themselves: a change is saved and applied about a second after you make it, and a small "Saved and applied" note shows it. The Save & apply and Discard buttons and the "unsaved changes" bar are gone. If a change is invalid, the note says why and nothing is saved until it is fixed.
+
 ## 0.15.2
 
 - A group keeps its VLANs when none of its VPN clients is on: it also claims VLANs that a routing policy of one of its clients names, unless UniFi really sends them through another client.
