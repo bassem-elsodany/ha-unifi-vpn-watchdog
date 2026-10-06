@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.14.0
+
+- **VPN groups explained and easier to fill in** (Settings > VPN groups). The page now says in plain words what a group is, lists the three steps, and marks every section as required, optional or done. Each group shows whether it is Ready or Needs a fallback order, and says what is missing in one line.
+- **The fallback order is edited right there**: numbered rows with a drag handle, up / down arrows and a remove button, "Add a VPN client" with a list of the clients not yet in the order, and "Add all". Before, the order could only be built by dragging on the Status page. A VLAN that belongs to another group is greyed out with that group's name.
+- With no group yet, the page explains why you need one and offers "Create your first VPN group".
+- Status: a group without a fallback order is labelled NEEDS A FALLBACK ORDER (instead of WATCHING ONLY) and has a "Set the fallback order" button that opens its settings.
+
 ## 0.13.1
 
 - **Groups on different VLANs now work independently.** A group owns the routing policies that target exactly its own VLANs. Before, it used every policy that included its VLANs, so a group for VLAN 20 and a group for VLAN 50 shared (and disturbed) the same policies whenever a policy listed both. Policies that also cover other VLANs are left alone. A missing one is created for exactly the group's VLANs, named "<tunnel> (<group>)".
