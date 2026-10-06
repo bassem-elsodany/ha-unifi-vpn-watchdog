@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0
+- **No spare tunnels.** Only the tunnel in use is connected; every other tunnel in your fallback order is disconnected. Several tunnels
+  up for the same VLAN let traffic leave through different exit IPs and look odd to firewalls and the VPN provider. The `standby` section
+  was removed (an old config containing it is rejected with that explanation). While testing a higher tunnel for failback that one is
+  connected briefly.
+- Status page: every column of the tunnel table sorts (click a header again to reverse); the choice is remembered.
+
 ## 0.5.1
 - **Groups are yours to create.** Settings > VPN groups: add, rename and delete groups, and tick each group's networks. A fresh install
   starts with no group at all (nothing from the author's network is built in) and only watches until you add one.

@@ -116,12 +116,6 @@ class FailbackCfg(_M):
     stable_seconds: int = Field(300, ge=0)
 
 
-class StandbyCfg(_M):
-    warm: int = Field(0, ge=0)     # spare tunnels kept connected for an instant switch (0 = only the tunnel in use)
-    disable_unused: bool = True  # disable managed tunnels that are neither active nor warm
-    max_enabled: int = Field(6, ge=1)         # NordVPN allows 10 simultaneous connections per account
-
-
 class OrderItem(_M):
     """One position in the fallback order."""
     tunnel: str                          # exact tunnel name as it is in UniFi, whatever it is called
@@ -139,7 +133,7 @@ class GroupCfg(_M):
     networks: list[str]                  # network names (or ids) whose internet traffic the route steers
     order: list[OrderItem] = Field(default_factory=list)   # fallback sequence: #1 is the most preferred, then #2, #3, ...
     kill_switch: bool | None = None      # None = leave the route's kill switch alone
-    overrides: dict[str, Any] = Field(default_factory=dict)  # deep-merged over detection/switching/failback/standby
+    overrides: dict[str, Any] = Field(default_factory=dict)  # deep-merged over detection/switching/failback
 
     @field_validator("order", mode="before")
     @classmethod
@@ -217,7 +211,6 @@ class GroupSettings(_M):
     detection: DetectionCfg = DetectionCfg()
     switching: SwitchingCfg = SwitchingCfg()
     failback: FailbackCfg = FailbackCfg()
-    standby: StandbyCfg = StandbyCfg()
 
 
 class Config(_M):
@@ -229,7 +222,6 @@ class Config(_M):
     probe: ProbeCfg = ProbeCfg()
     switching: SwitchingCfg = SwitchingCfg()
     failback: FailbackCfg = FailbackCfg()
-    standby: StandbyCfg = StandbyCfg()
     groups: list[GroupCfg] = Field(default_factory=list)   # created by the user in the UI; none on a fresh install
     notifications: list[NotifyCfg] = Field(default_factory=list)
     alerts: dict[str, AlertCfg] = Field(default_factory=dict)    # per event: on/off, title, message
@@ -266,7 +258,6 @@ class Config(_M):
             "detection": self.detection.model_dump(),
             "switching": self.switching.model_dump(),
             "failback": self.failback.model_dump(),
-            "standby": self.standby.model_dump(),
         }
         try:
             return GroupSettings.model_validate(deep_merge(base, group.overrides))
@@ -287,6 +278,9 @@ def deep_merge(base: dict[str, Any], over: dict[str, Any]) -> dict[str, Any]:
 def removed_settings(raw: dict[str, Any]) -> list[str]:
     """Settings that earlier versions had and that no longer exist. They are reported, never converted or guessed."""
     errs: list[str] = []
+    if "standby" in raw or (isinstance(raw.get("groups"), list) and any(isinstance(g, dict) and isinstance(g.get("overrides"), dict) and "standby" in g["overrides"] for g in raw["groups"])):
+        errs.append("`standby` was removed: only the tunnel in use stays connected. Several tunnels up at once for the same VLAN means "
+                    "traffic can leave through different exit IPs and looks odd to firewalls and VPN providers. Delete the standby section.")
     if "naming" in raw:
         errs.append("`naming` was removed: tunnel names are never interpreted. Choose each step's tunnels by name or pattern.")
 

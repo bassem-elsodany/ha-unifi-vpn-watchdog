@@ -39,11 +39,6 @@ def extract(cfg: Config) -> dict[str, Any]:
             "check_interval_seconds": cfg.failback.check_interval_seconds,
             "stable_seconds": cfg.failback.stable_seconds,
         },
-        "standby": {
-            "warm": cfg.standby.warm,
-            "disable_unused": cfg.standby.disable_unused,
-            "max_enabled": cfg.standby.max_enabled,
-        },
         "probe": {
             "mode": cfg.probe.mode,
             "check_country": cfg.probe.check_country,
@@ -101,14 +96,6 @@ def apply(raw: dict[str, Any], form: dict[str, Any]) -> dict[str, Any]:
     for k in ("check_interval_seconds", "stable_seconds"):
         if k in f:
             fb[k] = _num(f[k])
-
-    sb = form.get("standby", {})
-    st = out.setdefault("standby", {})
-    for k in ("warm", "max_enabled"):
-        if k in sb:
-            st[k] = _num(sb[k])
-    if "disable_unused" in sb:
-        st["disable_unused"] = bool(sb["disable_unused"])
 
     p = form.get("probe", {})
     pr = out.setdefault("probe", {})

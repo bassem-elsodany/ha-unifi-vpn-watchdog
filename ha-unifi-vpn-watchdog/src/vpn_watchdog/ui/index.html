@@ -42,6 +42,8 @@
   table { width: 100%; border-collapse: collapse; }
   th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
   th { color: var(--muted); font-weight: 600; font-size: 12px; }
+  th[data-sort] { cursor: pointer; user-select: none; white-space: nowrap; }
+  th[data-sort]:hover { color: var(--ink); } th.sorted { color: var(--accent); }
   tr.cur td:first-child { box-shadow: inset 3px 0 var(--accent); }
   textarea { width: 100%; min-height: 55vh; font: 13px/1.5 ui-monospace, Menlo, monospace; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); }
   .banner { padding: 10px 14px; border-radius: 10px; margin-bottom: 14px; max-width: 980px; }
@@ -97,7 +99,7 @@
   <section id="tab-status"><div id="groups"></div>
     <div class="card" style="max-width:1300px"><h3>Tunnels and the routing policies that use them</h3>
       <p class="sub">Each policy sends the listed networks or devices through that tunnel. A tunnel with no policy carries nothing.</p>
-      <table><thead><tr><th>Tunnel<th>Enabled<th>Status<th>rx / tx<th>Routing policies<th>Cooling down</tr></thead><tbody id="tunnels"></tbody></table>
+      <table id="tunnelTable"><thead><tr><th data-sort="name">Tunnel<th data-sort="enabled">Enabled<th data-sort="status">Status<th data-sort="rx">rx / tx<th data-sort="policy">Routing policies<th data-sort="cool">Cooling down</tr></thead><tbody id="tunnels"></tbody></table>
     </div>
     <div class="card" style="max-width:1300px"><h3>Traffic that does not use a tunnel</h3>
       <p class="sub">Policies that send traffic somewhere else, for example straight to the internet connection.</p>
@@ -203,9 +205,39 @@ function policyHtml(r) {
   return `<div style="margin-bottom:6px"><b>${esc(r.description)}</b> ${tags}<div class="muted">carries: ${who}</div></div>`;
 }
 
+let sortBy = { key: "name", dir: 1 };
+try { const v = JSON.parse(localStorage.getItem("wd_sort")); if (v && v.key) sortBy = v; } catch (e) {}
+const natural = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
+const SORTERS = {
+  name: (n) => n,
+  enabled: (n, t) => (t.enabled ? 1 : 0),
+  status: (n, t) => ({ CONNECTED: 3, CONNECTING: 2 }[t.status] || 0),
+  rx: (n, t) => t.rx_bps || 0,
+  policy: (n, t) => (t.routes || []).filter((r) => r.enabled).length * 100 + (t.routes || []).length,
+  cool: (n, t) => t.quarantined_for || 0,
+};
+const FIRST_DIR = { name: 1, enabled: -1, status: -1, rx: -1, policy: -1, cool: -1 };   // first click: the "interesting" end first
+document.querySelectorAll("#tunnelTable th[data-sort]").forEach((th) => (th.onclick = () => {
+  const k = th.dataset.sort;
+  sortBy = sortBy.key === k ? { key: k, dir: -sortBy.dir } : { key: k, dir: FIRST_DIR[k] };
+  try { localStorage.setItem("wd_sort", JSON.stringify(sortBy)); } catch (e) {}
+  if (status) renderTunnels(status);
+}));
+
 function renderTunnels(d) {
   const active = new Set(Object.values(d.groups).map((g) => g.active));
-  $("#tunnels").innerHTML = Object.entries(d.tunnels).sort().map(([n, t]) => {
+  document.querySelectorAll("#tunnelTable th[data-sort]").forEach((th) => {
+    const on = th.dataset.sort === sortBy.key;
+    th.classList.toggle("sorted", on);
+    th.textContent = th.textContent.replace(/ [\u25B2\u25BC]$/, "") + (on ? (sortBy.dir > 0 ? " \u25B2" : " \u25BC") : "");
+  });
+  const f = SORTERS[sortBy.key] || SORTERS.name;
+  const rows = Object.entries(d.tunnels).sort(([an, at], [bn, bt]) => {
+    const x = f(an, at), y = f(bn, bt);
+    const c = typeof x === "string" ? natural(x, y) : x - y;
+    return (c * sortBy.dir) || natural(an, bn);
+  });
+  $("#tunnels").innerHTML = rows.map(([n, t]) => {
     const cls = t.status === "CONNECTED" ? "ok" : t.enabled ? "warn" : "muted";
     const pol = (t.routes || []).map(policyHtml).join("") || '<span class="muted">no routing policy</span>';
     return `<tr class="${active.has(n) ? "cur" : ""}"><td>${esc(n)}${active.has(n) ? ' <span class="pill info">active</span>' : ""}<td>${t.enabled ? "yes" : "no"}
@@ -261,15 +293,10 @@ function renderSettings() {
     ${row("If nothing works", "What to do when every candidate has failed.", sel("switching.on_exhausted", [["keep", "Stay on the current tunnel and alert me"], ["kill_switch", "Block the traffic so nothing leaks, and alert me"]]))}
     <div class="summary" id="sum-switch"></div></div>
 
-  <div class="card"><h3>Going back</h3><p class="sub">Return to your preferred server once it recovers.</p>
-    ${row("Go back to the preferred server", "", tog("failback.enabled"))}
-    ${row("Test the preferred server every", "", numIn("failback.check_interval_seconds", "seconds", 10))}
+  <div class="card"><h3>Going back up the list</h3><p class="sub">Return to a higher position once that tunnel recovers.</p>
+    ${row("Go back to a higher tunnel", "While running on a lower tunnel the watchdog briefly connects the higher one to test it, then disconnects it again. Only one tunnel carries traffic.", tog("failback.enabled"))}
+    ${row("Test the higher tunnel every", "", numIn("failback.check_interval_seconds", "seconds", 10))}
     ${row("It must stay healthy for", "Only then traffic moves back.", numIn("failback.stable_seconds", "seconds", 0))}</div>
-
-  <div class="card"><h3>Ready spares</h3><p class="sub">Keeping the next servers connected makes a switch instant.</p>
-    ${row("Spare tunnels kept connected", "NordVPN allows 10 connections per account.", numIn("standby.warm", "tunnels", 0))}
-    ${row("Disconnect tunnels not needed", "", tog("standby.disable_unused"))}
-    ${row("Never connect more than", "", numIn("standby.max_enabled", "tunnels", 1))}</div>
 
   <div class="card"><h3>Exit-IP test</h3><p class="sub">Without it the watchdog only sees whether a tunnel says "connected".</p>
     ${row("How to test", "Canary/remote use a device with its own MAC address that is steered through each tunnel under test.", sel("probe.mode", modes))}

@@ -134,7 +134,6 @@ detection: {{failure_threshold: 3, probe_failure_threshold: 2, probe_interval_se
 switching: {{connect_timeout_seconds: 10, min_hold_seconds: 60, max_switches_per_hour: 6,
             quarantine: {{base_seconds: 120, factor: 2, max_seconds: 3600}} {extra_switching} }}
 failback: {{enabled: {failback}, check_interval_seconds: 30, stable_seconds: 60}}
-standby: {{warm: 1, disable_unused: true, max_enabled: 6}}
 groups:
   - name: g1
     networks: [vlan20-iot, vlan50-vpn]

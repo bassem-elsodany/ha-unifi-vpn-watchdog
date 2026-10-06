@@ -33,8 +33,9 @@ web UI (status, jobs, start/stop, config editor), and is configured by one hot-r
    not the hourly cap. If nothing works it alerts once and optionally engages the kill switch (`on_exhausted`).
 7. **Fail back.** When a tunnel higher in your list (a lower number) has tested healthy for `stable_seconds`, traffic moves back
    up to it. It never moves down or sideways while the active tunnel is healthy.
-8. **Spare tunnels (optional).** `standby.warm` keeps the next N tunnels of your list connected for an instant switch. The default is 0:
-   only the tunnel in use is connected, and tunnels that are not needed are disconnected.
+8. **One tunnel connected.** Only the tunnel in use stays connected; every other tunnel in your list is disconnected. Several tunnels
+   up for the same VLAN would let traffic leave through different exit IPs. (While it tests a higher tunnel for failback that one is
+   connected briefly.)
 
 Safe start: until you set a fallback order the watchdog only watches the tunnel in use and never switches anything.
 
@@ -116,7 +117,7 @@ See [config/config.example.yaml](config/config.example.yaml); every key is docum
 - **Fallback order** (`groups[].order`): the sequence of tunnels, first = most preferred. Each entry is an exact tunnel name,
   or `{tunnel: NAME, expect_country: IT}` if the exit-IP test should check a country that you typed yourself. Tunnels not in the
   list are never used. Empty means the watchdog only watches. Set it in *Settings > Fallback order* (type a position number to move).
-- **Per-group overrides** for any `detection`, `switching`, `failback`, `standby` key.
+- **Per-group overrides** for any `detection`, `switching`, `failback` key.
 - **Hot reload**: edit the file (or use the UI), it is applied next cycle; an invalid file is rejected and the old
   config keeps running. Typos are errors (unknown keys are rejected). `${VAR}` / `${VAR:-default}` read the environment.
 

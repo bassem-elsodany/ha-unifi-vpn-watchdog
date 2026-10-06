@@ -1,4 +1,4 @@
-"""Failover engine: health evaluation, quarantine with backoff, ladder-ordered switching, failback, standby."""
+"""Failover engine: health evaluation, quarantine with backoff, ordered switching, failback."""
 from __future__ import annotations
 
 import logging
@@ -91,9 +91,9 @@ class Engine:
             except Exception:  # noqa: BLE001 - one broken group must not stop the others
                 log.exception("group %s: unexpected error", g.name)
         try:
-            self._reconcile_standby(self.unifi.snapshot())
+            self._disconnect_unused(self.unifi.snapshot())
         except UniFiError as e:
-            log.warning("standby reconcile skipped: %s", e)
+            log.warning("disconnecting unused tunnels skipped: %s", e)
         self.last_tick = self.clock.now()
         self.store.save()
         self._publish(snap)
@@ -352,35 +352,25 @@ class Engine:
         if now - gs.failback_stable_since >= st.failback.stable_seconds and self._rate_ok(g, st, gs, hard=False):
             self._commit(g, st, gs, target, f"failback to a higher position after {st.failback.stable_seconds}s stable", "failback")
 
-    # ------------------------------------------------------------------ standby
-    def _reconcile_standby(self, snap: Snapshot) -> None:
+    # ------------------------------------------------------------------ one connected tunnel
+    def _disconnect_unused(self, snap: Snapshot) -> None:
+        """Only the tunnel in use stays connected. Every other tunnel in a fallback order is disconnected, because several
+        tunnels up at once for the same VLAN lets traffic leave through different exit IPs. The only exception is the
+        higher-up tunnel being tested for failback, for as long as that test runs."""
         keep: set[str] = set()
         managed: set[str] = set()
-        now = self.clock.now()
         for g in self.cfg.groups:
-            st = self.cfg.settings_for(g)
-            ladder = resolve_order(g, list(snap.tunnels.values()))
-            managed.update(t.id for t in ladder)
+            managed.update(t.id for t in resolve_order(g, list(snap.tunnels.values())))
             gs = self.store.group(g.name)
             if gs.current_id:
                 keep.add(gs.current_id)
-            cur = snap.tunnels.get(gs.current_id or "")
-            warm = [t for t in candidates(g, list(snap.tunnels.values()), cur)
-                    if self.store.tunnel(t.id).quarantined_until <= now]
-            keep.update(t.id for t in warm[: st.standby.warm])
             if gs.failback_target:
                 keep.add(gs.failback_target)
-        in_use = {r.network_id for r in snap.routes if r.enabled and r.network_id}
-        disable_unused = any(self.cfg.settings_for(g).standby.disable_unused for g in self.cfg.groups)
+        in_use = {r.network_id for r in snap.routes if r.enabled and r.network_id}   # e.g. the exit-IP test client's policy
         for tid in managed:
             t = snap.tunnels[tid]
-            if tid in keep and not t.enabled:
-                self.unifi.set_tunnel_enabled(tid, True)
-            elif tid not in keep and t.enabled and disable_unused and tid not in in_use:
+            if t.enabled and tid not in keep and tid not in in_use:
                 self.unifi.set_tunnel_enabled(tid, False)
-        cap = min((self.cfg.settings_for(g).standby.max_enabled for g in self.cfg.groups), default=10)
-        if len(keep) > cap:
-            log.warning("standby set (%d) exceeds max_enabled (%d); lower standby.warm", len(keep), cap)
 
     # ------------------------------------------------------------------ helpers
     def _quarantine(self, t: Tunnel, reason: str, st: GroupSettings) -> None:

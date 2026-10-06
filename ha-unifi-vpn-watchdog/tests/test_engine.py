@@ -163,13 +163,10 @@ def test_external_route_change_is_adopted(make_engine):
     assert eng.store.group("g1").current_id == tid("office/berlin")
 
 
-def test_standby_keeps_active_plus_warm_and_disables_the_rest(make_engine):
-    eng, un, _, _, clock = make_engine(enabled=set(__import__("conftest").TUNNELS))
+def test_only_the_tunnel_in_use_stays_connected(make_engine):
+    eng, un, _, _, clock = make_engine(enabled=set(__import__("conftest").TUNNELS))      # every tunnel connected to start with
     run(eng, clock, 2)
-    on = {i for i in un.enabled}
-    assert tid("Home-Primary") in on                 # active
-    assert len(on) == 2                                        # active + 1 warm
-    assert tid("zzz-last-resort") not in on
+    assert un.enabled == {tid("Home-Primary")}                                         # everything else was disconnected
 
 
 def test_no_probe_mode_still_fails_over_on_status(make_engine):
@@ -276,7 +273,8 @@ def test_a_tunnel_without_a_policy_gets_one_created_named_after_it(make_engine):
     assert active_name(un) == "Home-Primary"
 
 
-def test_only_the_tunnel_in_use_is_connected_by_default():
-    from vpn_watchdog.config import parse_config
-    c = parse_config("unifi: {api_key: k}\ngroups:\n  - {name: a, networks: [n]}\n", env={})
-    assert c.standby.warm == 0 and c.standby.disable_unused is True
+def test_the_standby_section_is_gone_and_rejected_with_a_reason():
+    import pytest
+    from vpn_watchdog.config import ConfigError, parse_config
+    with pytest.raises(ConfigError, match="standby. was removed.*different exit IPs"):
+        parse_config("unifi: {api_key: k}\nstandby: {warm: 2}\ngroups: []\n", env={})

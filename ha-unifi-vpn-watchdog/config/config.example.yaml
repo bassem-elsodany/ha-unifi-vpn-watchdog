@@ -41,10 +41,6 @@ failback:
   check_interval_seconds: 120
   stable_seconds: 300             # preferred tunnel must test healthy this long before switching back
 
-standby:
-  warm: 0                         # spare tunnels kept connected for an instant switch; 0 = only the tunnel in use
-  disable_unused: true
-  max_enabled: 6                  # NordVPN allows 10 concurrent connections per account
 
 groups:
   - name: iot-and-vpn
@@ -55,7 +51,7 @@ groups:
       - Home-Backup
       - {tunnel: Office-Berlin, expect_country: DE}   # expect_country is optional: the exit-IP test must then see that country
       - Last-Resort
-    # overrides:                             # any detection/switching/failback/standby key, per group
+    # overrides:                             # any detection/switching/failback key, per group
     #   detection: {failure_threshold: 2}
 
 notifications: []
