@@ -2,6 +2,7 @@
 
 ## 0.24.0
 
+- **Hold command** for speed tests: `POST /api/hold {tunnel, seconds}` (control token or HA ingress) makes the watchdog leave one VPN client switched on for up to ten minutes, so a speed test of a standby or idle client is not undone by the clean-up. Nothing uses it unless you run the speed tools.
 - **Phone layout.** The web UI is now designed for phones as well (up to 700 px wide; tablet and desktop are unchanged). Nothing is wider than the screen on any page, buttons and fields are at least 44 px high, input text is 16 px (no zoom on iPhones), and the details panel is a bottom sheet.
 - **Status on a phone:** the VLANs are a row of tappable chips; the picked VLAN opens as a card with its devices; a group's warnings fold into one "⚠ N warnings" line you can open; the fallback order and the egress follow below.
 - **Settings on a phone:** one column with each label above its control, the section tabs scroll sideways, and the long group introduction sits behind "How it works".
