@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.5
+- Expanding "No VPN policy" now turns that one box into a single list: each VLAN is a section with its devices. Before, the three summary rows stayed and every VLAN was repeated underneath as its own box (boxes inside boxes). Long device lists scroll inside their section.
+- Devices without a name show "unnamed" instead of repeating their IP address twice.
+
 ## 0.9.4
 - The Status map decides what is a VLAN from UniFi's own network type (LAN/VLAN and guest networks only). The name checks it used before ("Internet...", "One-Click VPN") are gone; WAN, VPN-client and remote-user networks are excluded by type, never by what they are called.
 

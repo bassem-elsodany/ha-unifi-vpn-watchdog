@@ -128,6 +128,8 @@
   .legend b { font-size: 12px; letter-spacing: .06em; color: var(--muted); } .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
   .hint { margin: 16px 0 0; font-size: 13px; line-height: 20px; color: var(--muted); }
   .dlabel { position: absolute; width: 300px; text-align: center; font-size: 13px; line-height: 16px; color: var(--muted); }
+  .dsec { border-top: 1px solid var(--hair); padding-top: 10px; margin-top: 6px; } .dsh b { font-size: 14px; } .dsh small { display: block; font-size: 12px; line-height: 18px; color: var(--muted); margin-bottom: 4px; }
+  .dl { max-height: 252px; overflow: auto; }
   .dsum .dev { cursor: default; } .dsum .dev:hover { background: none; } .dsum .vf { margin-top: 2px; }
   .mono { font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; }
   .spin { display: inline-block; flex: none; width: 14px; height: 14px; border: 2px solid var(--line2); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; }
@@ -302,7 +304,7 @@ function devRow(d) {
   const sel = selected && selected.kind === "dev" && selected.mac === d.mac ? "sel" : "";
   const tip = d.bypass ? `bypasses the VPN and goes to ${d.bypass.goes_to}` : `${d.mac}${d.wired ? ", wired" : ""}`;
   return `<div class="dev ${d.bypass ? "byp" : ""} ${sel}" data-mac="${esc(d.mac)}" title="${esc(tip)}"><i class="${d.active ? "" : "idle"}" ${d.bypass ? 'style="background:var(--warn)"' : ""}></i>
-    <span>${esc(d.name || d.ip || d.mac)}${d.bypass ? " · bypasses the VPN" : ""}</span><span>${esc(d.ip || "")}</span><span>${rate(d.rate_bps)}</span></div>`;
+    <span>${d.name && d.name !== d.ip ? esc(d.name) : '<span class="muted">unnamed</span>'}${d.bypass ? " · bypasses the VPN" : ""}</span><span>${esc(d.ip || "")}</span><span>${rate(d.rate_bps)}</span></div>`;
 }
 function devList(n) {
   const q = (vsearch[n.id] || "").trim().toLowerCase(), exp = !!vexp[n.id];
@@ -365,10 +367,14 @@ function laneHtml(g, can, behind) {
 const legendHtml = (can) => `<div class="legend"><b>LEGEND</b><div><i style="background:var(--ok)"></i>connected / device active</div><div><i style="background:var(--warn)"></i>bypasses the VPN</div><div><i style="background:var(--muted)"></i>idle / disconnected</div></div>
   <p class="hint">Click a device to light up its path through the map. Click a VPN client for its details panel.${can ? " Drag a client up or down to change the order." : ""}</p>`;
 function directBox(m) {
-  const total = m.direct.reduce((a, n) => a + n.count, 0);
-  return `<div class="vc direct dsum"><div class="vh"><span class="dot idle"></span><b style="font-size:14px">No VPN policy · ${total} device${total === 1 ? "" : "s"}</b></div>
-    ${m.direct.slice(0, 3).map((n) => `<div class="dev"><i class="idle"></i><span>${esc(n.name)}</span><span>${n.count} device${n.count === 1 ? "" : "s"}</span><span></span></div>`).join("")}
-    <div class="vf" id="directToggle">${directOpen ? "Show fewer" : `Show all ${m.direct.length} VLAN${m.direct.length === 1 ? "" : "s"} and devices`}</div></div>${directOpen ? m.direct.map((n) => vlanCard(n, true)).join("") : ""}`;
+  const total = m.direct.reduce((a, n) => a + n.count, 0), plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+  const head = `<div class="vh"><span class="dot idle"></span><b style="font-size:14px">No VPN policy · ${plural(total, "device")}</b></div>`;
+  if (!directOpen) return `<div class="vc direct dsum">${head}
+    ${m.direct.slice(0, 3).map((n) => `<div class="dev"><i class="idle"></i><span>${esc(n.name)}</span><span>${plural(n.count, "device")}</span><span></span></div>`).join("")}
+    <div class="vf" id="directToggle">Show all ${plural(m.direct.length, "VLAN")} and devices</div></div>`;
+  return `<div class="vc direct dsum">${head}${m.direct.map((n) => `<div class="dsec"><div class="dsh"><b>${esc(n.name)}</b><small>${esc([n.vlan != null ? "VLAN " + n.vlan : null, netAddr(n.subnet), plural(n.count, "device")].filter(Boolean).join(" · "))}</small></div>
+      <div class="dl">${n.devices.map(devRow).join("") || '<div class="muted" style="padding:2px 0 4px">No devices connected right now.</div>'}</div></div>`).join("")}
+    <div class="vf" id="directToggle">Show fewer</div></div>`;
 }
 const normalNode = (m) => `<div class="inet normal" data-role="inet"><span class="dot idle"></span><div><b>Internet</b> · normal connection<div>exit <span class="mono">${esc(m.wan_ip || "your WAN address")}</span></div></div></div>`;
 function groupBlock(g, can, first, last, m) {
