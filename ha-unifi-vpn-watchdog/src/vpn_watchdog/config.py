@@ -154,6 +154,25 @@ class GroupCfg(_M):
         return self
 
 
+class JobCfg(_M):
+    """A job a VPN group runs besides failover. `rotation`: every so often move the group to another tunnel in its order."""
+    kind: Literal["rotation"] = "rotation"
+    group: str
+    enabled: bool = True
+    every: int = Field(1, ge=1, le=999)
+    unit: Literal["hours", "days", "weeks"] = "days"
+    at: str = "03:00"                      # time of day (the add-on's clock) for days and weeks; hours count from when the job starts
+    go_to: Literal["next", "random"] = "next"
+
+    @model_validator(mode="after")
+    def _valid(self) -> "JobCfg":
+        m = re.fullmatch(r"([01]?\d|2[0-3]):([0-5]\d)", self.at.strip())
+        if not m:
+            raise ValueError(f"rotation of {self.group!r}: `at` must be a time like 03:00")
+        self.at = f"{int(m.group(1)):02d}:{m.group(2)}"
+        return self
+
+
 class NotifyCfg(_M):
     type: Literal["webhook", "ntfy", "telegram", "home_assistant"]
     events: list[str] = Field(default_factory=lambda: ["*"])
@@ -223,6 +242,7 @@ class Config(_M):
     switching: SwitchingCfg = SwitchingCfg()
     failback: FailbackCfg = FailbackCfg()
     groups: list[GroupCfg] = Field(default_factory=list)   # created by the user in the UI; none on a fresh install
+    jobs: list[JobCfg] = Field(default_factory=list)       # extra jobs per group (rotation); failover is every group's own job
     notifications: list[NotifyCfg] = Field(default_factory=list)
     alerts: dict[str, AlertCfg] = Field(default_factory=dict)    # per event: on/off, title, message
     mqtt: MqttCfg = MqttCfg()
@@ -251,7 +271,17 @@ class Config(_M):
         names = [g.name for g in self.groups]
         if len(set(names)) != len(names):
             raise ValueError("group names must be unique")
+        seen: set[tuple[str, str]] = set()
+        for j in self.jobs:
+            if j.group not in names:
+                raise ValueError(f"{j.kind} job: there is no VPN group called {j.group!r}")
+            if (j.kind, j.group) in seen:
+                raise ValueError(f"group {j.group!r} has two {j.kind} jobs; a group can have one job of each kind")
+            seen.add((j.kind, j.group))
         return self
+
+    def job_for(self, group: str, kind: str = "rotation") -> JobCfg | None:
+        return next((j for j in self.jobs if j.group == group and j.kind == kind), None)
 
     def settings_for(self, group: GroupCfg) -> GroupSettings:
         base = {

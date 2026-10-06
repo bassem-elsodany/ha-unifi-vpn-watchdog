@@ -69,7 +69,10 @@
   .lk.live { stroke-dasharray: 8 8; animation: dashmove .9s linear infinite; } .lk.hot { stroke-width: 6; opacity: .9; }
   @keyframes dashmove { to { stroke-dashoffset: -16; } }
   .gblock { margin-bottom: 30px; position: relative; z-index: 2; }
-  .gstrip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; min-height: 64px; margin-top: 16px; padding: 8px 20px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+  .gstrip { display: flex; flex-direction: column; margin-top: 16px; padding: 0 20px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+  .gr { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; min-height: 64px; padding: 8px 0; }
+  .gstrip.two .gr:first-child { min-height: 60px; padding: 14px 0 10px; } .gr + .gr { min-height: 61px; padding: 10px 0 14px; border-top: 1px solid var(--hair); }
+  .pill.rot { background: var(--ownbg); color: var(--ownink); }
   .gname { font-size: 18px; }
   .gcols { position: relative; display: grid; grid-template-columns: 300px minmax(0, 1fr) 240px; align-items: start; margin-top: 24px; }
   .colv { display: flex; flex-direction: column; gap: 24px; }
@@ -187,6 +190,13 @@
   .al .nm { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; } .al .wh { font-size: 13px; line-height: 19px; color: var(--muted); } .al .ed { font-size: 13px; font-weight: 600; color: var(--accentink); text-align: right; cursor: pointer; }
   .al.head { border-top: 0; padding: 8px 0; font-size: 12px; font-weight: 600; letter-spacing: .06em; color: var(--muted); }
   .lv { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; } .lv.info { background: var(--accentbg); color: var(--accentink); } .lv.warning { background: var(--warnbg); color: var(--warn); } .lv.critical { background: var(--badbg); color: var(--bad); }
+  .jb { display: grid; grid-template-columns: 44px minmax(0, 1fr) 110px; gap: 16px; align-items: start; padding: 18px 0; border-top: 1px solid var(--hair); }
+  .jb .nm { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; flex-wrap: wrap; } .jb .wh { font-size: 13px; line-height: 19px; color: var(--muted); margin-top: 3px; } .jb .wh.ro { color: var(--ownink); } .jb .wh.go { color: var(--okink); }
+  .jb .ed { font-size: 13px; font-weight: 600; color: var(--accentink); text-align: right; padding-top: 2px; cursor: pointer; } .jb .sw { margin-top: 1px; } .jb.off .nm { color: var(--muted); }
+  .kd { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; } .kd.f { background: var(--accentbg); color: var(--accentink); } .kd.r { background: var(--ownbg); color: var(--ownink); }
+  .gp { font-size: 12px; font-weight: 500; padding: 2px 9px; border: 1px solid var(--line2); border-radius: 999px; color: var(--chipink); background: var(--card); }
+  .fl { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 14px 16px; align-items: center; margin-left: 60px; } .fl label { font-size: 13px; color: var(--muted); } .fl .rw { display: flex; gap: 10px; align-items: center; }
+  .jnote { margin: 18px 0 0 60px; max-width: 700px; font-size: 13px; line-height: 20px; color: var(--chipink); } .jnote + .jnote { margin-top: 10px; }
   .ex { background: var(--bg); margin: 0 -40px; padding: 8px 40px 22px; border-top: 1px solid var(--hair); } .ex + .al { border-top: 0; }
   .exf { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 10px 16px; align-items: center; margin-left: 68px; } .exf label { font-size: 13px; color: var(--muted); }
   .ph { display: inline-block; font: 12px 'IBM Plex Mono', ui-monospace, monospace; padding: 3px 8px; margin: 0 6px 6px 0; border: 1px solid var(--line2); border-radius: 6px; background: var(--card); color: var(--accentink); cursor: pointer; }
@@ -267,6 +277,8 @@ async function api(path, method = "GET", body) {
   return { ok: r.ok, status: r.status, data };
 }
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmtIn = (sec) => { const m = Math.round(sec / 60), h = Math.floor(m / 60), d = Math.floor(h / 24); return d >= 1 ? `${d} d ${h % 24} h` : h >= 1 ? `${h} h ${m % 60} min` : m >= 1 ? `${m} min` : "under a minute"; };
+const fmtWhen = (ts) => { const t = new Date(ts * 1000), n = new Date(), day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(), dd = Math.round((day(t) - day(n)) / 864e5), hm = t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }); return (dd === 0 ? "today" : dd === 1 ? "tomorrow" : dd === -1 ? "yesterday" : t.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" })) + " " + hm; };
 const ago = (ts) => { if (!ts) return "never"; const s = Math.max(0, Math.round(Date.now() / 1000 - ts)); return s < 90 ? s + "s ago" : Math.round(s / 60) + "m ago"; };
 const bps = (n) => n == null ? "-" : n > 1e6 ? (n / 1e6).toFixed(1) + " Mbps" : n > 1e3 ? (n / 1e3).toFixed(0) + " kbps" : n + " bps";
 const get = (o, p) => p.split(".").reduce((a, k) => (a == null ? a : a[k]), o);
@@ -406,9 +418,13 @@ function groupBlock(g, can, first, last, m) {
   const inet = act ? `<div class="inet" data-role="inet"><span class="dot ok"></span><div><b>Internet</b><div>${exline}</div></div></div>`
     : `<div class="inet bad" data-role="inet"><span class="dot bad"></span><div><b>Internet</b><div>no VPN client is switched on</div></div></div>`;
   const withDirect = last && m.direct.length, showNormal = last && (m.direct.length || (m.own || []).some((d) => d.kind === "normal"));
-  return `<section class="gblock" data-g="${esc(g.name)}"><div class="gstrip"><b class="gname">${esc(g.name)}</b><span class="pill ${st[0]}">${st[1]}</span>
+  const r = g.rotation;
+  const rotRow = !r ? "" : `<div class="gr"><span class="pill rot">ROTATION</span>
+      <span class="muted grow">${!r.enabled ? "Off. Turn it on in Settings > Jobs." : r.paused ? `${esc(r.summary)} · stopped` : `${esc(r.summary)} · next in <b>${r.next_in == null ? "..." : esc(fmtIn(r.next_in))}</b>${r.next_to ? ` → ${esc(r.next_to)}` : ""}`}${r.last_ts ? ` · last rotated ${esc(fmtWhen(r.last_ts))}` : ""}</span>
+      ${r.enabled ? `<button class="act" data-gact="rotate" data-g="${esc(g.name)}" ${can ? "" : "disabled"}>Rotate now</button><button class="act" data-gact="${r.paused ? "rotation-resume" : "rotation-pause"}" data-g="${esc(g.name)}" ${can ? "" : "disabled"}>${r.paused ? "Start rotation" : "Stop rotation"}</button>` : ""}</div>`;
+  return `<section class="gblock" data-g="${esc(g.name)}"><div class="gstrip ${r ? "two" : ""}"><div class="gr"><b class="gname">${esc(g.name)}</b><span class="pill ${st[0]}">${st[1]}</span>
       <span class="muted grow">${note}</span>
-      ${g.unmanaged ? "" : `<button class="act" data-gact="${g.paused ? "resume" : "pause"}" data-g="${esc(g.name)}" ${can ? "" : "disabled"}>${g.paused ? "Start automatic failover" : "Stop automatic failover"}</button>`}</div>
+      ${g.unmanaged ? "" : `<button class="act" data-gact="${g.paused ? "resume" : "pause"}" data-g="${esc(g.name)}" ${can ? "" : "disabled"}>${g.paused ? "Start automatic failover" : "Stop automatic failover"}</button>`}</div>${rotRow}</div>
     <div class="gcols"><div class="colv"><div class="colh">VLANs and their devices</div>${g.networks.map((n) => vlanCard(n, false)).join("") || '<div class="muted">No VLAN is selected for this group.</div>'}${last ? ownCard(m) : ""}${withDirect ? directBox(m) : ""}</div>${laneHtml(g, can, behind)}
     <div class="colr"><div class="colh">Internet via the VPN</div>${inet}${showNormal ? normalNode(m) : ""}</div>${showNormal ? '<div class="dlabel">straight to the internet, no VPN</div>' : ""}</div></section>`;
 }
@@ -646,8 +662,8 @@ async function act(path, body) { const r = await api(path, "POST", body); if (!r
 let sset = "detection", selG = 0, lastField = null, notifyMsg = "";
 try { sset = localStorage.getItem("wd_sset") || "detection"; } catch (e) {}
 const openAlert = new Set();
-const SECTIONS = [["detection", "Detection"], ["switching", "Switching"], ["groups", "VPN groups"], ["notifications", "Notifications"]];
-const SECTION_OF = (path) => /^(interval_seconds|detection|probe)/.test(path) ? "detection" : /^(switching|failback)/.test(path) ? "switching" : /^groups/.test(path) ? "groups" : "notifications";
+const SECTIONS = [["detection", "Detection"], ["switching", "Switching"], ["groups", "VPN groups"], ["jobs", "Jobs"], ["notifications", "Notifications"]];
+const SECTION_OF = (path) => /^(interval_seconds|detection|probe)/.test(path) ? "detection" : /^(switching|failback)/.test(path) ? "switching" : /^groups/.test(path) ? "groups" : /^jobs/.test(path) ? "jobs" : "notifications";
 const LABELS = { interval_seconds: ["Check every", "seconds"], "detection.failure_threshold": ["Declare down after", "failed checks"], "detection.probe_failure_threshold": ["Exit-IP test failures", "tests"], "detection.probe_interval_seconds": ["Exit-IP test every", "seconds"],
   "detection.blackhole_enabled": ["Detect a silent tunnel"], "switching.min_hold_seconds": ["Wait between switches", "seconds"], "switching.max_switches_per_hour": ["Max switches per hour"], "switching.connect_timeout_seconds": ["Wait for a new tunnel", "seconds"],
   "switching.on_exhausted": ["If nothing works"], "failback.enabled": ["Go back to a higher tunnel"], "failback.check_interval_seconds": ["Test the higher tunnel every", "seconds"], "failback.stable_seconds": ["It must stay healthy for", "seconds"],
@@ -659,10 +675,13 @@ function leaves(o, pre = "", out = {}) { for (const [k, v] of Object.entries(o))
 function changes() {
   if (!V) return [];
   const o = JSON.parse(orig), out = [];
-  const a = leaves({ ...o, groups: undefined, alerts: undefined }), b = leaves({ ...V, groups: undefined, alerts: undefined });
+  const a = leaves({ ...o, groups: undefined, alerts: undefined, jobs: undefined }), b = leaves({ ...V, groups: undefined, alerts: undefined, jobs: undefined });
   for (const k of Object.keys(b)) if (k !== "groups" && k !== "alerts" && JSON.stringify(a[k]) !== JSON.stringify(b[k])) out.push({ path: k, text: change(k, a[k], b[k]) });
   const gs = Math.max(o.groups.length, V.groups.length);
   for (let i = 0; i < gs; i++) if (JSON.stringify(o.groups[i]) !== JSON.stringify(V.groups[i])) out.push({ path: "groups", text: V.groups[i] ? (o.groups[i] ? `group ${V.groups[i].name}: edited` : `group ${V.groups[i].name}: added`) : `group ${o.groups[i].name}: deleted` });
+  const jb = (x) => Object.fromEntries((x.jobs || []).map((j) => [j.group, j]));
+  const oj = jb(o), nj = jb(V);
+  for (const g of new Set([...Object.keys(oj), ...Object.keys(nj)])) if (JSON.stringify(oj[g]) !== JSON.stringify(nj[g])) out.push({ path: "jobs", text: `rotation of ${g}: ${!oj[g] ? "added" : !nj[g] ? "removed" : oj[g].enabled !== nj[g].enabled ? (nj[g].enabled ? "turned on" : "turned off") : "edited"}` });
   for (const k of Object.keys(V.alerts || {})) if (JSON.stringify(o.alerts[k]) !== JSON.stringify(V.alerts[k])) out.push({ path: "alerts", text: `${k} alert: ${o.alerts[k].enabled !== V.alerts[k].enabled ? (V.alerts[k].enabled ? "turned on" : "turned off") : "wording edited"}` });
   return out;
 }
@@ -687,7 +706,7 @@ async function loadSettings() {
   setSpin(false);
   if (!r.ok) { $("#settings").innerHTML = '<div class="card muted">Enter the control token (banner above) to view and change settings.</div>'; return; }
   if (!r.data.values) { $("#settings").innerHTML = '<div class="card bad">' + esc(r.data.error || "Settings unavailable") + "</div>"; return; }
-  V = r.data.values; M = r.data.meta; orig = JSON.stringify(V);
+  V = r.data.values; V.jobs = V.jobs || []; M = r.data.meta; orig = JSON.stringify(V);
   const n = await api("ha/notify-services"); notify = n.ok ? n.data : null;
   if (selG >= V.groups.length) selG = 0;
   renderSettings(); markDirty();
@@ -699,7 +718,7 @@ function renderSettings() {
 function renderSection() {
   const el = $("#spanel"); if (!el) return;
   el.className = "spanel" + (sset === "groups" ? " flush" : "");
-  el.innerHTML = { detection: secDetection, switching: secSwitching, groups: secGroups, notifications: secNotify }[sset]();
+  el.innerHTML = { detection: secDetection, switching: secSwitching, groups: secGroups, jobs: secJobs, notifications: secNotify }[sset]();
   document.querySelectorAll(".snav button").forEach((b) => b.classList.toggle("on", b.dataset.sec === sset));
   updateSummary(); markDirty();
 }
@@ -751,6 +770,50 @@ function secGroups() {
       <button class="btn" data-act="gostatus">Reorder on the Status page</button>${pool.length ? `<button class="btn" data-act="addall">Add all ${pool.length}</button>` : ""}</div>`)}
   </div></div>`;
 }
+let addOpen = false;
+const openJob = new Set();
+function secJobs() {
+  const st = (status && status.groups) || {}, free = V.groups.filter((g) => g.name && !V.jobs.some((j) => j.group === g.name));
+  const rows = V.groups.map((g, gi) => {
+    if (!g.name) return "";
+    const live = st[g._orig || g.name];
+    const fo = !live ? '<div class="wh">Starts after you save.</div>' : !g.order.length ? '<div class="wh">No fallback order yet: it only watches.</div>'
+      : live.paused ? '<div class="wh">Stopped. The watchdog is not switching this group.</div>' : `<div class="wh go">Watching · last check ${esc(ago(status.last_tick))}${live.active ? ` · active ${esc(live.position || "")} ${esc(live.active)}` : ""}</div>`;
+    let out = `<div class="jb"><label class="sw"><input type="checkbox" data-fo="${esc(g._orig || g.name)}" ${live && !live.paused ? "checked" : ""} ${live ? "" : "disabled"} aria-label="Failover of ${esc(g.name)}"><span></span></label>
+      <div><div class="nm">Failover <span class="kd f">watches the tunnel</span> <span class="gp">${esc(g.name)}</span></div><div class="wh">If the active tunnel stops working, traffic moves to the next one in the fallback order.</div>${fo}</div><div class="ed" data-gojob="${gi}" tabindex="0" role="button">Edit</div></div>`;
+    const ji = V.jobs.findIndex((j) => j.group === g.name);
+    if (ji >= 0) out += jobRow(V.jobs[ji], ji, live);
+    return out;
+  }).join("");
+  const picker = addOpen ? `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:14px"><select class="fld" id="addKind" style="width:250px" aria-label="Kind of job"><option value="rotation">Rotation</option><option disabled>Failover (every group already has one)</option></select>
+      <select class="fld" id="addGroup" style="width:240px" aria-label="VPN group">${free.map((g) => `<option>${esc(g.name)}</option>`).join("")}</select>
+      <button class="btn" data-act="addjob" ${free.length ? "" : "disabled"}>Add job</button><button class="btn" data-act="addjob-cancel">Cancel</button>${free.length ? "" : '<span class="note" style="margin:0">Every group already has a rotation job.</span>'}</div>` : "";
+  return `<h1>Jobs</h1><p class="lead">What the watchdog does for each VPN group, and when. A group can have one job of each kind, and each job has its own switch and its own timing.</p>
+    ${rows || '<div class="muted" style="padding:18px 0">Add a VPN group first: jobs belong to a group.</div>'}
+    <div style="padding-top:18px;border-top:1px solid var(--hair)">${addOpen ? "" : `<button class="btn" data-act="addjob-open" style="border-style:dashed;padding:9px 14px;font-size:14px">+ Add a job</button><span class="note" style="margin-left:14px">Pick a kind (failover or rotation), then a VPN group.</span>`}${picker}</div>`;
+}
+function jobRow(j, i, live) {
+  const open = openJob.has(j.group), r = live && live.rotation;
+  const toWhere = j.go_to === "random" ? "moves to a random tunnel of the order" : "moves to the next tunnel in the fallback order";
+  const sched = `${j.every === 1 ? "Every 1 " + j.unit.slice(0, -1) : "Every " + j.every + " " + j.unit}${j.unit === "hours" ? "" : " at " + j.at}`;
+  const same = r && r.summary === sched;
+  const info = !j.enabled ? '<div class="wh">Off</div>' : !same ? '<div class="wh ro">Starts after you save.</div>'
+    : r.paused ? '<div class="wh">Stopped on the Status page.</div>' : `<div class="wh ro">Next rotation ${esc(r.next_ts ? fmtWhen(r.next_ts) : "...")} · in ${r.next_in == null ? "..." : esc(fmtIn(r.next_in))}${r.next_to ? " → " + esc(r.next_to) : ""}</div>`;
+  let out = `<div class="jb ${j.enabled ? "" : "off"}"><label class="sw"><input type="checkbox" data-path="jobs.${i}.enabled" data-t="bool" ${j.enabled ? "checked" : ""} aria-label="Rotation of ${esc(j.group)}"><span></span></label>
+    <div><div class="nm">Rotation <span class="kd r">on a timer</span> <span class="gp">${esc(j.group)}</span></div><div class="wh">${esc(sched)}, traffic ${toWhere}.</div>${info}</div>
+    <div class="ed" data-jedit="${esc(j.group)}" tabindex="0" role="button">${open ? "Close ▲" : "Edit"}</div></div>`;
+  if (!open) return out;
+  const groups = V.groups.filter((g) => g.name && (g.name === j.group || !V.jobs.some((x) => x.group === g.name)));
+  return out + `<div class="ex"><div class="fl">
+      <label for="jg${i}">VPN group</label><select class="fld" id="jg${i}" style="width:320px" data-path="jobs.${i}.group" data-t="str">${groups.map((g) => `<option ${g.name === j.group ? "selected" : ""}>${esc(g.name)}</option>`).join("")}</select>
+      <label for="je${i}">Rotate every</label><div class="rw"><input class="fld" id="je${i}" style="width:90px" type="number" min="1" max="999" data-path="jobs.${i}.every" data-t="num" value="${esc(j.every)}">
+        <select class="fld" style="width:150px" data-path="jobs.${i}.unit" data-t="str" aria-label="Unit">${["hours", "days", "weeks"].map((u) => `<option ${u === j.unit ? "selected" : ""}>${u}</option>`).join("")}</select><span class="note" style="margin:0">hours, days or weeks</span></div>
+      <label for="ja${i}">Start at</label><div class="rw"><input class="fld" id="ja${i}" style="width:120px" type="time" data-path="jobs.${i}.at" data-t="str" value="${esc(j.at)}" ${j.unit === "hours" ? "disabled" : ""}><span class="note" style="margin:0">Time of day. Used for days and weeks; for hours the count starts when you save.</span></div>
+      <label>Go to</label>${seg(`jobs.${i}.go_to`, [["next", "Next in the fallback order"], ["random", "A random one from the order"]])}</div>
+    <div class="jnote"><b>Before it moves,</b> the next tunnel is connected and tested (the same exit-IP test as failover). A tunnel that fails the test is skipped, and the rotation moves to the one after it. If none works, nothing moves and you get an alert.</div>
+    <div class="jnote"><b>Failover keeps working.</b> If a tunnel drops between rotations, the failover job moves it to the next one as usual. While a rotation job is on, failback to a higher tunnel is paused for this group, because rotation decides when to move.</div>
+    <div style="margin:14px 0 0 60px;display:flex;gap:12px">${same && j.enabled ? `<button class="btn" data-act="rotatenow" data-g="${esc(j.group)}">Rotate now</button>` : ""}<button class="btn danger" data-act="deljob" data-g="${esc(j.group)}" style="border-color:var(--badline,#E3C3C0)">Delete job</button></div></div>`;
+}
 const SAMPLE = { group: "iot-and-vpn", tunnel: "DE__BERLIN__1552", previous: "IT__ROME__418", position: "#3", previous_position: "#1", reason: "no replies for 45s", tried: "2", groups: "1", mode: "ACTIVE", error: "invalid value" };
 const preview = (t) => String(t || "").replace(/\{(\w+)\}/g, (m, k) => (k in SAMPLE ? SAMPLE[k] : m));
 function secNotify() {
@@ -788,16 +851,23 @@ function updateSummary() {
 /* one delegated handler for the whole settings area */
 const setEl = $("#settings");
 setEl.addEventListener("input", (e) => handleField(e.target));
-setEl.addEventListener("change", (e) => { if (e.target.id === "notifySel") return saveNotifyService(e.target.value); handleField(e.target); });
+setEl.addEventListener("change", (e) => {
+  if (e.target.id === "notifySel") return saveNotifyService(e.target.value);
+  if (e.target.dataset && e.target.dataset.fo) { const on = e.target.checked; act(`groups/${encodeURIComponent(e.target.dataset.fo)}/${on ? "resume" : "pause"}`).then(() => { if (sset === "jobs") renderSection(); }); return; }
+  handleField(e.target);
+});
 setEl.addEventListener("focusin", (e) => { if (e.target.matches && e.target.matches("input[data-path^='alerts.']")) lastField = e.target; });
 function handleField(t) {
   if (!t.dataset || !t.dataset.path) return;
   const k = t.dataset.t; let v;
   if (k === "bool") v = t.checked; else if (k === "num") v = t.value === "" ? "" : Number(t.value);
   else if (k === "tri") v = t.value === "null" ? null : t.value === "true"; else v = t.value;
+  const oldName = /^groups\.\d+\.name$/.test(t.dataset.path) ? get(V, t.dataset.path) : null;
   set(V, t.dataset.path, v);
+  if (oldName !== null) V.jobs.forEach((j) => { if (j.group === oldName) j.group = v; }), openJob.has(oldName) && (openJob.delete(oldName), openJob.add(v));      // a renamed group keeps its jobs
   const m = t.dataset.path.match(/^alerts\.(\w+)\.(title|message)$/);
   if (m) { const pv = $("#pv_" + m[1]); const a = V.alerts[m[1]]; if (pv) pv.innerHTML = `Preview: <b style="color:var(--ink)">${esc(preview(a.title))}</b> · ${esc(preview(a.message))}`; }
+  const jm = t.dataset.path.match(/^jobs\.(\d+)\.(unit|group)$/); if (jm) { renderSection(); return; }
   if (t.dataset.path === "failback.enabled" || t.dataset.path.startsWith("groups.") && t.dataset.path.endsWith(".name")) { if (t.dataset.path === "failback.enabled") renderSection(); else { const gi = document.querySelector(".gi.on b"); if (gi) gi.textContent = t.value || "(unnamed)"; } }
   updateSummary(); markDirty();
 }
@@ -806,19 +876,26 @@ async function saveNotifyService(service) {
   notifyMsg = r.ok ? "Saved" : (r.data.error || "failed"); if (notify) notify.current = service;
   const m = $("#notifyMsg"); if (m) m.textContent = notifyMsg;
 }
-setEl.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches("[data-seg],[data-chip],[data-edit]")) { e.preventDefault(); e.target.click(); } });
+setEl.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches("[data-seg],[data-chip],[data-edit],[data-jedit],[data-gojob]")) { e.preventDefault(); e.target.click(); } });
 setEl.addEventListener("click", async (e) => {
   const sec = e.target.closest("[data-sec]"); if (sec) { sset = sec.dataset.sec; try { localStorage.setItem("wd_sset", sset); } catch (x) {} renderSection(); return; }
   const sg = e.target.closest("[data-seg]"); if (sg) { const t = sg.dataset.t, v = sg.dataset.val; set(V, sg.dataset.seg, t === "tri" ? (v === "null" ? null : v === "true") : v); renderSection(); return; }
   const ch = e.target.closest("[data-chip]"); if (ch) { const g = V.groups[selG], n = ch.dataset.chip; g.networks = g.networks.includes(n) ? g.networks.filter((x) => x !== n) : g.networks.concat([n]); renderSection(); return; }
   const gs = e.target.closest("[data-gsel]"); if (gs) { selG = +gs.dataset.gsel; renderSection(); return; }
+  const je = e.target.closest("[data-jedit]"); if (je) { const n = je.dataset.jedit; if (openJob.has(n)) openJob.delete(n); else openJob.add(n); renderSection(); return; }
+  const gj = e.target.closest("[data-gojob]"); if (gj) { selG = +gj.dataset.gojob; sset = "groups"; renderSection(); return; }
   const ed = e.target.closest("[data-edit]"); if (ed) { const n = ed.dataset.edit; if (openAlert.has(n)) openAlert.delete(n); else openAlert.add(n); renderSection(); return; }
   const ph = e.target.closest("[data-ph]"); if (ph && lastField) { const f = lastField, s0 = f.selectionStart ?? f.value.length, e0 = f.selectionEnd ?? s0, tok = "{" + ph.dataset.ph + "}"; f.value = f.value.slice(0, s0) + tok + f.value.slice(e0); f.setSelectionRange(s0 + tok.length, s0 + tok.length); f.focus(); handleField(f); return; }
   if (e.target.id === "notifyTest") { const r = await api("notify/test", "POST", { service: $("#notifySel").value }); notifyMsg = r.ok ? "Sent: check your phone" : (r.data.error || "failed"); const m = $("#notifyMsg"); if (m) m.textContent = notifyMsg; return; }
   const b = e.target.closest("button[data-act]"); if (!b) return;
   const k = b.dataset.act;
   if (k === "addgroup") { let n = 1; const names = new Set(V.groups.map((x) => x.name)); while (names.has("Group " + n)) n++; V.groups.push({ name: "Group " + n, _orig: null, networks: [], kill_switch: null, order: [] }); selG = V.groups.length - 1; renderSection(); return; }
-  if (k === "delgroup") { const dg = V.groups[selG]; if (!dg || !confirm(`Delete the group "${dg.name}"? The watchdog stops managing it. Its routing policies stay in UniFi untouched.`)) return; V.groups.splice(selG, 1); selG = 0; renderSection(); return; }
+  if (k === "delgroup") { const dg = V.groups[selG]; if (!dg || !confirm(`Delete the group "${dg.name}"? The watchdog stops managing it. Its routing policies stay in UniFi untouched.`)) return; V.jobs = V.jobs.filter((j) => j.group !== dg.name); V.groups.splice(selG, 1); selG = 0; renderSection(); return; }
+  if (k === "addjob-open") { addOpen = true; renderSection(); return; }
+  if (k === "addjob-cancel") { addOpen = false; renderSection(); return; }
+  if (k === "addjob") { const grp = $("#addGroup") && $("#addGroup").value; if (!grp) return; V.jobs.push({ kind: "rotation", group: grp, enabled: true, every: 1, unit: "days", at: "03:00", go_to: "next" }); openJob.add(grp); addOpen = false; renderSection(); return; }
+  if (k === "deljob") { const n = b.dataset.g; V.jobs = V.jobs.filter((j) => j.group !== n); openJob.delete(n); renderSection(); return; }
+  if (k === "rotatenow") { await act(`groups/${encodeURIComponent(b.dataset.g)}/rotate`); toast("Rotating " + b.dataset.g + "..."); return; }
   if (k === "addall") { const g = V.groups[selG], used = new Set(g.order.map((x) => x.tunnel)); (M.tunnels || []).map((t) => t.name).filter((n) => !used.has(n)).forEach((n) => g.order.push({ tunnel: n, expect_country: "" })); renderSection(); return; }
   if (k === "gostatus") { document.querySelector("nav button[data-tab=status]").click(); }
 });

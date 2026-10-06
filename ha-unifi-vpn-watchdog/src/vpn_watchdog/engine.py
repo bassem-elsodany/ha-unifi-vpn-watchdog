@@ -3,17 +3,19 @@ from __future__ import annotations
 
 import logging
 import queue
+import random
 import threading
 from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
 from .clock import Clock
-from .config import Config, GroupCfg, GroupSettings
+from .config import Config, GroupCfg, GroupSettings, JobCfg
 from .ladder import candidates, expected_country, failback_targets, missing, position_label, position_of, resolve_order
 from .models import ProbeResult, Route, Snapshot, Tunnel
 from .notify import Notifier
 from .probe import TunnelTester
+from .schedule import next_run, signature, summary
 from .state import GroupState, StateStore
 from .unifi import UniFiClient, UniFiError
 
@@ -50,6 +52,7 @@ class Engine:
         self._commands: queue.Queue[tuple] = queue.Queue()
         self._samples: dict[str, deque[tuple[int, int]]] = {}
         self._lock = threading.RLock()
+        self._rng = random.Random()
         self._status: dict[str, Any] = {}
         self._overlap_warned: set[str] = set()
         self._noted: dict[str, str] = {}
@@ -155,6 +158,7 @@ class Engine:
             self._set_current(gs, cur_id)
         if gs.paused:
             gs.last_decision = "paused"
+            self._maybe_rotate(g, st, gs, cur, ladder, None)       # the rotation job is its own job: it does not depend on failover being on
             return
 
         health = self._evaluate(g, st, gs, cur, snap)
@@ -173,7 +177,8 @@ class Engine:
                     self.store.touch()
             gs.last_decision = "healthy" if not watch_only else f"healthy (watching only) - {note}"
             if not watch_only:
-                self._maybe_failback(g, st, gs, cur, snap)
+                if not self._maybe_rotate(g, st, gs, cur, ladder, True):
+                    self._maybe_failback(g, st, gs, cur, snap)
             return
 
         gs.last_decision = "unhealthy: " + "; ".join(health.reasons)
@@ -346,10 +351,86 @@ class Engine:
                 return
             self._quarantine(cand, why, st)
 
+    # ------------------------------------------------------------------ rotation job
+    def _rotation_on(self, g: GroupCfg) -> bool:
+        job = self.cfg.job_for(g.name)
+        return bool(job and job.enabled and not self.store.group(g.name).rotation_paused)
+
+    def _maybe_rotate(self, g: GroupCfg, st: GroupSettings, gs: GroupState, cur: Tunnel | None, ladder: list[Tunnel],
+                      healthy: bool | None) -> bool:
+        """Run the group's rotation job when it is due. Returns True when a rotation was attempted this cycle."""
+        job = self.cfg.job_for(g.name)
+        if job is None or not job.enabled:
+            if gs.rotation_next_ts:
+                gs.rotation_next_ts, gs.rotation_sig = 0.0, ""
+                self.store.touch()
+            return False
+        now = self.clock.now()
+        if gs.rotation_sig != signature(job) or not gs.rotation_next_ts:
+            gs.rotation_sig, gs.rotation_next_ts = signature(job), next_run(job, gs.rotation_last_ts, now)
+            self.store.touch()
+        if gs.rotation_paused or cur is None or not ladder or healthy is False or now < gs.rotation_next_ts:
+            return False
+        self._rotate(g, st, gs, job, cur, ladder, "scheduled rotation")
+        return True
+
+    def _rotate(self, g: GroupCfg, st: GroupSettings, gs: GroupState, job: JobCfg, cur: Tunnel, ladder: list[Tunnel], why: str) -> bool:
+        """Move to another tunnel of the group's order: the next one after the active tunnel, or a random one. Each candidate
+        is connected and tested first; one that fails is skipped. If none passes, nothing moves."""
+        now = self.clock.now()
+        ids = [t.id for t in ladder]
+        others = ladder[ids.index(cur.id) + 1:] + ladder[:ids.index(cur.id)] if cur.id in ids else list(ladder)
+        if job.go_to == "random":
+            self._rng.shuffle(others)
+        skipped: list[str] = []
+        for cand in others:
+            if self.store.tunnel(cand.id).quarantined_until > now:
+                skipped.append(f"{cand.name} (cooling down)")
+                continue
+            ok, reason = self._try(g, cand, st)
+            if ok:
+                msg = f"{why}, {summary(job).lower()}" + (f"; skipped {', '.join(skipped)}" if skipped else "")
+                self._commit(g, st, gs, cand, msg, "rotation")
+                self._rotation_done(gs, job, f"moved to {cand.name}")
+                return True
+            self._quarantine(cand, reason, st)
+            skipped.append(f"{cand.name} ({reason})")
+        reason = ("no other tunnel in the order: " + ("; ".join(skipped) if skipped else "the order has only this tunnel")) + "; nothing was moved"
+        self.notifier.emit("rotation_failed", f"VPN {g.name}: rotation skipped", reason, key=f"{g.name}:rotation", group=g.name,
+                           tunnel=cur.name, reason=reason)
+        gs.last_decision = f"rotation skipped: {reason}"
+        self._rotation_done(gs, job, "nothing moved: " + reason)
+        return False
+
+    def _rotation_done(self, gs: GroupState, job: JobCfg, result: str) -> None:
+        now = self.clock.now()
+        gs.rotation_last_ts, gs.rotation_last = now, result
+        gs.rotation_next_ts = next_run(job, now, now)
+        self.store.touch()
+
+    def _rotation_info(self, g: GroupCfg, gs: GroupState, snap: Snapshot) -> dict[str, Any] | None:
+        job = self.cfg.job_for(g.name)
+        if job is None:
+            return None
+        now = self.clock.now()
+        ladder = resolve_order(g, list(snap.tunnels.values()))
+        cur = snap.tunnels.get(gs.current_id or "")
+        nxt = None
+        if job.go_to == "random":
+            nxt = "a random one from the order"
+        elif ladder:
+            ids = [t.id for t in ladder]
+            i = ids.index(cur.id) if cur and cur.id in ids else -1
+            t = ladder[(i + 1) % len(ladder)]
+            nxt = f"{position_label(g, t)} {t.name}"
+        return {"enabled": job.enabled, "paused": gs.rotation_paused, "summary": summary(job), "go_to": job.go_to,
+                "next_in": max(0, int(gs.rotation_next_ts - now)) if gs.rotation_next_ts else None, "next_ts": gs.rotation_next_ts or None,
+                "next_to": nxt, "last_ts": gs.rotation_last_ts or None, "last": gs.rotation_last}
+
     # ------------------------------------------------------------------ failback
     def _maybe_failback(self, g: GroupCfg, st: GroupSettings, gs: GroupState, cur: Tunnel | None,
                         snap: Snapshot) -> None:
-        if not st.failback.enabled or cur is None:
+        if not st.failback.enabled or cur is None or self._rotation_on(g):      # while a rotation job is on, it decides when to move
             return
         now = self.clock.now()
         better = [t for t in failback_targets(g, list(snap.tunnels.values()), cur)
@@ -479,6 +560,7 @@ class Engine:
         if group == "*" and kind in ("pause", "resume"):
             for x in self.cfg.groups:
                 self._handle((kind, x.name), snap)
+                self.store.group(x.name).rotation_paused = kind == "pause"       # "all" stops and starts every job
             return
         g = next((x for x in self.cfg.groups if x.name == group), None)
         if g is None:
@@ -493,6 +575,17 @@ class Engine:
             gs.paused = False
             self.store.touch()
             log.info("group %s resumed", g.name)
+        elif kind in ("rotation-pause", "rotation-resume"):
+            gs.rotation_paused = kind == "rotation-pause"
+            self.store.touch()
+            log.info("group %s: rotation %s", g.name, "paused" if gs.rotation_paused else "resumed")
+        elif kind == "rotate":
+            job, cur = self.cfg.job_for(g.name), snap.tunnels.get(gs.current_id or "")
+            ladder = resolve_order(g, list(snap.tunnels.values()))
+            if job is None or cur is None or not ladder:
+                log.warning("group %s: rotate now needs a rotation job, an active tunnel and a fallback order", g.name)
+                return
+            self._rotate(g, self.cfg.settings_for(g), gs, job, cur, ladder, "rotate now")
         elif kind == "test":
             t = snap.tunnel_by_name(cmd[2])
             if t is None:
@@ -610,7 +703,7 @@ class Engine:
             probe = gstat.get("last_probe") or {}
             out_groups.append({
                 "name": g.name, "paused": gstat.get("paused", False), "healthy": gstat.get("healthy"), "decision": gstat.get("decision", ""),
-                "exhausted": gstat.get("exhausted", False), "jobs": gstat.get("jobs", {}), "has_order": bool(g.order),
+                "exhausted": gstat.get("exhausted", False), "jobs": gstat.get("jobs", {}), "has_order": bool(g.order), "rotation": gstat.get("rotation"),
                 "active": act.name if act else None, "networks": [card(n) for n in nets],
                 "lane": ([tinfo(g, act, active_id, policies)] if act and act.id not in in_order else []) + [tinfo(g, t, active_id, policies) for t in order],
                 "pool": [{"name": t.name, "status": (snap.connections.get(t.id).status if snap.connections.get(t.id) else None),
@@ -707,6 +800,7 @@ class Engine:
                     "healthy": gs.healthy is True,
                     "decision": gs.last_decision,
                     "paused": gs.paused,
+                    "rotation": self._rotation_info(g, gs, snap),
                     "exhausted": gs.exhausted,
                     "status_failures": gs.status_failures,
                     "probe_failures": gs.probe_failures,

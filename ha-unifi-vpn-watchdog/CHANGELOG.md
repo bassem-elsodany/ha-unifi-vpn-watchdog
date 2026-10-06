@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.12.0
+
+- New: **Jobs** (Settings > Jobs). Failover is every group's first job. A group can now also have a **rotation** job: every N hours, days or weeks
+  (days and weeks at a time of day) it moves the group to the next tunnel in the fallback order, or to a random one from the order.
+  The new tunnel is connected and tested first, a tunnel that fails is skipped, and if none passes nothing moves and you get an alert.
+  Each job has its own switch. A group can have one job of each kind.
+- Status: a second line in the group header shows the rotation (schedule, time left, the tunnel it goes to next, when it last ran) with
+  Rotate now and Stop rotation. Stopping rotation does not stop failover, and the other way round.
+- Failback to a higher tunnel is paused for a group while its rotation job is on, because rotation decides when to move.
+- Two new alerts: `rotation` and `rotation_failed` (Settings > Notifications).
+
 ## 0.11.2
 
 - Removed the Advanced (YAML) tab. Everything is in Settings. If a saved configuration is ever rejected, the YAML editor still opens by itself so it can be repaired.

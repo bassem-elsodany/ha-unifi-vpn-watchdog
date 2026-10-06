@@ -110,7 +110,9 @@ class StatusServer:
                     body = self._json_body()
                 except ValueError:
                     return self._send(400, {"error": "invalid JSON"})
-                if len(parts) == 3 and parts[0] == "groups" and parts[2] in ("pause", "resume"):
+                if len(parts) == 3 and parts[0] == "groups" and parts[2] in ("rotate", "rotation-pause", "rotation-resume"):
+                    eng.submit(parts[2], parts[1])
+                elif len(parts) == 3 and parts[0] == "groups" and parts[2] in ("pause", "resume"):
                     eng.submit(parts[2], parts[1])
                 elif len(parts) == 3 and parts[0] == "groups" and parts[2] in ("switch", "test") and body.get("tunnel"):
                     eng.submit(parts[2], parts[1], body["tunnel"])

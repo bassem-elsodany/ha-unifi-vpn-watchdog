@@ -31,6 +31,18 @@ EVENTS: dict[str, dict[str, Any]] = {
         "title": "VPN {group}: back on {tunnel} ({position})",
         "message": "{previous_position} -> {position}. {reason}",
     },
+    "rotation": {
+        "when": "The rotation job moved the group to another tunnel on its schedule.",
+        "level": "info", "enabled": True,
+        "title": "VPN {group}: rotated to {tunnel} ({position})",
+        "message": "{previous} ({previous_position}) -> {tunnel} ({position}). {reason}",
+    },
+    "rotation_failed": {
+        "when": "A rotation was due but no other tunnel passed the test, so nothing moved.",
+        "level": "warning", "enabled": True,
+        "title": "VPN {group}: rotation skipped",
+        "message": "{reason}",
+    },
     "exhausted": {
         "when": "The active tunnel is down and every candidate failed or is paused after failing. Needs your attention.",
         "level": "critical", "enabled": True,

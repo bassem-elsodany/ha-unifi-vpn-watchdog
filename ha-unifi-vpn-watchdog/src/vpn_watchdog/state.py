@@ -38,6 +38,11 @@ class GroupState:
     exhausted: bool = False
     last_decision: str = ""
     healthy: bool | None = None      # None = not evaluated yet (e.g. paused before the first check)
+    rotation_last_ts: float = 0.0    # the rotation job: when it last ran (0 = never), when it runs next, and the settings that next time was worked out for
+    rotation_next_ts: float = 0.0
+    rotation_sig: str = ""
+    rotation_paused: bool = False    # "Stop rotation" on the Status page: pauses only this job, failover keeps running
+    rotation_last: str = ""          # what the last run did, in words
 
 
 def _load_into(cls: type, data: dict[str, Any]):

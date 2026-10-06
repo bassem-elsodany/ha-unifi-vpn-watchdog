@@ -46,6 +46,8 @@ def extract(cfg: Config) -> dict[str, Any]:
             "remote_url": cfg.probe.remote_url or "",
         },
         "alerts": {n: {"enabled": a.enabled, "title": a.title, "message": a.message} for n, a in cfg.alerts.items()},
+        "jobs": [{"kind": j.kind, "group": j.group, "enabled": j.enabled, "every": j.every, "unit": j.unit, "at": j.at, "go_to": j.go_to}
+                 for j in cfg.jobs],
         "groups": [
             {
                 "name": g.name,
@@ -147,6 +149,21 @@ def apply(raw: dict[str, Any], form: dict[str, Any]) -> dict[str, Any]:
             g.pop("ladder", None)
             groups.append(g)
         out["groups"] = groups
+        renamed = {fg.get("_orig"): str(fg["name"]).strip() for fg in form["groups"] if fg.get("_orig")}
+        if "jobs" not in form:                    # a rename keeps the group's jobs with it
+            for j in out.get("jobs") or []:
+                j["group"] = renamed.get(j.get("group"), j.get("group"))
+    if "jobs" in form:
+        renamed = {fg.get("_orig"): str(fg["name"]).strip() for fg in form.get("groups", []) if fg.get("_orig")}
+        names = {g.get("name") for g in out.get("groups", []) if isinstance(g, dict)}
+        jobs = []
+        for j in form["jobs"]:
+            grp = renamed.get(j.get("group"), j.get("group"))
+            if grp not in names:
+                continue                          # its group was deleted: so are its jobs
+            jobs.append({"kind": str(j.get("kind") or "rotation"), "group": grp, "enabled": bool(j.get("enabled", True)),
+                         "every": _num(j["every"]), "unit": str(j["unit"]), "at": str(j.get("at") or "03:00"), "go_to": str(j.get("go_to") or "next")})
+        out["jobs"] = jobs
     return out
 
 

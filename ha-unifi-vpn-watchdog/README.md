@@ -104,6 +104,8 @@ Each alert has an on/off switch, a title and a message with `{placeholders}` (`{
 |---|---|---|
 | `switch` | a tunnel failed and traffic moved to another tunnel | on |
 | `failback` | the preferred tunnel recovered and traffic moved back | on |
+| `rotation` | the rotation job moved the group to another tunnel on its schedule | on |
+| `rotation_failed` | a rotation was due but no other tunnel passed the test, so nothing moved | on |
 | `exhausted` | the active tunnel is down and every candidate failed (critical) | on |
 | `leak` | the exit-IP test saw your real WAN address (critical) | on |
 | `recovered` | a tunnel is healthy again after `exhausted` | on |
@@ -118,6 +120,14 @@ See [config/config.example.yaml](config/config.example.yaml); every key is docum
 - **Fallback order** (`groups[].order`): the sequence of tunnels, first = most preferred. Each entry is an exact tunnel name,
   or `{tunnel: NAME, expect_country: IT}` if the exit-IP test should check a country that you typed yourself. Tunnels not in the
   list are never used. Empty means the watchdog only watches. Set it in *Settings > Fallback order* (type a position number to move).
+- **Jobs.** Failover is every group's first job. A group can also have a **rotation** job (Settings > Jobs): every N hours, days or weeks
+  (days and weeks at a time of day) the group moves to the next tunnel in its fallback order, or to a random one from the order. The
+  new tunnel is connected and tested first; one that fails is skipped. Each job has its own switch; "Rotate now" and "Stop rotation"
+  are on the Status page. Failover keeps working between rotations; failback to a higher tunnel is paused while a rotation job is on.
+  ```yaml
+  jobs:
+    - {group: iot-and-vpn, kind: rotation, every: 1, unit: days, at: "03:00", go_to: next}   # unit: hours | days | weeks, go_to: next | random
+  ```
 - **Per-group overrides** for any `detection`, `switching`, `failback` key.
 - **Hot reload**: edit the file (or use the UI), it is applied next cycle; an invalid file is rejected and the old
   config keeps running. Typos are errors (unknown keys are rejected). `${VAR}` / `${VAR:-default}` read the environment.
