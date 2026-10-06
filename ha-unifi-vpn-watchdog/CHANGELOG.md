@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.2
+- **The Status map no longer depends on watchdog groups.** It draws what UniFi does: the VLANs that VPN routing policies carry (with their devices), the VPN client that is switched on, the Internet exit, and the VLANs that go straight to the internet. A watchdog group only adds the fallback order, the "if #1 fails" steps and the Stop/Start failover button on top. With no group (a fresh install) you get the same page, without any "create a group" panel.
+- Policies that cover overlapping networks are shown as one carried set; the other tunnels with a policy for it are listed under "+ N more tunnels have a policy for these networks".
+- Connected tunnel rates read "93 kbps ↓" instead of "idle ↓".
+
 ## 0.9.1
 - **Status page rebuilt to the approved design (Option A), pixel for pixel**: the same colours, 48 px page margins, 300 / flexible / 240 px columns, 104 px active tunnel card and Internet node, 76 px tunnel cards with 48 px "if #N fails" gaps, section labels directly above their cards, the dashed "straight to the internet" line with its own Internet node, the pill for tunnels outside the order, and VLAN subtitles with the network address (10.0.20.0/24). It fills wide windows and stacks on narrow ones.
 - Fixed a regression from 0.9.0: the Settings field style reused the rank badge's class name, so the "#1 / #2" badges turned into big input-like boxes on the Status page. A test now fails if any CSS class is defined twice.

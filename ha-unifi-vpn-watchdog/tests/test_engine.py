@@ -303,3 +303,17 @@ def test_loading_is_true_while_a_cycle_is_running_and_cleared_after_even_on_erro
     except RuntimeError:
         pass
     assert seen["during"] is True and eng.status()["loading"] is False
+
+
+def test_status_map_shows_unifi_routing_without_any_group(make_engine):
+    """The VLAN map is UniFi's picture, not the watchdog's: it must draw with no group configured at all."""
+    eng, un, *_ = make_engine(active="Home-Backup")
+    eng.cfg = eng.cfg.model_copy(update={"groups": []})
+    eng.tick()
+    m = eng.status()["map"]
+    assert len(m["groups"]) == 1
+    g = m["groups"][0]
+    assert g["unmanaged"] and g["active"] == "Home-Backup"
+    assert [n["name"] for n in g["networks"]] == ["vlan20-iot", "vlan50-vpn"]
+    assert [t["name"] for t in g["lane"]] == ["Home-Backup"] and g["lane"][0]["position"] is None
+    assert len(g["pool"]) == 5                       # every other tunnel that has a policy for these networks

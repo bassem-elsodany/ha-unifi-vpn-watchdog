@@ -527,12 +527,12 @@ class Engine:
             return {"id": nid, "name": name, "vlan": info.get("vlan"), "subnet": info.get("subnet"), "count": len(lst),
                     "bypass_count": sum(1 for d in lst if d["bypass"]), "devices": lst}
 
-        def tinfo(g: GroupCfg, t: Tunnel, active_id: str | None, policies: dict[str, Route]) -> dict[str, Any]:
+        def tinfo(g: GroupCfg | None, t: Tunnel, active_id: str | None, policies: dict[str, Route]) -> dict[str, Any]:
             c = snap.connections.get(t.id)
             ts = self.store.tunnels.get(t.id)
             pol = policies.get(t.id)
-            item = next((i for i in g.order if i.tunnel == t.name), None)
-            return {"name": t.name, "position": position_of(g, t), "active": t.id == active_id, "enabled": t.enabled,
+            item = next((i for i in g.order if i.tunnel == t.name), None) if g else None
+            return {"name": t.name, "position": position_of(g, t) if g else None, "active": t.id == active_id, "enabled": t.enabled,
                     "status": c.status if c else None, "rx_bps": c.rx_bps if c else None, "tx_bps": c.tx_bps if c else None,
                     "server": c.remote_ip if c else None, "has_policy": pol is not None, "policy_on": bool(pol and pol.enabled),
                     "policy": pol.description if pol else None, "kill_switch": bool(pol and pol.kill_switch),
@@ -569,6 +569,38 @@ class Engine:
                           "enabled": t.enabled} for t in pool],
                 "exit": {"ip": probe.get("ip") if probe.get("ok") else None, "country": probe.get("country") if probe.get("ok") else None,
                          "server": ac.remote_ip if ac else None, "age": gstat.get("last_probe_age") if probe.get("ok") else None},
+            })
+        # What UniFi itself does is shown whether or not the watchdog manages it: networks that VPN policies carry, grouped by the
+        # set of networks a policy covers, with the tunnel that is switched on (UniFi uses the first enabled policy in its list).
+        managed = {r.id for g in self.cfg.groups for r in self._group_routes(g, snap)}
+        comps: list[tuple[set[str], list[Route]]] = []        # policies whose network sets overlap describe one carried set of VLANs
+        for r in snap.routes:
+            if r.id in managed or r.target_macs or r.network_id not in snap.tunnels:
+                continue
+            covered = {n for n in r.target_networks if n in snap.networks and n not in snap.tunnels}
+            if not covered:
+                continue
+            hit = [c for c in comps if c[0] & covered]
+            merged = (set().union(covered, *(c[0] for c in hit)), [x for c in hit for x in c[1]] + [r])
+            comps = [c for c in comps if c not in hit] + [merged]
+        for covered, rs in comps:
+            nets = [n for n in covered if n not in used]
+            if not nets:
+                continue
+            nets.sort(key=lambda n: (snap.network_info.get(n, {}).get("vlan") is None, snap.network_info.get(n, {}).get("vlan") or 0, snap.networks[n].lower()))
+            used.update(nets)
+            policies = {r.network_id: r for r in rs}
+            active_route = next((r for r in rs if r.enabled), None)
+            act = snap.tunnels.get(active_route.network_id or "") if active_route else None
+            ac = snap.connections.get(act.id) if act else None
+            rest = sorted((snap.tunnels[r.network_id] for r in rs if r.network_id and (not act or r.network_id != act.id)), key=lambda t: t.name.lower())
+            out_groups.append({
+                "name": " + ".join(snap.networks[n] for n in nets), "unmanaged": True, "paused": False,
+                "healthy": bool(ac and ac.connected) if act else None, "decision": "", "exhausted": act is None, "jobs": {}, "has_order": False,
+                "active": act.name if act else None, "networks": [card(n) for n in nets],
+                "lane": [tinfo(None, act, act.id, policies)] if act else [],
+                "pool": [{"name": t.name, "status": (snap.connections.get(t.id).status if snap.connections.get(t.id) else None), "enabled": t.enabled} for t in rest],
+                "exit": {"ip": None, "country": None, "server": ac.remote_ip if ac else None, "age": None},
             })
         direct = [card(nid) for nid, name in snap.networks.items()
                   if nid not in vpn_ids and nid not in used and not name.startswith("Internet") and name != "One-Click VPN"]

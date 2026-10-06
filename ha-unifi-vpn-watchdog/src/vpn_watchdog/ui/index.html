@@ -129,8 +129,6 @@
   .hint { margin: 16px 0 0; font-size: 13px; line-height: 20px; color: var(--muted); }
   .dlabel { position: absolute; width: 300px; text-align: center; font-size: 13px; line-height: 16px; color: var(--muted); }
   .dsum .dev { cursor: default; } .dsum .dev:hover { background: none; } .dsum .vf { margin-top: 2px; }
-  .empty { margin-top: 24px; padding: 4px 0 8px; } .empty b { display: block; font-size: 16px; } .empty p { margin: 6px 0 14px; font-size: 13px; line-height: 20px; color: var(--muted); max-width: 440px; }
-  .btnp { font: inherit; font-size: 14px; font-weight: 600; padding: 9px 18px; border: 0; border-radius: 10px; background: var(--accent); color: #fff; cursor: pointer; } .btnp:disabled { opacity: .5; cursor: not-allowed; }
   .mono { font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; }
   .spin { display: inline-block; flex: none; width: 14px; height: 14px; border: 2px solid var(--line2); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; }
   .spin.big { width: 30px; height: 30px; border-width: 3px; }
@@ -339,9 +337,9 @@ function updateVlist(id) {
 function laneCard(g, t, can, behind) {
   const inOrder = t.position != null, c = tcolor(t);
   const sel = selected && selected.kind === "tun" && selected.name === t.name ? "sel" : "";
-  const sub = t.active ? `connected · ${rate(t.rx_bps) || "0"} ↓ · ${rate(t.tx_bps) || "0"} ↑ · policy on`
+  const sub = t.active ? `connected · ${bps(t.rx_bps || 0)} ↓ · ${bps(t.tx_bps || 0)} ↑ · policy on`
     : t.quarantined_for ? `cooling down ${t.quarantined_for}s · ${esc(t.last_reason || "failed")}` : `${tlabel(t)} · ready to take over`;
-  const num = inOrder ? `<span class="num">#${t.position}</span>` : '<span class="num" title="Not in the fallback order">--</span>';
+  const num = inOrder ? `<span class="num">#${t.position}</span>` : g.unmanaged ? "" : '<span class="num" title="Not in the fallback order">--</span>';
   const head = t.active ? `<div class="l1">${num}<b>ACTIVE · ${behind} device${behind === 1 ? "" : "s"} behind it</b></div><div class="mono">${esc(t.name)}</div>`
     : `<div class="l1">${num}<span class="mono">${esc(t.name)}</span></div>`;
   return `<div class="lc ${t.active ? "active" : ""} ${sel}" data-g="${esc(g.name)}" data-tun="${esc(t.name)}" ${inOrder ? `data-pos="${t.position}"` : ""} ${inOrder && can ? 'draggable="true" data-drag="lane"' : ""}
@@ -356,11 +354,12 @@ function laneHtml(g, can, behind) {
     const nx = g.lane[i + 1];
     if (nx) parts.push(`<div class="lgap">${nx.position != null && t.position != null ? `if #${t.position} fails` : ""}</div>`);
   });
-  const empty = g.lane.some((t) => t.position != null) ? "" : '<div class="muted" style="padding:10px 4px">No fallback order yet. Open the list below and drag tunnels up here.</div>';
-  const pool = g.pool.length ? `<details class="pool" data-g="${esc(g.name)}" ${poolOpen.has(g.name) ? "open" : ""}><summary>+ ${g.pool.length} more tunnel${g.pool.length === 1 ? " is" : "s are"} not in the fallback order${can ? " · add them" : ""}</summary>
-      <div class="pchips">${g.pool.map((p) => `<span class="pc ${selected && selected.name === p.name ? "sel" : ""}" data-g="${esc(g.name)}" data-tun="${esc(p.name)}" ${can ? 'draggable="true" data-drag="pool"' : ""}><span class="dot ${tcolor(p)}"></span>${esc(p.name)}</span>`).join("")}</div></details>`
-    : `<div class="pool" data-g="${esc(g.name)}"><span class="muted" style="font-size:13px">Every tunnel is in the fallback order.</span></div>`;
-  return `<div class="colm"><div class="band"><div class="bhead"><b>GROUP ${esc(g.name.toUpperCase())} · FALLBACK ORDER</b><div class="muted">#1 carries the traffic. If it fails, #2 takes over, then #3.</div></div>
+  const empty = g.unmanaged || g.lane.some((t) => t.position != null) ? "" : '<div class="muted" style="padding:10px 4px">No fallback order yet. Open the list below and drag tunnels up here.</div>';
+  const pool = g.pool.length ? `<details class="pool" data-g="${esc(g.name)}" ${poolOpen.has(g.name) ? "open" : ""}><summary>+ ${g.pool.length} more tunnel${g.pool.length === 1 ? " is" : "s are"} ${g.unmanaged ? "have a policy for these networks" : "not in the fallback order" + (can ? " \u00b7 add them" : "")}</summary>
+      <div class="pchips">${g.pool.map((p) => `<span class="pc ${selected && selected.name === p.name ? "sel" : ""}" data-g="${esc(g.name)}" data-tun="${esc(p.name)}" ${can && !g.unmanaged ? 'draggable="true" data-drag="pool"' : ""}><span class="dot ${tcolor(p)}"></span>${esc(p.name)}</span>`).join("")}</div></details>`
+    : g.unmanaged ? "" : `<div class="pool" data-g="${esc(g.name)}"><span class="muted" style="font-size:13px">Every tunnel is in the fallback order.</span></div>`;
+  return `<div class="colm"><div class="band"><div class="bhead">${g.unmanaged ? '<b>VPN CLIENT IN USE</b><div class="muted">UniFi sends these networks through the first routing policy that is switched on.</div>'
+      : `<b>GROUP ${esc(g.name.toUpperCase())} \u00b7 FALLBACK ORDER</b><div class="muted">#1 carries the traffic. If it fails, #2 takes over, then #3.</div>`}</div>
     <div class="lane" data-g="${esc(g.name)}">${parts.join("") + empty}</div>${pool}</div></div>`;
 }
 const legendHtml = (can) => `<div class="legend"><b>LEGEND</b><div><i style="background:var(--ok)"></i>connected / device active</div><div><i style="background:var(--warn)"></i>bypasses the VPN</div><div><i style="background:var(--muted)"></i>idle / disconnected</div></div>
@@ -373,32 +372,29 @@ function directBox(m) {
 }
 const normalNode = (m) => `<div class="inet normal" data-role="inet"><span class="dot idle"></span><div><b>Internet</b> · normal connection<div>exit <span class="mono">${esc(m.wan_ip || "your WAN address")}</span></div></div></div>`;
 function groupBlock(g, can, first, last, m) {
-  const st = g.exhausted ? ["bad", "NO WORKING TUNNEL"] : g.paused ? ["info", "PAUSED"] : !g.has_order ? ["warn", "WATCHING ONLY"] : g.healthy ? ["ok", "HEALTHY"] : ["warn", "DEGRADED"];
+  const st = g.unmanaged ? (g.active ? ["ok", g.healthy ? "CONNECTED" : "CONNECTING"] : ["warn", "NO VPN CLIENT ON"]) : g.exhausted ? ["bad", "NO WORKING TUNNEL"] : g.paused ? ["info", "PAUSED"] : !g.has_order ? ["warn", "WATCHING ONLY"] : g.healthy ? ["ok", "HEALTHY"] : ["warn", "DEGRADED"];
   const ex = g.exit || {}, act = g.lane.find((t) => t.active);
   const behind = g.networks.reduce((a, n) => a + n.count - n.bypass_count, 0);
   const probe = ex.ip && ex.age != null ? ` · exit-IP test passed ${ex.age}s ago` : "";
-  const note = act ? `Active: <b class="mono" style="color:var(--ink);font-weight:500">${esc(act.name)}</b>${act.position ? " · #" + act.position : " · not in the order"}${probe}${g.decision && g.decision !== "healthy" ? " · " + esc(g.decision) : ""}` : esc(g.decision || "no VPN client is switched on");
+  const note = act ? `Active: <b class="mono" style="color:var(--ink);font-weight:500">${esc(act.name)}</b>${act.position ? " · #" + act.position : g.unmanaged ? "" : " · not in the order"}${probe}${g.decision && g.decision !== "healthy" ? " · " + esc(g.decision) : ""}` : esc(g.decision || "no VPN client is switched on");
   const exline = ex.ip ? `exit <span class="mono">${esc(ex.ip)}</span>${ex.age != null ? `<br>exit-IP test OK ${ex.age}s ago` : ""}` : ex.server ? `VPN server <span class="mono">${esc(ex.server)}</span>` : "";
   const inet = act ? `<div class="inet" data-role="inet"><span class="dot ok"></span><div><b>Internet</b><div>${exline}</div></div></div>`
     : `<div class="inet bad" data-role="inet"><span class="dot bad"></span><div><b>Internet</b><div>no VPN client is switched on</div></div></div>`;
   const withDirect = last && m.direct.length;
   return `<section class="gblock" data-g="${esc(g.name)}"><div class="gstrip"><b class="gname">${esc(g.name)}</b><span class="pill ${st[0]}">${st[1]}</span>
       <span class="muted grow">${note}</span>
-      <button class="act" data-gact="${g.paused ? "resume" : "pause"}" data-g="${esc(g.name)}" ${can ? "" : "disabled"}>${g.paused ? "Start automatic failover" : "Stop automatic failover"}</button></div>
+      ${g.unmanaged ? "" : `<button class="act" data-gact="${g.paused ? "resume" : "pause"}" data-g="${esc(g.name)}" ${can ? "" : "disabled"}>${g.paused ? "Start automatic failover" : "Stop automatic failover"}</button>`}</div>
     <div class="gcols"><div class="colv"><div class="colh">VLANs and their devices</div>${g.networks.map((n) => vlanCard(n, false)).join("") || '<div class="muted">No VLAN is selected for this group.</div>'}${withDirect ? directBox(m) : ""}</div>${laneHtml(g, can, behind)}
-    <div class="colr"><div class="colh">Internet via the VPN</div>${inet}${first ? legendHtml(can) : ""}${withDirect ? normalNode(m) : ""}</div>${withDirect ? '<div class="dlabel">straight to the internet, no VPN</div>' : ""}</div></section>`;
+    <div class="colr"><div class="colh">Internet via the VPN</div>${inet}${first ? legendHtml(can && !g.unmanaged) : ""}${withDirect ? normalNode(m) : ""}</div>${withDirect ? '<div class="dlabel">straight to the internet, no VPN</div>' : ""}</div></section>`;
 }
 let directOpen = false;
-function noGroupBlock(m, can) {
-  const cta = can ? '<button class="btnp" data-act="newgroup">Create a VPN group</button>' : '<span class="muted">Enter the control token to create one.</span>';
+function plainBlock(m, can) {
   return `<section class="gblock" data-nogroup="1"><div class="gcols"><div class="colv"><div class="colh">VLANs and their devices</div>${directBox(m)}</div>
-    <div class="colm"><div class="band"><div class="bhead"><b>FALLBACK ORDER</b><div>No VPN group yet, so nothing is switched automatically.</div></div>
-      <div class="empty"><b>Create your first VPN group</b><p>A group is a set of networks that share one VPN and one fallback order. Pick the networks, then put your tunnels in the order they should be tried.</p>${cta}</div></div></div>
-    <div class="colr">${normalNode(m)}${legendHtml(can)}</div><div class="dlabel">straight to the internet, no VPN</div></div></section>`;
+    <div class="colm"></div><div class="colr">${normalNode(m)}${legendHtml(false)}</div><div class="dlabel">straight to the internet, no VPN</div></div></section>`;
 }
 function renderMap(d) {
   const m = d.map || { groups: [], direct: [] }, can = !!d.can_control;
-  let html = m.groups.map((g, i) => groupBlock(g, can, i === 0, i === m.groups.length - 1, m)).join("") + (!m.groups.length && m.direct.length ? noGroupBlock(m, can) : "");
+  let html = m.groups.map((g, i) => groupBlock(g, can, i === 0, i === m.groups.length - 1, m)).join("") + (!m.groups.length && m.direct.length ? plainBlock(m, can) : "");
   if (!html) html = d.loading || !d.last_tick ? '<div class="loading"><span class="spin big"></span><div>Loading from UniFi...</div></div>'
     : '<div class="card muted">UniFi reported no networks to show.</div>';
   $("#map").innerHTML = '<svg id="links"></svg>' + html;
@@ -430,7 +426,7 @@ function drawLinks() {
       const nnc = cy(nn), want = Math.max(bb, pb + 22, nnc);
       if (want > bb) box.style.marginTop = Math.round(want - bb) + "px";
       if (want > nnc) nn.style.marginTop = (24 + Math.round(want - nnc)) + "px";
-      if (lbl && panel) { const cr = cols.getBoundingClientRect(), pr = panel.getBoundingClientRect(); lbl.style.left = Math.round(pr.left + pr.width / 2 - 150 - cr.left) + "px"; lbl.style.top = Math.round(cy(nn) + 16 - cr.top) + "px"; }
+      if (lbl) { const cr = cols.getBoundingClientRect(), pr = (panel || blk.querySelector(".colm")).getBoundingClientRect(); lbl.style.left = Math.round(pr.left + pr.width / 2 - 150 - cr.left) + "px"; lbl.style.top = Math.round(cy(nn) + 16 - cr.top) + "px"; }
     }
   });
   const rr = root.getBoundingClientRect();
@@ -516,7 +512,6 @@ const orderOf = (g) => { const grp = mapData().groups.find((x) => x.name === g);
 const mapEl = $("#map");
 mapEl.addEventListener("click", (e) => {
   const gb = e.target.closest("[data-gact]"); if (gb) { act(`groups/${encodeURIComponent(gb.dataset.g)}/${gb.dataset.gact}`); return; }
-  if (e.target.closest("[data-act=newgroup]")) { sset = "groups"; document.querySelector("nav button[data-tab=settings]").click(); return; }
   if (e.target.closest("#directToggle")) { directOpen = !directOpen; renderMap(status); return; }
   const vf = e.target.closest(".vf"); if (vf) { vexp[vf.dataset.net] = !vexp[vf.dataset.net]; updateVlist(vf.dataset.net); return; }
   const dv = e.target.closest(".dev"); if (dv) { selected = { kind: "dev", mac: dv.dataset.mac }; renderMap(status); return; }
