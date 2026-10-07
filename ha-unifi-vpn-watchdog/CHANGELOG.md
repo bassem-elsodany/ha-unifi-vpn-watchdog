@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.26.6
+
+- Status page: the line for a device with its own route is drawn only when you click that device, not whenever its VLAN is selected.
+
 ## 0.26.5
 
 - Status page on a wide desktop screen: the legend moved into the grey column on the right, at its bottom. Narrower screens still show it below the map.

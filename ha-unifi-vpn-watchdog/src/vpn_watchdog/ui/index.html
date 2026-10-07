@@ -632,7 +632,7 @@ function drawLinks() {
     const next = () => { const x = slot; slot = Math.min(slot + 8, lim); return x; };
     if (own) {                                // devices with their own route: one line each, from the card to where the device goes
       const o = R(own), by = {}; slot = o.r + 46; lim = o.r + 74; let amberX = null;
-      const hotMacs = new Set(selected && selected.kind === "dev" ? [selected.mac] : allNets(mapData()).filter((x) => x.n.id === selNet).flatMap((x) => x.n.devices.map((d) => d.mac)));
+      const hotMacs = new Set(selected && selected.kind === "dev" ? [selected.mac] : []);          // a line is drawn only for the device you clicked
       [...own.querySelectorAll(".orow:not(.off)")].forEach((row) => {
         row.classList.toggle("quiet", !hotMacs.has(row.dataset.mac));          // a line is drawn only for the device (or VLAN) you picked
         if (!hotMacs.has(row.dataset.mac)) return;
