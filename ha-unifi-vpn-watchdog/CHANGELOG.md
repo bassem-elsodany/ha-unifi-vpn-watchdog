@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.27.7
+
+- The add-on documentation page (DOCS.md) is up to date: devices, shared clients, warm standbys, the graphic status map, the phone layout, routing and the `vpnwd:` policy names, and a note that speed-based failover is planned.
+
 ## 0.27.6
 
 - VPN client names are shown exactly as they are named in UniFi, everywhere (graphic map and phone app). They are no longer parsed into "DE · Berlin #1552", so any naming convention works. Long names are cut with an ellipsis (the full name is in the tooltip and in the status column).
