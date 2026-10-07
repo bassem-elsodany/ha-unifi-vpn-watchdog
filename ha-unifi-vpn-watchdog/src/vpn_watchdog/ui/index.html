@@ -157,6 +157,16 @@
   .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 400px; max-width: 94vw; background: var(--card); border-left: 1px solid var(--line); padding: 18px 20px; overflow: auto; box-shadow: -8px 0 24px rgba(0,0,0,.14); z-index: 9; }
   .kv { display: grid; grid-template-columns: 130px 1fr; gap: 4px 12px; margin: 12px 0; } .kv div:nth-child(odd) { color: var(--muted); }
   #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: var(--card); padding: 8px 16px; border-radius: 999px; font-size: 13px; z-index: 12; }
+  @media (min-width: 1280px) {      /* wide desktop: the group's header card sits in a narrow column on the right (25% of the page), the VLAN map keeps the rest */
+    .gblock { display: grid; grid-template-columns: minmax(0, 1fr) 25%; column-gap: 24px; align-items: start; }
+    .gblock > .gcols { grid-column: 1; grid-row: 1; }
+    .gblock > .gstrip { grid-column: 2; grid-row: 1; margin-top: 24px; padding: 0 14px; }
+    .gblock > .gstrip .gr { min-height: 0; padding: 12px 0; gap: 8px; }
+    .gblock > .gstrip .gr + .gr { padding: 12px 0; }
+    .gblock > .gstrip .gr .grow { flex: 1 1 100%; font-size: 13px; }
+    .gblock > .gstrip .gr .act { flex: 1 1 auto; }
+    .gblock > .gcols { grid-template-columns: 260px minmax(0, 1fr) 210px; } .gblock .colm { margin: 0 56px 0 44px; } .gblock .band { padding: 20px 24px 12px; }
+  }
   @media (max-width: 1000px) { header, main { padding-left: 16px; padding-right: 16px; } .gcols { grid-template-columns: 1fr; row-gap: 18px; } .colm { margin: 0; } #links { display: none; } .lgap { padding-left: 24px; } .lgap::before { content: "\2193  "; } .dlabel { position: static; width: auto; } .inet.normal { margin-top: 0; } }
   /* settings: one flat page per section (design: Settings 1-3) */
   .sset { display: flex; gap: 40px; align-items: flex-start; }

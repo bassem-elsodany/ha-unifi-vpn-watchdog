@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.26.2
+
+- Status page on a wide desktop screen (1280 px and up): the group's header card (state, active client, stop failover, rotation) now sits in a narrow column on the right, a quarter of the page, so the VLAN map has the room. Narrower screens keep the old layout.
+
 ## 0.26.1
 
 - The watchdog's policies in UniFi now explain themselves: "vpnwd: IOT › vlan20-iot — made by the VPN Watchdog add-on (group IOT); it moves this policy to the group's working VPN client. Do not edit." Existing policies are renamed in place (same policy, same position), nothing is recreated.
