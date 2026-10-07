@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.27.5
+
+- Graphic status map: the amber "straight to the internet" lane now shows only when it is relevant: when you pick a VLAN that does not use a VPN, or click a device whose own route goes to the normal connection. For a VLAN in a group it is hidden.
+- Picking a VLAN without a VPN shows its path right away (VLAN, Direct pill, Internet) instead of an empty ring and a divider.
+
 ## 0.27.4
 
 - Graphic status map: the VLAN you click moves to the top of the left column (with a short focus animation); the others keep their order below it.
