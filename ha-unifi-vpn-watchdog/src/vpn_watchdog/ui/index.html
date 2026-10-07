@@ -145,57 +145,62 @@
   .inet.normal { min-height: 80px; margin-top: 24px; padding: 12px 18px; border: 1px dashed var(--idle2); line-height: 20px; } .inet.normal b { font-size: 15px; }
   .vico { display: none; } .vcard { display: contents; }
   /* ---- graphic map (wide screens) */
-  .gx { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 25%; column-gap: 28px; align-items: start; margin-top: 18px; }
-  .gx-main { display: grid; grid-template-columns: 300px minmax(0, 1fr); column-gap: 28px; min-width: 0; }
+  .gx { font-size: 12.5px; position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 25%; column-gap: 28px; align-items: start; margin-top: 18px; }
+  .gx-main { display: grid; grid-template-columns: 270px minmax(0, 1fr); column-gap: 24px; min-width: 0; }
   .gx-left { display: flex; flex-direction: column; gap: 6px; } .gx-left .colh { margin: 6px 0 8px; }
   .gx .vc, .gx .vc.cmp, .gx .vc.sel, .gx .vc.direct { background: none; border: 0; box-shadow: none; padding: 0; gap: 8px; }
-  .gx .vc .vh { min-height: 64px; gap: 12px; } .gx .vh > .dot { display: none; } .gx .vh > span.vn b { font-size: 15px; }
-  .gx .vico { display: grid; flex: none; place-items: center; width: 52px; height: 52px; margin: 0 6px; border-radius: 50%; background: var(--card); border: 2px solid var(--g1); color: var(--g1); }
-  .gx .vico svg { width: 26px; height: 26px; } .gx .vico.nv { border-color: var(--amb1); color: var(--amb2); }
+  .gx .vc .vh { min-height: 54px; gap: 10px; } .gx .vh > .dot { display: none; } .gx .vh > span.vn b { font-size: 13.5px; } .gx .vh > span.vn small { font-size: 11px; line-height: 15px; } .gx .vh > span.vn { line-height: 18px; }
+  .gx .vico { display: grid; flex: none; place-items: center; width: 42px; height: 42px; margin: 0 5px; border-radius: 50%; background: var(--card); border: 2px solid var(--g1); color: var(--g1); }
+  .gx .vico svg { width: 22px; height: 22px; } .gx .vico.nv { border-color: var(--amb1); color: var(--amb2); }
   .gx .vc[data-net^="grp-dev"] .vico { border-color: var(--g2); color: var(--g2); }
-  .gx .vc.sel .vh { min-height: 76px; } .gx .vc.sel .vico { width: 64px; height: 64px; margin: 0; box-shadow: 0 0 0 4px rgba(255,107,139,.14), 0 0 22px rgba(255,107,139,.5); } .gx .vc.sel .vico svg { width: 30px; height: 30px; }
+  .gx .vc.sel .vh { min-height: 62px; } .gx .vc.sel .vico { width: 52px; height: 52px; margin: 0; box-shadow: 0 0 0 4px rgba(255,107,139,.14), 0 0 22px rgba(255,107,139,.5); } .gx .vc.sel .vico svg { width: 25px; height: 25px; }
   .gx .vc.direct.sel .vico { box-shadow: 0 0 0 4px rgba(255,179,71,.14), 0 0 22px rgba(255,179,71,.45); }
   .gx .vcard { display: flex; flex-direction: column; gap: 8px; background: var(--card); border: 1.5px solid var(--g1); border-radius: 16px; padding: 10px 14px; }
   .gx .vc.direct .vcard { border-color: var(--amb1); }
   .gx .gtag { font-size: 10px; padding: 2px 7px; }
   .gx .vc.ownc { background: var(--card); border: 1.5px solid var(--g2); border-radius: 16px; padding: 12px 14px; margin-top: 10px; }
   .gx-center { display: flex; flex-direction: column; gap: 26px; min-width: 0; }
-  .gx-top { display: grid; grid-template-columns: 440px minmax(0, 1fr); column-gap: 30px; align-items: start; }
-  .gx-cap { font-size: 12px; font-weight: 600; letter-spacing: .16em; color: var(--g1); text-transform: uppercase; margin: 6px 0 12px; } .gx-cap.amber { color: var(--amb2); }
-  .gx-hub { position: relative; width: 440px; min-height: 440px; display: flex; align-items: center; justify-content: center; }
-  .gx-hub::before { content: ""; position: absolute; inset: 0; border: 1.5px dotted var(--ring); border-radius: 50%; } .gx-hub::after { content: ""; position: absolute; inset: 34px; border: 1px solid var(--ring); opacity: .55; border-radius: 50%; }
+  .gx-top { display: grid; grid-template-columns: 372px minmax(0, 1fr); column-gap: 24px; align-items: start; }
+  .gx-cap { font-size: 11px; font-weight: 600; letter-spacing: .14em; color: var(--g1); text-transform: uppercase; margin: 6px 0 12px; } .gx-cap.amber { color: var(--amb2); }
+  .gx-hub { position: relative; width: 372px; min-height: 372px; display: flex; align-items: center; justify-content: center; }
+  .gx-hub::before { content: ""; position: absolute; inset: 0; border: 1.5px dotted var(--ring); border-radius: 50%; } .gx-hub::after { content: ""; position: absolute; inset: 30px; border: 1px solid var(--ring); opacity: .55; border-radius: 50%; }
   .gx-hub.plain { align-items: center; } .orb { position: absolute; width: 10px; height: 10px; margin: -5px; border-radius: 50%; border: 2px solid var(--g1); background: var(--bg); z-index: 1; } .orb:first-child { border-color: var(--g2); }
-  .gx-rack { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 10px; width: 262px; margin: 0 !important; }
-  .gxu { display: block; padding: 11px 16px 12px; border: 2px solid var(--ring); border-radius: 14px; background: var(--card); min-height: 0; cursor: pointer; color: var(--muted); }
+  .gx-rack { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 8px; width: 222px; margin: 0 !important; }
+  .gxu { display: block; padding: 9px 13px 10px; border: 2px solid var(--ring); border-radius: 14px; background: var(--card); min-height: 0; cursor: pointer; color: var(--muted); }
   .gxu.active { border: 2.5px solid transparent; background: linear-gradient(var(--card), var(--card)) padding-box, linear-gradient(90deg, var(--g1), var(--g2)) border-box; box-shadow: 0 0 26px rgba(168,85,247,.3); }
   .gxu.own { border-color: var(--g2); } .gxu.sel { outline: 2px solid var(--accent); outline-offset: 3px; }
-  .gxu-top { display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; letter-spacing: .06em; font-weight: 600; } .gxu.active .gxu-top > span:first-child { color: var(--okink); }
-  .gxu-name { font: 600 15px/22px 'IBM Plex Mono', ui-monospace, Menlo, monospace; color: var(--ink); margin-top: 4px; } .gxu-sub { font-size: 12px; line-height: 18px; margin-top: 2px; }
-  .leds { display: inline-flex; gap: 7px; } .led { width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid var(--idle2); display: inline-block; }
+  .gxu-top { display: flex; justify-content: space-between; align-items: center; font-size: 10px; letter-spacing: .06em; font-weight: 600; } .gxu.active .gxu-top > span:first-child { color: var(--okink); }
+  .gxu-name { font: 600 13px/19px 'IBM Plex Mono', ui-monospace, Menlo, monospace; color: var(--ink); margin-top: 4px; } .gxu-sub { font-size: 11px; line-height: 16px; margin-top: 2px; }
+  .leds { display: inline-flex; gap: 7px; } .led { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--idle2); display: inline-block; }
   .led.on { background: var(--ok); border-color: var(--ok); box-shadow: 0 0 9px var(--ok); } .led.sb { background: var(--g2); border-color: var(--g2); } .led.wait { background: var(--warn); border-color: var(--warn); } .led.on2 { background: var(--idle2); }
-  .gx-hubfoot { width: 440px; display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px; text-align: center; font-size: 13px; } .gx-hubfoot > b { font-size: 15px; }
-  .gx-more { color: var(--muted); font-size: 13px; cursor: default; } .gx-more[data-lane-toggle] { cursor: pointer; } .gx-more b { color: var(--accentink); }
+  .gx-hubfoot { width: 372px; display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 8px; text-align: center; font-size: 12px; } .gx-hubfoot > b { font-size: 13.5px; }
+  .gx-more { color: var(--muted); font-size: 12px; cursor: default; } .gx-more[data-lane-toggle] { cursor: pointer; } .gx-more b { color: var(--accentink); }
   .gx-pool { width: 100%; margin-top: 8px; }
   .gx-exitcol { padding-top: 0; min-width: 0; } .gx-exit { display: flex; align-items: flex-start; gap: 0; }
   .gx-exit .inet { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-height: 0; padding: 0; border: 0; background: none; }
-  .xpill { display: inline-flex; padding: 10px 26px; border-radius: 999px; background: linear-gradient(90deg, var(--g1), var(--g2)); color: #fff; font-weight: 700; font-size: 15px; box-shadow: 0 0 22px rgba(255,107,139,.4); white-space: nowrap; } .xpill.amb { background: linear-gradient(90deg, var(--amb1), var(--amb2)); box-shadow: 0 0 22px rgba(255,179,71,.35); }
+  .xpill { display: inline-flex; padding: 8px 20px; border-radius: 999px; background: linear-gradient(90deg, var(--g1), var(--g2)); color: #fff; font-weight: 700; font-size: 13px; box-shadow: 0 0 22px rgba(255,107,139,.4); white-space: nowrap; } .xpill.amb { background: linear-gradient(90deg, var(--amb1), var(--amb2)); box-shadow: 0 0 22px rgba(255,179,71,.35); }
   .gx-exit.bad .xpill { background: var(--bad); box-shadow: none; }
-  .xip { font-size: 15px; color: var(--ink); } .xsub { font-size: 12px; color: var(--muted); max-width: 150px; line-height: 16px; }
-  .xdash { flex: none; width: 34px; margin-top: 24px; border-top: 2px dashed var(--g1); display: block; height: 0; } .xdash.amb { border-color: var(--amb1); }
-  .xglobe { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; font-size: 13px; } .xglobe b { color: var(--ink); font-size: 14px; } .xglobe small { color: var(--muted); font-size: 12px; }
-  .gico { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--card); border: 2px solid var(--g1); color: var(--g1); } .gico svg { width: 28px; height: 28px; } .gico.amb { border-color: var(--amb1); color: var(--amb2); }
+  .xip { font-size: 13px; color: var(--ink); } .xsub { font-size: 11px; color: var(--muted); max-width: 150px; line-height: 16px; }
+  .xdash { flex: none; width: 28px; margin-top: 19px; border-top: 2px dashed var(--g1); display: block; height: 0; } .xdash.amb { border-color: var(--amb1); }
+  .xglobe { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; font-size: 12px; } .xglobe b { color: var(--ink); font-size: 12.5px; } .xglobe small { color: var(--muted); font-size: 11px; }
+  .gico { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: var(--card); border: 2px solid var(--g1); color: var(--g1); } .gico svg { width: 23px; height: 23px; } .gico.amb { border-color: var(--amb1); color: var(--amb2); }
   .gx-direct { border-top: 1px solid var(--line); padding-top: 12px; opacity: .6; } .gx-direct.on { opacity: 1; }
-  .gx-drow { display: grid; grid-template-columns: 440px 34px max-content 34px max-content; align-items: start; column-gap: 0; }
-  .gx-capn { margin-left: 10px; letter-spacing: 0; text-transform: none; font-weight: 500; color: var(--muted); font-size: 13px; }
+  .gx-drow { display: grid; grid-template-columns: 372px 28px max-content 28px max-content; align-items: start; column-gap: 0; }
+  .gx-capn { margin-left: 10px; letter-spacing: 0; text-transform: none; font-weight: 500; color: var(--muted); font-size: 12px; }
   .gx-dtxt { display: flex; gap: 14px; align-items: center; min-height: 56px; } .gx-dtxt b { display: block; font-size: 15px; } .gx-dtxt small { color: var(--muted); font-size: 12.5px; }
   .gx-dpill { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
   .gx-side { background: var(--lane); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; align-self: stretch; min-width: 0; }
-  .gx-side .gr { min-height: 0; padding: 0; } .gx-side .gname { font-size: 22px; } .gx-note { font-size: 13px; line-height: 20px; word-break: break-word; } .gx-note .mono { word-break: break-all; }
+  .gx-side .gr { min-height: 0; padding: 0; } .gx-side .gname { font-size: 18px; } .gx-note { font-size: 12px; line-height: 18px; word-break: break-word; } .gx-note .mono { word-break: break-all; }
   .gx-side > .act { width: 100%; } .gx-side .gr .act { flex: 1 1 auto; } .gx-lg { margin-top: auto; padding-top: 16px; } .gx-lg .legend { background: var(--card); }
-  .gx-side > .gr:nth-of-type(n+2) { border-top: 1px solid var(--line); padding-top: 12px; }
+  .gx-rot { border-top: 1px solid var(--line); padding-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .gx-rothd { display: flex; align-items: center; justify-content: space-between; } .gx-rotst { font-size: 11px; font-weight: 700; letter-spacing: .08em; color: var(--ok); } .gx-rotst.off { color: var(--muted); }
+  .gx-rotkv { display: flex; flex-direction: column; gap: 6px; } .kv2 { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; font-size: 12px; } .kv2 span { color: var(--muted); flex: none; } .kv2 b { font-weight: 600; color: var(--ink); text-align: right; min-width: 0; }
+  .gx-rotbtn { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } .gx-rotbtn .act { width: 100%; padding: 7px 8px; font-size: 12px; }
   #map .lk.on, #map .lk.own { filter: drop-shadow(0 0 4px rgba(255,107,139,.55)); } #map .lk.amber { filter: drop-shadow(0 0 4px rgba(255,179,71,.5)); } #map .lk.dim { opacity: .3; stroke: var(--g1); stroke-dasharray: 6 7; animation: none; }
   #map:has(.gx) .lk.on { stroke: var(--g1); } #map:has(.gx) .lk.own { stroke: var(--g2); } #map:has(.gx) .lk.amber { stroke: var(--amb1); }
   .gx .ownc .vh { min-height: 28px; }
+  .gx .dev { height: 25px; font-size: 12px; } .gx .dev span:nth-child(3), .gx .dev span:nth-child(4) { font-size: 11px; } .gx .vs { height: 28px; font-size: 12px; } .gx .vfr { font-size: 12px; height: 24px; } .gx .vf { font-size: 12px; }
+  .gx-side .act, .gx-side .pill { font-size: 12px; } .gx-side .legend { font-size: 12px; line-height: 21px; padding: 12px 14px; } .gx-side .hint { font-size: 12px; line-height: 18px; } .gx .ownc .orow { font-size: 12px; } .gx .ownc .vh b { font-size: 13px; } .gx .gtag { font-size: 9.5px; }
   .glegend { display: none; }
   .mapfoot { display: flex; justify-content: flex-end; margin-top: 36px; } .mapfoot > div { width: 240px; }
   .legend { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; font-size: 13px; line-height: 24px; color: var(--chipink); }
@@ -663,12 +668,21 @@ function gxDirect(m, plainSel) {
   return `<div class="gx-direct ${plainSel || own ? "on" : ""}"><div class="gx-cap amber">STRAIGHT TO THE INTERNET · NO VPN <span class="gx-capn">${nd} VLAN${nd === 1 ? "" : "s"}${own ? ` · ${own} device${own === 1 ? "" : "s"} with their own route` : ""}</span></div><div class="gx-drow">
     <div></div><i class="xdash amb"></i><div class="gx-dpill"><span class="xpill amb">Direct</span><div class="xip mono">${esc(m.wan_ip || "your WAN address")}</div></div><i class="xdash amb"></i><div class="xglobe"><span class="gico amb">${GICO.plain}</span><b>Internet</b><small>normal connection</small></div></div></div>`;
 }
+function gxRot(g, can) {
+  const r = g.rotation; if (!r) return "";
+  const dis = can ? "" : "disabled", st = !r.enabled ? "OFF" : r.paused ? "STOPPED" : "ON";
+  const kv = (k, v) => `<div class="kv2"><span>${k}</span><b>${v}</b></div>`;
+  if (!r.enabled) return `<div class="gx-rot"><div class="gx-rothd"><span class="pill rot">ROTATION</span><span class="gx-rotst off">${st}</span></div><div class="muted" style="font-size:12px;line-height:18px">Turn it on in Settings › VPN groups.</div></div>`;
+  return `<div class="gx-rot"><div class="gx-rothd"><span class="pill rot">ROTATION</span><span class="gx-rotst ${r.paused ? "off" : "on"}">${st}</span></div>
+    <div class="gx-rotkv">${kv("Schedule", esc(r.summary))}${r.paused ? "" : kv("Next in", r.next_in == null ? "..." : esc(fmtIn(r.next_in)))}${!r.paused && r.next_to ? kv("Moves to", esc(r.next_to)) : ""}${r.last_ts ? kv("Last rotated", esc(fmtWhen(r.last_ts))) : ""}</div>
+    <div class="gx-rotbtn"><button class="act" data-gact="rotate" data-g="${esc(g.name)}" ${dis}>Rotate now</button><button class="act" data-gact="${r.paused ? "rotation-resume" : "rotation-pause"}" data-g="${esc(g.name)}" ${dis}>${r.paused ? "Start rotation" : "Stop rotation"}</button></div></div>`;
+}
 function gxSide(g, can, m) {
   const info = g ? groupInfo(g, can) : null;
   const lg = legendHtml(can && m.groups.some((x) => !x.unmanaged));
   if (!info) return `<aside class="gx-side"><div class="gr"><b class="gname">No VPN</b><span class="pill info">DIRECT</span></div><div class="muted" style="font-size:13px">This VLAN is not in a VPN group. Its traffic goes straight to the internet.</div><div class="gx-lg">${lg}</div></aside>`;
   return `<aside class="gx-side"><div class="gr"><b class="gname">${esc(g.name)}</b><span class="pill ${info.st[0]}">${info.st[1]}</span></div>
-    <div class="muted gx-note">${info.note}${info.conflict}</div>${info.ctl}${info.rotRow}<div class="gx-lg">${lg}</div></aside>`;
+    <div class="muted gx-note">${info.note}${info.conflict}</div>${info.ctl}${gxRot(g, can)}<div class="gx-lg">${lg}</div></aside>`;
 }
 function graphBlock(cur, left, m, can) {
   const g = cur && cur.g, act = g ? g.lane.find((t) => t.active) : null;

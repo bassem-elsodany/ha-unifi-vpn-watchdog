@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.27.2
+
+- Graphic status map: everything is smaller (fonts, icons, rack, pills) so it no longer looks oversized.
+- The rotation block in the grey column is redesigned: a status label (ON / OFF / STOPPED), a Schedule / Next in / Moves to / Last rotated list, and two buttons side by side. It was squeezed into one wrapped line before.
+
 ## 0.27.1
 
 - Status page: removed the list of VPN clients that are not in the group's fallback order ("+ 15 more tunnels are not in the order" and the "Every tunnel is in the fallback order" note). They are managed in Settings, not here.
