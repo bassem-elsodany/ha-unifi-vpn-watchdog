@@ -178,7 +178,7 @@
   .gx-hubfoot { width: 372px; display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 8px; text-align: center; font-size: 12px; } .gx-hubfoot > b { font-size: 13.5px; }
   .gx-more { color: var(--muted); font-size: 12px; cursor: default; } .gx-more[data-lane-toggle] { cursor: pointer; } .gx-more b { color: var(--accentink); }
   .gx-pool { width: 100%; margin-top: 8px; }
-  .gx-exitcol { padding-top: 0; min-width: 0; } .gx-exit { display: flex; align-items: flex-start; gap: 0; }
+  .gx.ownvpn .gx-exitcol { opacity: .35; } .gx-exitcol { padding-top: 0; min-width: 0; } .gx-exit { display: flex; align-items: flex-start; gap: 0; }
   .gx-exit .inet { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-height: 0; padding: 0; border: 0; background: none; }
   .xpill { display: inline-flex; padding: 8px 20px; border-radius: 999px; background: linear-gradient(90deg, var(--g1), var(--g2)); color: #fff; font-weight: 700; font-size: 13px; box-shadow: 0 0 22px rgba(255,107,139,.4); white-space: nowrap; } .xpill.amb { background: linear-gradient(90deg, var(--amb1), var(--amb2)); box-shadow: 0 0 22px rgba(255,179,71,.35); }
   .gx-exit.bad .xpill { background: var(--bad); box-shadow: none; }
@@ -688,10 +688,11 @@ function gxSide(g, can, m) {
 }
 const gxSelDev = () => (selected && selected.kind === "dev") ? mapData().groups.flatMap((q) => q.networks.concat(q.device_net ? [q.device_net] : [])).concat(mapData().direct).flatMap((n) => n.devices).find((d) => d.mac === selected.mac) : null;
 function graphBlock(cur, left, m, can) {
-  const g = cur && cur.g, act = g ? g.lane.find((t) => t.active) : null;
-  const hub = g ? gxHub(g, can) : "";
-  return `<section class="gx" data-g="${g ? esc(g.name) : ""}"><div class="gx-main"><div class="gx-left"><div class="colh">VLANs · ${left.count}</div>${left.html}${ownCard(m)}</div>
-    <div class="gx-center">${g ? `<div class="gx-top">${hub}${gxExit(g, act, m)}</div>` : ""}${!g || (gxSelDev() && gxSelDev().bypass && gxSelDev().bypass.kind !== "vpn") ? gxDirect(m, !g) : ""}</div></div>${gxSide(g, can, m)}</section>`;
+  const g = cur && cur.g, dev = gxSelDev(), byp = dev && dev.bypass;
+  const cg = byp && byp.kind !== "vpn" ? null : g;          // a device whose own route goes to the normal connection does not use the group's exit: show only that path
+  const act = cg ? cg.lane.find((t) => t.active) : null;
+  return `<section class="gx ${byp && byp.kind === "vpn" ? "ownvpn" : ""}" data-g="${g ? esc(g.name) : ""}"><div class="gx-main"><div class="gx-left"><div class="colh">VLANs · ${left.count}</div>${left.html}${ownCard(m)}</div>
+    <div class="gx-center">${cg ? `<div class="gx-top">${gxHub(cg, can)}${gxExit(cg, act, m)}</div>` : ""}${cg ? "" : gxDirect(m, true)}</div></div>${gxSide(g, can, m)}</section>`;
 }
 function drawGraph() {
   const svg = $("#links"), root = $("#map"), gx = root && root.querySelector(".gx");
@@ -702,7 +703,9 @@ function drawGraph() {
   if (ex) ex.style.marginTop = "";
   if (ex && act && pill) ex.style.marginTop = Math.max(0, Math.round(cyOf(act) - pill.getBoundingClientRect().height / 2 - pill.getBoundingClientRect().top)) + "px";
   const dpill = gx.querySelector(".gx-dpill .xpill");
-  const dbox = gx.querySelector(".gx-direct.plain"), selv = gx.querySelector(".gx-left .vc.sel.direct .vh");
+  const own = gxSelDev(), devRow = own ? gx.querySelector(`.gx-left .vcard .dev[data-mac="${CSS.escape(own.mac)}"]`) : null;
+  const skipAct = !!(own && own.bypass && own.bypass.kind === "vpn");
+  const dbox = gx.querySelector(".gx-direct.plain"), selv = devRow || gx.querySelector(".gx-left .vc.sel.direct .vh");
   if (dbox) dbox.style.marginTop = "";
   if (dbox && dpill && selv) { const d = (selv.getBoundingClientRect().top + selv.getBoundingClientRect().height / 2) - (dpill.getBoundingClientRect().top + dpill.getBoundingClientRect().height / 2); dbox.style.marginTop = Math.max(0, Math.round(d)) + "px"; }
   const alignGlobe = (pl, gl) => { if (!pl || !gl) return; const xg = gl.closest(".xglobe"); xg.style.marginTop = ""; const d = (pl.getBoundingClientRect().top + pl.getBoundingClientRect().height / 2) - (gl.getBoundingClientRect().top + gl.getBoundingClientRect().height / 2); xg.style.marginTop = Math.round(d) + "px"; };
@@ -712,27 +715,23 @@ function drawGraph() {
   const R = (el) => { const r = el.getBoundingClientRect(); return { l: r.left - rr.left, r: r.right - rr.left, t: r.top - rr.top, b: r.bottom - rr.top, cy: (r.top + r.bottom) / 2 - rr.top }; };
   const segs = [], left = R(gx.querySelector(".gx-left")), x0 = left.r + 2;
   const grp = gx.dataset.g;
-  const own = gxSelDev();
   [...gx.querySelectorAll(".gx-left .vc")].forEach((vc) => {
     const isSel = vc.classList.contains("sel"), direct = vc.classList.contains("direct"), vh = vc.querySelector(".vh"); if (!vh) return;
     let y = R(vh).cy, hot = false, sx = x0;
     if (isSel && selected && selected.kind === "dev") { const row = vc.querySelector(`.dev[data-mac="${CSS.escape(selected.mac)}"]`); if (row) { y = R(row).cy; hot = true; sx = R(vc.querySelector(".vcard") || vc).r + 2; } }
+    if (isSel && !act && dpill && own && own.bypass && own.bypass.kind !== "vpn" && devRow) { const d = R(dpill); segs.push({ d: `M ${R(vc.querySelector(".vcard")).r + 2} ${R(devRow).cy} H ${x0 + 12} V ${d.cy} H ${d.l - 4}`, cls: "lk amber live hot", head: "amb" }); return; }
     if (direct && isSel && dpill) { const d = R(dpill); segs.push({ d: `M ${sx} ${y} H ${x0 + 12} V ${d.cy} H ${d.l - 4}`, cls: "lk amber live" + (hot ? " hot" : ""), head: "amb" }); return; }
-    if (!direct && act && vc.dataset.grp === grp) {
+    if (!direct && act && !skipAct && vc.dataset.grp === grp) {
       const a = R(act), ax = a.l - 2;
       segs.push({ d: `M ${sx} ${y} C ${sx + 70} ${y}, ${ax - 70} ${a.cy}, ${ax} ${a.cy}`, cls: isSel ? "lk on live" + (hot ? " hot" : "") : "lk idle dim", head: isSel ? "on" : "" });
     }
   });
-  if (act && pill) { const a = R(act), p = R(pill); segs.push({ d: `M ${a.r} ${a.cy} H ${p.l - 3}`, cls: "lk on live", head: "on" }); }
+  if (act && pill && !skipAct) { const a = R(act), p = R(pill); segs.push({ d: `M ${a.r} ${a.cy} H ${p.l - 3}`, cls: "lk on live", head: "on" }); }
   const eg = gx.querySelector(".gx-exit .gico"); if (pill && eg) { const p = R(pill), e = R(eg); segs.push({ d: `M ${p.r + 2} ${p.cy} H ${e.l - 4}`, cls: "lk on live", head: "on" }); }
   const dg = gx.querySelector(".gx-direct .gico"); if (dpill && dg) { const p = R(dpill), e = R(dg); segs.push({ d: `M ${p.r + 2} ${p.cy} H ${e.l - 4}`, cls: "lk amber live", head: "amb" }); }
-  if (own && own.bypass) {
-    const orow = gx.querySelector(`.ownc .orow[data-mac="${CSS.escape(own.mac)}"]`);
-    if (orow) {
-      const o = R(orow);
-      if (own.bypass.kind === "vpn") { const lc = gx.querySelector(`.lc[data-tun="${CSS.escape(own.bypass.tunnel_id || "")}"]`); if (lc) { const L = R(lc); segs.push({ d: `M ${o.r} ${o.cy} H ${x0 + 12} V ${L.cy} H ${L.l - 3}`, cls: "lk own live hot", head: "own" }); } }
-      else if (dpill) { const d = R(dpill); segs.push({ d: `M ${o.r} ${o.cy} H ${x0 + 12} V ${d.cy} H ${d.l - 4}`, cls: "lk amber live hot", head: "amb" }); }
-    }
+  if (own && own.bypass && own.bypass.kind === "vpn") {
+    const orow = devRow || gx.querySelector(`.ownc .orow[data-mac="${CSS.escape(own.mac)}"]`), lc = gx.querySelector(`.lc[data-tun="${CSS.escape(own.bypass.tunnel_id || "")}"]`);
+    if (orow && lc) { const o = R(orow), L = R(lc), sx = devRow ? R(devRow.closest(".vcard") || devRow).r + 2 : o.r; segs.push({ d: `M ${sx} ${o.cy} H ${x0 + 12} V ${L.cy} H ${L.l - 3}`, cls: "lk own live hot", head: "own" }); }
   }
   const mk = (id, v) => `<marker id="ah-${id}" orient="auto" markerWidth="4" markerHeight="4" refX="3" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" style="fill:var(${v});stroke:none"/></marker>`;
   svg.innerHTML = `<defs>${mk("on", "--g1")}${mk("amb", "--amb1")}${mk("own", "--g2")}</defs>` + segs.map((q) => `<path class="${q.cls}" d="${q.d}" ${q.head ? `marker-end="url(#ah-${q.head})"` : ""}/>`).join("");

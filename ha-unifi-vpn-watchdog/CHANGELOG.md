@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.27.8
+
+- Graphic status map: clicking a device with its own route now shows only the exit that device really uses. A device that goes straight to the internet shows just its path to Direct (no VPN exit); a device that goes through another VPN client shows only the path to that client, with the group's own exit dimmed.
+
 ## 0.27.7
 
 - The add-on documentation page (DOCS.md) is up to date: devices, shared clients, warm standbys, the graphic status map, the phone layout, routing and the `vpnwd:` policy names, and a note that speed-based failover is planned.
