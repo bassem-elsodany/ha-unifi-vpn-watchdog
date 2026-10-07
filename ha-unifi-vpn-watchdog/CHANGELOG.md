@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.27.0
+
+- New graphic status map on wide screens (1500 px and up), in dark and light: round VLAN icons on the left (click one and its devices open under it), the fallback order as a rack of units inside dotted rings with LEDs, glowing dashed lines to an Exit IP pill and the Internet, an amber lane for traffic that goes straight to the internet, and the group's status, buttons, rotation and legend in a grey column on the right. Narrower screens keep the classic map; the phone app is unchanged.
+
 ## 0.26.6
 
 - Status page: the line for a device with its own route is drawn only when you click that device, not whenever its VLAN is selected.
