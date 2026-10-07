@@ -166,12 +166,13 @@
   .gx-hub { position: relative; width: 372px; min-height: 372px; display: flex; align-items: center; justify-content: center; }
   .gx-hub::before { content: ""; position: absolute; inset: 0; border: 1.5px dotted var(--ring); border-radius: 50%; } .gx-hub::after { content: ""; position: absolute; inset: 30px; border: 1px solid var(--ring); opacity: .55; border-radius: 50%; }
   .gx-hub.plain { align-items: center; } .orb { position: absolute; width: 10px; height: 10px; margin: -5px; border-radius: 50%; border: 2px solid var(--g1); background: var(--bg); z-index: 1; } .orb:first-child { border-color: var(--g2); }
-  .gx-rack { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 8px; width: 222px; margin: 0 !important; }
+  .gx-rack { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 8px; width: 244px; margin: 0 !important; }
   .gxu { display: block; padding: 9px 13px 10px; border: 2px solid var(--ring); border-radius: 14px; background: var(--card); min-height: 0; cursor: pointer; color: var(--muted); }
   .gxu.active { border: 2.5px solid transparent; background: linear-gradient(var(--card), var(--card)) padding-box, linear-gradient(90deg, var(--g1), var(--g2)) border-box; box-shadow: 0 0 26px rgba(168,85,247,.3); }
   .gxu.own { border-color: var(--g2); } .gxu.sel { outline: 2px solid var(--accent); outline-offset: 3px; }
   .gxu-top { display: flex; justify-content: space-between; align-items: center; font-size: 10px; letter-spacing: .06em; font-weight: 600; } .gxu.active .gxu-top > span:first-child { color: var(--okink); }
-  .gxu-name { font: 600 13px/19px 'IBM Plex Mono', ui-monospace, Menlo, monospace; color: var(--ink); margin-top: 4px; } .gxu-sub { font-size: 11px; line-height: 16px; margin-top: 2px; }
+  .lc.gxu.active .gxu-name { font-size: 11px; } .lc.gxu.active { min-height: 0; padding: 9px 13px 10px; }
+  .gxu .gxu-name { font: 600 11px/17px 'IBM Plex Mono', ui-monospace, Menlo, monospace; color: var(--ink); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; word-break: normal; } .gxu-sub { font-size: 11px; line-height: 16px; margin-top: 2px; }
   .leds { display: inline-flex; gap: 7px; } .led { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--idle2); display: inline-block; }
   .led.on { background: var(--ok); border-color: var(--ok); box-shadow: 0 0 9px var(--ok); } .led.sb { background: var(--g2); border-color: var(--g2); } .led.wait { background: var(--warn); border-color: var(--warn); } .led.on2 { background: var(--idle2); }
   .gx-hubfoot { width: 372px; display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 8px; text-align: center; font-size: 12px; } .gx-hubfoot > b { font-size: 13.5px; }
@@ -637,7 +638,6 @@ let graphWas = graphOn();
 const GICO = {
   vpn: NETICO.vpn, off: NETICO.off, plain: NETICO.plain,
   sync: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 9a8 8 0 0 0-14-2M4 4v4h4"/><path d="M4 15a8 8 0 0 0 14 2M20 20v-4h-4"/></svg>' };
-const gxPlace = (name) => { const m = /^([A-Z]{2})__(.+?)__(\d+)__/.exec(name || ""); if (!m) return ""; let c = m[1]; try { c = new Intl.DisplayNames(["en"], { type: "region" }).of(m[1]) || m[1]; } catch (e) {} return `${m[2].replace(/_/g, " ").toLowerCase().replace(/^./, (x) => x.toUpperCase())} · ${c}`; };
 function gxUnit(g, t) {
   const inOrder = t.position != null, sel = selected && selected.kind === "tun" && selected.name === t.id ? "sel" : "";
   const tag = t.active ? "ACTIVE" : t.standby ? "STANDBY" : inOrder ? "READY" : "NOT IN THE ORDER";
@@ -660,8 +660,8 @@ function gxHub(g, can) {
 }
 function gxExit(g, act, m) {
   const ex = g.exit || {};
-  const ip = ex.ip || ex.server || "", place = gxPlace(act && act.name);
-  const sub = ip ? `${place || ""}${ex.ip && ex.age != null ? ` · test OK ${ex.age}s ago` : ex.ip ? "" : " · VPN server"}`.replace(/^ · /, "") : "";
+  const ip = ex.ip || ex.server || "";
+  const sub = ip ? (ex.ip ? (ex.age != null ? `exit-IP test OK ${ex.age}s ago` : "exit address") : "VPN server address") : "";
   return `<div class="gx-exitcol"><div class="gx-cap">EXIT</div><div class="gx-exit ${act ? "" : "bad"}"><div class="inet" data-role="inet"><span class="xpill">${act ? "Exit IP" : "No VPN"}</span><div class="xip mono">${esc(ip || (act ? "..." : "no client on"))}</div><div class="xsub">${esc(sub)}</div></div><i class="xdash"></i>
     <div class="xglobe"><span class="gico">${act ? GICO.vpn : GICO.off}</span><b>Internet</b><small>${act ? "through the VPN" : "blocked"}</small></div></div></div>`;
 }
@@ -1282,7 +1282,7 @@ const phIc = {
   more: '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>', plus: phI('<path d="M12 5v14M5 12h14"/>', 20),
   up: phI('<path d="M12 19V5M5 12l7-7 7 7"/>', 18), down: phI('<path d="M12 5v14M5 12l7 7 7-7"/>', 18), x: phI('<path d="M6 6l12 12M18 6 6 18"/>', 18), check: phI('<path d="m5 12 5 5 9-10"/>', 20),
 };
-const phShort = (n) => { const m = /^([A-Z]{2})__(.+?)__(\d+)__[\d.]+$/.exec(n || ""); return m ? `${m[1]} · ${m[2].replace(/_/g, " ").toLowerCase().replace(/(^| )\w/g, (c) => c.toUpperCase())} #${m[3]}` : (n || ""); };
+const phShort = (n) => n || "";          // names are shown exactly as the user named them in UniFi: never parsed or shortened
 const phGroups = () => (mapData().groups || []).filter((g) => !g.unmanaged);
 const phG = (name) => phGroups().find((g) => g.name === name);
 const phVg = (name) => (V ? V.groups.find((g) => g.name === name) : null);

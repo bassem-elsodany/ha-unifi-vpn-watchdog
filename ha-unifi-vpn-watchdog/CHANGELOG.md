@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.27.6
+
+- VPN client names are shown exactly as they are named in UniFi, everywhere (graphic map and phone app). They are no longer parsed into "DE · Berlin #1552", so any naming convention works. Long names are cut with an ellipsis (the full name is in the tooltip and in the status column).
+- Graphic map: the active unit is no longer taller than the others.
+
 ## 0.27.5
 
 - Graphic status map: the amber "straight to the internet" lane now shows only when it is relevant: when you pick a VLAN that does not use a VPN, or click a device whose own route goes to the normal connection. For a VLAN in a group it is hidden.
