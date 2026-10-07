@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.27.3
+
+- Graphic status map: the connection from the Exit IP pill to the Internet globe (and from Direct to its globe) is now an animated dashed arrow like the link from the group to the Exit IP, and the globe is level with its pill.
+
 ## 0.27.2
 
 - Graphic status map: everything is smaller (fonts, icons, rack, pills) so it no longer looks oversized.

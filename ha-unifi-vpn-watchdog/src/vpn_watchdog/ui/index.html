@@ -181,7 +181,7 @@
   .xpill { display: inline-flex; padding: 8px 20px; border-radius: 999px; background: linear-gradient(90deg, var(--g1), var(--g2)); color: #fff; font-weight: 700; font-size: 13px; box-shadow: 0 0 22px rgba(255,107,139,.4); white-space: nowrap; } .xpill.amb { background: linear-gradient(90deg, var(--amb1), var(--amb2)); box-shadow: 0 0 22px rgba(255,179,71,.35); }
   .gx-exit.bad .xpill { background: var(--bad); box-shadow: none; }
   .xip { font-size: 13px; color: var(--ink); } .xsub { font-size: 11px; color: var(--muted); max-width: 150px; line-height: 16px; }
-  .xdash { flex: none; width: 28px; margin-top: 19px; border-top: 2px dashed var(--g1); display: block; height: 0; } .xdash.amb { border-color: var(--amb1); }
+  .xdash { flex: none; width: 46px; height: 0; display: block; }
   .xglobe { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; font-size: 12px; } .xglobe b { color: var(--ink); font-size: 12.5px; } .xglobe small { color: var(--muted); font-size: 11px; }
   .gico { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: var(--card); border: 2px solid var(--g1); color: var(--g1); } .gico svg { width: 23px; height: 23px; } .gico.amb { border-color: var(--amb1); color: var(--amb2); }
   .gx-direct { border-top: 1px solid var(--line); padding-top: 12px; opacity: .6; } .gx-direct.on { opacity: 1; }
@@ -666,7 +666,7 @@ function gxExit(g, act, m) {
 function gxDirect(m, plainSel) {
   const nd = (m.direct || []).length, own = (m.own || []).filter((x) => x.kind === "normal").length;
   return `<div class="gx-direct ${plainSel || own ? "on" : ""}"><div class="gx-cap amber">STRAIGHT TO THE INTERNET · NO VPN <span class="gx-capn">${nd} VLAN${nd === 1 ? "" : "s"}${own ? ` · ${own} device${own === 1 ? "" : "s"} with their own route` : ""}</span></div><div class="gx-drow">
-    <div></div><i class="xdash amb"></i><div class="gx-dpill"><span class="xpill amb">Direct</span><div class="xip mono">${esc(m.wan_ip || "your WAN address")}</div></div><i class="xdash amb"></i><div class="xglobe"><span class="gico amb">${GICO.plain}</span><b>Internet</b><small>normal connection</small></div></div></div>`;
+    <div></div><i class="xdash"></i><div class="gx-dpill"><span class="xpill amb">Direct</span><div class="xip mono">${esc(m.wan_ip || "your WAN address")}</div></div><i class="xdash"></i><div class="xglobe"><span class="gico amb">${GICO.plain}</span><b>Internet</b><small>normal connection</small></div></div></div>`;
 }
 function gxRot(g, can) {
   const r = g.rotation; if (!r) return "";
@@ -699,6 +699,8 @@ function drawGraph() {
   if (ex) ex.style.marginTop = "";
   if (ex && act && pill) ex.style.marginTop = Math.max(0, Math.round(cyOf(act) - pill.getBoundingClientRect().height / 2 - pill.getBoundingClientRect().top)) + "px";
   const dpill = gx.querySelector(".gx-dpill .xpill");
+  const alignGlobe = (pl, gl) => { if (!pl || !gl) return; const xg = gl.closest(".xglobe"); xg.style.marginTop = ""; const d = (pl.getBoundingClientRect().top + pl.getBoundingClientRect().height / 2) - (gl.getBoundingClientRect().top + gl.getBoundingClientRect().height / 2); xg.style.marginTop = Math.round(d) + "px"; };
+  alignGlobe(pill, gx.querySelector(".gx-exit .gico")); alignGlobe(dpill, gx.querySelector(".gx-direct .gico"));
   const rr = root.getBoundingClientRect();
   svg.setAttribute("width", Math.round(rr.width)); svg.setAttribute("height", Math.round(rr.height));
   const R = (el) => { const r = el.getBoundingClientRect(); return { l: r.left - rr.left, r: r.right - rr.left, t: r.top - rr.top, b: r.bottom - rr.top, cy: (r.top + r.bottom) / 2 - rr.top }; };
@@ -716,6 +718,8 @@ function drawGraph() {
     }
   });
   if (act && pill) { const a = R(act), p = R(pill); segs.push({ d: `M ${a.r} ${a.cy} H ${p.l - 3}`, cls: "lk on live", head: "on" }); }
+  const eg = gx.querySelector(".gx-exit .gico"); if (pill && eg) { const p = R(pill), e = R(eg); segs.push({ d: `M ${p.r + 2} ${p.cy} H ${e.l - 4}`, cls: "lk on live", head: "on" }); }
+  const dg = gx.querySelector(".gx-direct .gico"); if (dpill && dg) { const p = R(dpill), e = R(dg); segs.push({ d: `M ${p.r + 2} ${p.cy} H ${e.l - 4}`, cls: "lk amber live", head: "amb" }); }
   if (own && own.bypass) {
     const orow = gx.querySelector(`.ownc .orow[data-mac="${CSS.escape(own.mac)}"]`);
     if (orow) {

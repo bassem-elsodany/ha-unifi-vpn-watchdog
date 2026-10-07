@@ -1,5 +1,5 @@
 name: HA UniFi VPN Watchdog
-version: "0.27.2"
+version: "0.27.3"
 slug: ha_unifi_vpn_watchdog
 description: "Keeps your VLANs on a working VPN: health-checks UniFi WireGuard VPN clients in groups, fails over to the next client in your order, and can keep the routing policies of your VLANs pointed at the active one."
 url: https://github.com/bassem-elsodany/ha-unifi-vpn-watchdog
