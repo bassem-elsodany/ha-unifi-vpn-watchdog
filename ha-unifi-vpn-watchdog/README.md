@@ -1,5 +1,15 @@
 # HA UniFi VPN Watchdog
 
+Keeps your UniFi VLANs and devices on a **working** WireGuard VPN: it health-checks the VPN client in use, switches to the next one in your
+fallback order when it stops carrying traffic, and shows the whole path on a live status map in Home Assistant. For homelabs with a UniFi
+gateway and a WireGuard VPN provider (NordVPN, Mullvad, Proton, your own server, ...). It runs as a Home Assistant add-on or as a plain Docker container.
+
+![HA UniFi VPN Watchdog status map](docs/screenshots/status-dark.png)
+
+**Topics:** home-assistant · home-assistant-addon · unifi · wireguard · vpn · nordvpn · failover · watchdog · homelab · self-hosted
+
+## What it does
+
 A **group** is a set of VLANs and/or devices plus an ordered list of UniFi WireGuard VPN clients. The watchdog health-checks the client in use and,
 when it stops carrying traffic, **switches on the next client from your fallback order and switches the failed one off**. A group can
 also **rotate** to another client on a timer, keep **warm standbys** connected for an instant takeover, and route a **device** (a TV, say)
@@ -71,28 +81,7 @@ A VLAN that does not use a VPN shows its path straight to the internet. Click a 
 
 Safe start: until you set a fallback order the watchdog only watches the tunnel in use and never switches anything.
 
-## Quick start (Docker)
-
-```bash
-cp .env.example .env                          # UNIFI_API_KEY, WATCHDOG_CONTROL_TOKEN
-cp config/config.example.yaml config/config.yaml   # edit networks + ladder
-docker compose -f docker/docker-compose.yml up -d
-open http://<host>:8080                        # UI; enter the control token to edit/start/stop
-```
-
-Multi-arch for a Raspberry Pi: `docker buildx build --platform linux/arm64,linux/amd64 -f docker/Dockerfile -t ha-unifi-vpn-watchdog .`
-
-Local checks, no container needed:
-
-```bash
-pip install -e '.[dev]'
-ha-unifi-vpn-watchdog validate -c config/config.yaml --env-file .env     # config sanity
-ha-unifi-vpn-watchdog discover -c config/config.yaml --env-file .env     # tunnels, routes, resolved ladders
-ha-unifi-vpn-watchdog once     -c config/config.yaml --env-file .env     # run one cycle and print the status
-pytest
-```
-
-## Home Assistant
+## Install as a Home Assistant add-on
 
 The project folder **is** the add-on (`config.yaml`, `Dockerfile`, `DOCS.md`).
 
@@ -110,6 +99,37 @@ The project folder **is** the add-on (`config.yaml`, `Dockerfile`, `DOCS.md`).
 | Notifications | `home_assistant` notifier with `supervisor: true`, plus ntfy / Telegram / webhook |
 | Entities | MQTT discovery: *Active tunnel, Fallback step, Last decision, Healthy, Failover paused (switch), Force tunnel (select)* per group |
 | Logs | add-on *Log* tab |
+
+## Run it without Home Assistant (Docker)
+
+The watchdog is a standalone service; the add-on is just a wrapper around it. You get the failover, rotation, routing, the web UI and the
+notifiers (ntfy, Telegram, webhook, or Home Assistant with a URL and token). You lose the sidebar panel and automatic login (use the control token),
+the add-on store's one-click updates, and the add-on Log tab (use `docker logs`). HA entities still appear through MQTT discovery if both use the same broker.
+Run it on any Docker host that can reach your UniFi gateway, and do not run it next to the add-on against the same VPN clients.
+
+**1. Pre-built image** (amd64 and arm64, so a Raspberry Pi works):
+
+```bash
+cp .env.example .env                               # set UNIFI_API_KEY and WATCHDOG_CONTROL_TOKEN
+cp config/config.example.yaml config/config.yaml   # set your gateway address, then add groups in the UI
+docker compose -f docker/docker-compose.yml up -d  # pulls ghcr.io/bassem-elsodany/ha-unifi-vpn-watchdog:latest
+open http://<host>:8080                            # enter the control token to edit, switch and start/stop
+```
+
+**2. Build it yourself:** `docker build -f docker/Dockerfile -t ha-unifi-vpn-watchdog .` (add `buildx --platform linux/arm64,linux/amd64` for a Pi),
+then point `image:` in `docker/docker-compose.yml` at it.
+
+**3. From source, no container:**
+
+```bash
+pip install -e '.[dev]'
+ha-unifi-vpn-watchdog validate -c config/config.yaml --env-file .env     # config sanity
+ha-unifi-vpn-watchdog discover -c config/config.yaml --env-file .env     # tunnels, routes, resolved ladders
+ha-unifi-vpn-watchdog once     -c config/config.yaml --env-file .env     # run one cycle and print the status
+pytest
+```
+
+`/healthz` answers 200 while the check loop is completing cycles. A 503 that does not clear after a minute usually means the gateway address or API key is wrong (the error is in `docker logs` and in the `error` field of the response).
 
 ## Probe modes (`probe.mode`)
 
@@ -143,6 +163,17 @@ Each alert has an on/off switch, a title and a message with `{placeholders}` (`{
 | `config_error` | a saved configuration was rejected | on |
 
 ## Configuration
+
+Secrets come from the environment (Docker: the `.env` file; add-on: the Configuration tab). Everything else is in `config.yaml`, edited in the
+web UI or by hand. There are **no default accounts or passwords**: the UI is read-only until you set a control token.
+
+| Variable | Needed | Meaning |
+|---|---|---|
+| `UNIFI_API_KEY` | yes | UniFi API key (UniFi > Settings > Integrations). The watchdog only needs the Network application. |
+| `UNIFI_URL` / `unifi.url` | yes if different | Your gateway address. The built-in default is `https://10.0.1.1`, which is only right if that happens to be yours. |
+| `WATCHDOG_CONTROL_TOKEN` | to control it | Bearer token for switching, editing and start/stop. Unset: the server is read-only. Not used inside Home Assistant (ingress). |
+| `WATCHDOG_CONFIG` | no | Path of `config.yaml` (`/config/config.yaml` in the container). |
+| `NTFY_TOKEN`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `HA_TOKEN` | optional | Credentials for the notifier you choose. |
 
 See [config/config.example.yaml](config/config.example.yaml); every key is documented there. Highlights:
 
@@ -202,3 +233,7 @@ docker/             Dockerfile · docker-compose.yml
 config/             config.example.yaml
 config.yaml, Dockerfile, DOCS.md   Home Assistant add-on manifest/build/docs
 ```
+
+## License
+
+[MIT](../LICENSE) © 2026 Bassem Elsodany.

@@ -1,8 +1,9 @@
 # docker compose -f docker/docker-compose.yml up -d
+# To build from source instead:  docker build -f docker/Dockerfile -t ha-unifi-vpn-watchdog .   (then set `image:` to ha-unifi-vpn-watchdog and remove pull_policy)
 services:
   ha-unifi-vpn-watchdog:
-    build: {context: .., dockerfile: docker/Dockerfile}
-    image: ha-unifi-vpn-watchdog:latest
+    image: ghcr.io/bassem-elsodany/ha-unifi-vpn-watchdog:latest
+    pull_policy: always            # compose never re-checks a cached :latest on its own; this makes `up -d` always look
     container_name: ha-unifi-vpn-watchdog
     restart: unless-stopped
     env_file: ../.env              # UNIFI_API_KEY, WATCHDOG_CONTROL_TOKEN, ...

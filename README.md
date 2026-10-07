@@ -1,6 +1,11 @@
 # Homelab Home Assistant add-ons
 
-A collection of Home Assistant add-ons for a homelab. Add this repository once and every add-on in it shows up in the Add-on Store.
+Add-ons for a Home Assistant homelab, built and run at home. Add this repository once and everything in it appears in the Add-on Store.
+The first one keeps your UniFi VLANs and devices on a working WireGuard VPN and fails over between VPN clients automatically.
+
+![HA UniFi VPN Watchdog status map](ha-unifi-vpn-watchdog/docs/screenshots/status-dark.png)
+
+**Topics:** home-assistant · home-assistant-addon · unifi · wireguard · vpn · failover · homelab · self-hosted
 
 ## Install
 1. Home Assistant (OS or Supervised): **Settings → Add-ons → Add-on Store → ⋮ → Repositories**
@@ -15,8 +20,6 @@ A collection of Home Assistant add-ons for a homelab. Add this repository once a
 
 More add-ons will be added as folders next to this one, each with its own README.
 
-![HA UniFi VPN Watchdog status](ha-unifi-vpn-watchdog/docs/screenshots/status-dark.png)
-
 ## Layout
 
 ```
@@ -25,3 +28,7 @@ repository.yaml        what Home Assistant reads when you add this repository
 ```
 
 The HA UniFi VPN Watchdog code also runs as a plain Docker container (see `ha-unifi-vpn-watchdog/docker/`).
+
+## License
+
+[MIT](LICENSE) © 2026 Bassem Elsodany.

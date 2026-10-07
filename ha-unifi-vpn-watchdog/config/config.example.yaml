@@ -6,7 +6,7 @@ state_file: /data/state.json
 log: {level: INFO, format: text}      # format: json for log shippers
 
 unifi:
-  url: https://10.0.1.1
+  url: https://192.168.1.1
   api_key: ${UNIFI_API_KEY}
   site: default
   verify_tls: false
@@ -47,7 +47,7 @@ groups:
 
 notifications: []
   # - {type: home_assistant, supervisor: true, service: notify.mobile_app_myphone}   # inside an HA add-on
-  # - {type: home_assistant, url: http://10.0.10.100:8123, token: ${HA_TOKEN}, service: notify.notify}
+  # - {type: home_assistant, url: http://192.168.1.50:8123, token: ${HA_TOKEN}, service: notify.notify}
   # - {type: ntfy, url: https://ntfy.sh, topic: my-vpn-alerts}
   # - {type: telegram, token: ${TELEGRAM_BOT_TOKEN}, chat_id: ${TELEGRAM_CHAT_ID}}
   # - {type: webhook, url: https://example.invalid/hook, events: [switch, exhausted, leak]}
@@ -55,7 +55,7 @@ notifications: []
 mqtt:                            # Home Assistant entities (sensors, pause switch, force-tunnel select)
   enabled: false
   # supervisor: true             # inside an HA add-on: broker credentials come from the Mosquitto add-on
-  # host: 10.0.10.100
+  # host: 192.168.1.50
   # username: ${MQTT_USER}
   # password: ${MQTT_PASSWORD}
 
