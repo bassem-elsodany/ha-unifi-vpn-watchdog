@@ -153,6 +153,7 @@
   .gx .vico { display: grid; flex: none; place-items: center; width: 42px; height: 42px; margin: 0 5px; border-radius: 50%; background: var(--card); border: 2px solid var(--g1); color: var(--g1); }
   .gx .vico svg { width: 22px; height: 22px; } .gx .vico.nv { border-color: var(--amb1); color: var(--amb2); }
   .gx .vc[data-net^="grp-dev"] .vico { border-color: var(--g2); color: var(--g2); }
+  @keyframes gxfocus { from { opacity: .35; transform: translateY(14px); } to { opacity: 1; transform: none; } } .gx .vc.sel { animation: gxfocus .28s ease-out; }
   .gx .vc.sel .vh { min-height: 62px; } .gx .vc.sel .vico { width: 52px; height: 52px; margin: 0; box-shadow: 0 0 0 4px rgba(255,107,139,.14), 0 0 22px rgba(255,107,139,.5); } .gx .vc.sel .vico svg { width: 25px; height: 25px; }
   .gx .vc.direct.sel .vico { box-shadow: 0 0 0 4px rgba(255,179,71,.14), 0 0 22px rgba(255,179,71,.45); }
   .gx .vcard { display: flex; flex-direction: column; gap: 8px; background: var(--card); border: 1.5px solid var(--g1); border-radius: 16px; padding: 10px 14px; }
@@ -739,7 +740,8 @@ function renderMap(d) {
   if (selected && selected.kind === "dev") cur = all.find((x) => String(x.n.id).startsWith("grp-dev:") && x.n.devices.some((dv) => dv.mac === selected.mac)) || all.find((x) => x.n.devices.some((dv) => dv.mac === selected.mac)) || null;       // a selected device picks its VLAN
   if (!cur) cur = shownAll.find((x) => x.n.id === selNet) || shownAll[0] || null;
   if (cur) { selNet = cur.n.id; try { localStorage.setItem("wd_net", selNet); } catch (e) {} }
-  const left = { html: shownAll.map((x) => netBox(x.n, x.g, cur && x.n.id === cur.n.id)).join("") || (all.length ? '<div class="muted">No VLAN or device matches.</div>' : ""), count: all.length };
+  const listed = graphOn() && cur ? [...shownAll.filter((x) => x.n.id === cur.n.id), ...shownAll.filter((x) => x.n.id !== cur.n.id)] : shownAll;          // graphic map: the picked VLAN moves to the top of the column
+  const left = { html: listed.map((x) => netBox(x.n, x.g, cur && x.n.id === cur.n.id)).join("") || (all.length ? '<div class="muted">No VLAN or device matches.</div>' : ""), count: all.length };
   let html = "";
   if (graphOn() && (cur || (m.own || []).length || (m.own_off || []).length)) html = graphBlock(cur || { g: null }, left, m, can);
   else if (cur && cur.g) html = groupBlock(cur.g, can, left, (m.own || []).some((x) => x.kind === "normal"), m);
