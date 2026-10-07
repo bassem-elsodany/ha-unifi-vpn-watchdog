@@ -141,6 +141,7 @@
   .orow.quiet { opacity: .62; }
   .inet.bad { border-color: var(--bad); background: var(--badbg); }
   .inet.normal { min-height: 80px; margin-top: 24px; padding: 12px 18px; border: 1px dashed var(--idle2); line-height: 20px; } .inet.normal b { font-size: 15px; }
+  .glegend { display: none; }
   .mapfoot { display: flex; justify-content: flex-end; margin-top: 36px; } .mapfoot > div { width: 240px; }
   .legend { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; font-size: 13px; line-height: 24px; color: var(--chipink); }
   .legend b { font-size: 12px; letter-spacing: .06em; color: var(--muted); } .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
@@ -166,6 +167,7 @@
     .gblock > .gstrip .gr + .gr { padding: 12px 0; }
     .gblock > .gstrip .gr .grow { flex: 1 1 100%; font-size: 13px; }
     .gblock > .gstrip .gr .act { flex: 1 1 auto; }
+    .glegend { display: block; position: absolute; right: 0; bottom: 0; width: 25%; box-sizing: border-box; padding: 0 20px 20px; } .glegend .legend { background: var(--card); } .mapfoot { display: none; }
     .gblock > .gcols { grid-template-columns: 296px minmax(0, 1fr) 210px; }
     .gblock .colv { background: var(--lane); border: 1px solid var(--line); border-radius: 16px; padding: 4px 16px 16px; }
     .gblock .colm { margin: 0 56px 0 44px; } .gblock .band { padding: 20px 24px 12px; }
@@ -570,7 +572,10 @@ function renderMap(d) {
   if (cur && cur.g) html = groupBlock(cur.g, can, left, (m.own || []).some((x) => x.kind === "normal"), m);
   else if (cur) html = plainBlock(m, can, left);
   else if ((m.own || []).length || (m.own_off || []).length) html = plainBlock(m, can, left);
-  if (html) html += `<div class="mapfoot"><div>${legendHtml(can && m.groups.some((g) => !g.unmanaged))}</div></div>`;
+  if (html) {
+    const lg = legendHtml(can && m.groups.some((g) => !g.unmanaged));
+    html = html.replace(/<\/section>\s*$/, `<div class="glegend">${lg}</div></section>`) + `<div class="mapfoot"><div>${lg}</div></div>`;          // wide screens show the first copy inside the grey column, narrower ones the second below the map
+  }
   if (!html) html = d.loading || !d.last_tick ? '<div class="loading"><span class="spin big"></span><div>Loading from UniFi...</div></div>'
     : '<div class="card muted">UniFi reported no networks to show.</div>';
   $("#map").innerHTML = '<svg id="links"></svg>' + html;

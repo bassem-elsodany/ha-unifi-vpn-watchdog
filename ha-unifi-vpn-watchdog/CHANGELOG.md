@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.26.5
+
+- Status page on a wide desktop screen: the legend moved into the grey column on the right, at its bottom. Narrower screens still show it below the map.
+
 ## 0.26.4
 
 - Status page on a wide desktop screen (1400 px and up): three grey containers side by side. The VLAN list sits in its own container on the left, the fallback order in the middle, and the group's status (state, active client, stop failover, rotation) in a tall column on the right, a quarter of the page. The Internet boxes stay in the map between them. Narrower screens keep the earlier layout.
