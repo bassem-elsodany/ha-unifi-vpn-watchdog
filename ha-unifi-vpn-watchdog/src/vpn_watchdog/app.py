@@ -176,10 +176,6 @@ class App:
             cfg = parse_config(text, self.env)
         except ConfigError as e:
             return str(e)
-        dup = cfg.duplicate_clients()
-        if dup:
-            n, a, b = dup[0]
-            return f"The VPN client {n!r} is in two groups ({a!r} and {b!r}). A VPN client can belong to one group only."
         return None
 
     def save_text(self, text: str) -> str | None:

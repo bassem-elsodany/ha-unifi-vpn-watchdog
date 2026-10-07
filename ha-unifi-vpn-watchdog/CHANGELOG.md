@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.26.0
+
+- A VPN client can now be in more than one group. A group is only a set of routing policies, so several groups may use the same tunnel. The picker lists every client (tagged "also in <group>") and the watchdog keeps a shared tunnel up while any group uses it.
+
 ## 0.25.3
 
 - Fixed a false "No routing policy … nothing is using it" warning on groups that route only devices (like TV): the check now counts the group's device policy.

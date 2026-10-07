@@ -302,18 +302,9 @@ class Engine:
         return wrote
 
     def _claims(self, snap: Snapshot) -> dict[str, str]:
-        """Which group owns which VPN client. A client belongs to one group: if two groups list it, the first group keeps it."""
-        owners: dict[str, str] = {}
-        for g in self.cfg.groups:
-            for t in resolve_order(g, list(snap.tunnels.values())):
-                if t.id in owners and owners[t.id] != g.name:
-                    key = f"dup:{t.id}:{g.name}"
-                    if key not in self._overlap_warned:
-                        self._overlap_warned.add(key)
-                        log.warning("VPN client %r is in groups %r and %r; it stays with %r", t.name, owners[t.id], g.name, owners[t.id])
-                    continue
-                owners[t.id] = g.name
-        return owners
+        """A VPN client can sit in several groups: a group is only a set of routing policies, and several policies may use one tunnel.
+        Nothing is claimed exclusively. A shared tunnel stays up while any group uses it (see _disconnect_unused)."""
+        return {}
 
     def _pool(self, g: GroupCfg, snap: Snapshot) -> list[Tunnel]:
         """The group's VPN clients in order, minus any that another group already owns."""

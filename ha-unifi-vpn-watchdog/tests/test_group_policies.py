@@ -17,7 +17,7 @@ def test_it_never_writes_a_routing_policy(make_engine):
     assert un.calls and all(c[0] == "enable" for c in un.calls)
 
 
-def test_a_client_that_is_in_two_groups_stays_with_the_first(make_engine):
+def test_a_client_can_be_in_two_groups(make_engine):
     eng, un, *_ = make_engine()
     eng.cfg = eng.cfg.model_copy(update={"groups": [
         GroupCfg(name="a", order=["Home-Primary", "Home-Backup"]),
@@ -25,17 +25,7 @@ def test_a_client_that_is_in_two_groups_stays_with_the_first(make_engine):
     eng.tick()
     snap = un.snapshot()
     assert [t.name for t in eng._pool(eng.cfg.groups[0], snap)] == ["Home-Primary", "Home-Backup"]
-    assert [t.name for t in eng._pool(eng.cfg.groups[1], snap)] == ["Cousin vpn 2"]
-
-
-def test_saving_refuses_a_client_that_is_in_two_groups(tmp_path):
-    from vpn_watchdog.app import App
-    f = tmp_path / "c.yaml"
-    f.write_text("unifi: {api_key: k}\nstate_file: " + str(tmp_path / "s.json") + "\ngroups:\n  - {name: a, order: [X, Y]}\n")
-    a = App(str(f), env={})
-    err = a.validate_text("unifi: {api_key: k}\ngroups:\n  - {name: a, order: [X, Y]}\n  - {name: b, order: [Y, Z]}\n")
-    assert err and "'Y'" in err and "one group only" in err
-    assert a.validate_text("unifi: {api_key: k}\ngroups:\n  - {name: a, order: [X]}\n  - {name: b, order: [Y]}\n") is None
+    assert [t.name for t in eng._pool(eng.cfg.groups[1], snap)] == ["Home-Backup", "Cousin vpn 2"]
 
 
 def test_old_configs_with_vlans_or_a_kill_switch_still_load_and_are_ignored():
