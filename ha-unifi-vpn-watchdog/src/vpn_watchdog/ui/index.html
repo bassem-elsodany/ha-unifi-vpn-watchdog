@@ -137,7 +137,8 @@
   .pc { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line2); border-radius: 999px; padding: 3px 10px; font: 12px 'IBM Plex Mono', ui-monospace, Menlo, monospace; background: var(--card); cursor: pointer; color: var(--ink); }
   .pc.sel { border-color: var(--accent); background: var(--accentbg); }
   .inet { display: flex; align-items: center; gap: 12px; min-height: 104px; padding: 14px 18px; border: 1px solid var(--line2); border-radius: 12px; background: var(--card); font-size: 13px; line-height: 22px; color: var(--muted); }
-  .inet > .dot { flex: none; width: 12px; height: 12px; } .inet b { font-size: 16px; color: var(--ink); } .inet .mono { color: var(--ink); }
+  .inet > .dot { flex: none; width: 12px; height: 12px; } .inet > .ico { flex: none; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; background: var(--okbg, #e3f4ec); color: var(--ok, #0e8a5c); } .inet > .ico svg { width: 26px; height: 26px; } .inet.bad > .ico { background: var(--badbg); color: var(--bad); } .inet.normal > .ico { background: var(--hair, #eef1f5); color: var(--muted); } .inet b { font-size: 16px; color: var(--ink); } .inet .mono { color: var(--ink); }
+  .orow.quiet { opacity: .62; }
   .inet.bad { border-color: var(--bad); background: var(--badbg); }
   .inet.normal { min-height: 80px; margin-top: 24px; padding: 12px 18px; border: 1px dashed var(--idle2); line-height: 20px; } .inet.normal b { font-size: 15px; }
   .mapfoot { display: flex; justify-content: flex-end; margin-top: 36px; } .mapfoot > div { width: 240px; }
@@ -495,6 +496,10 @@ const legendHtml = (can) => `<div class="legend"><b>LEGEND</b><div><i style="bac
   <p class="hint">Click a device to light up its path through the map. Click a VPN client for its details panel.</p>`;
 const ownName = (d) => d.name && d.name !== d.ip ? esc(d.name) : '<span class="muted">unnamed</span>';
 const ownDest = (d) => d.kind === "vpn" ? `<b class="tv">\u2192 ${esc(d.tunnel)}</b>` : '<b class="tn">\u2192 normal connection</b>';
+const NETICO = {      // the Internet nodes: a globe, with a shield when it goes through the VPN, crossed out when no VPN client is on
+  vpn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="M3 11h16M11 3c2.6 2.4 3.6 5.2 3.6 8M11 3C8.4 5.4 7.4 8.2 7.4 11s1 5.6 3.6 8"/><path d="M18 13.2l3.4 1.3v2.9c0 2.2-1.5 3.7-3.4 4.4-1.9-.7-3.4-2.2-3.4-4.4v-2.9z" fill="var(--card)"/><path d="M16.4 17.3l1.2 1.2 2.2-2.4"/></svg>',
+  off: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 3.6 5.2 3.6 8.5M12 3.5C9.4 5.9 8.4 8.7 8.4 12"/><path d="M4 4l16 16"/></svg>',
+  plain: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="0" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 3.6 5.2 3.6 8.5s-1 6.1-3.6 8.5c-2.6-2.4-3.6-5.2-3.6-8.5s1-6.1 3.6-8.5z"/></svg>' };
 function ownCard(m) {
   const off = m.own_off || [];
   if (!(m.own || []).length && !off.length) return "";
@@ -507,7 +512,7 @@ function ownCard(m) {
       <div class="o2">${esc(d.network || "")}${d.network ? " · " : ""}wanted <b>\u2192 ${d.kind === "vpn" ? esc(d.tunnel) : "normal connection"}</b></div>
       <div class="o3"><span class="tagw">overridden</span> policy #${d.position} is below <b>#${d.applied.position} ${esc(d.applied.policy)}</b>, which applies, so it goes through ${d.applied.kind === "vpn" ? esc(d.applied.tunnel) : "the normal connection"}</div></div>`).join("") : ""}</div>`;
 }
-const normalNode = (m) => `<div class="inet normal" data-role="inet"><span class="dot idle"></span><div><b>Internet</b> · normal connection<div>exit <span class="mono">${esc(m.wan_ip || "your WAN address")}</span></div></div></div>`;
+const normalNode = (m) => `<div class="inet normal" data-role="inet"><span class="ico">${NETICO.plain}</span><div><b>Internet</b> · normal connection<div>exit <span class="mono">${esc(m.wan_ip || "your WAN address")}</span></div></div></div>`;
 function blockerLines(g, can, tag) {      // your own policies that stop this group's VLANs from using the watchdog's policy, each with a button that asks first
   const r = g.routing || {}, dis = can ? "" : "disabled";
   return (r.blockers || []).map((b) => `<${tag} class="blk" style="color:var(--warn)">⚠ Your routing policy <b>${esc(b.description)}</b> (#${b.position} in UniFi's list) sends ${esc(b.vlans.join(", "))} through ${esc(b.goes_to)} before the watchdog's own policy. <button class="act" data-gblk="blocker-off" data-g="${esc(g.name)}" data-r="${esc(b.id)}" ${dis}>Switch it off…</button></${tag}>`).join("")
@@ -535,8 +540,8 @@ function groupBlock(g, can, left, showNormal, m) {
   const note = act ? `Active: <b class="mono" style="color:var(--ink);font-weight:500">${esc(act.name)}</b>${act.position ? " · #" + act.position : g.unmanaged ? "" : " · not in the order"}${probe}${warm}${g.decision && g.decision !== "healthy" ? " · " + esc(g.decision) : ""}` : esc(g.decision || "no VPN client is switched on");
   const conflict = (g.conflict ? `<br><span style="color:var(--warn)">⚠ ${esc(g.conflict)}.</span>` : "") + (g.gaps || []).map((x) => `<br><span style="color:var(--warn)">⚠ ${esc(x)}.</span>`).join("") + blockerLines(g, can, "div");
   const exline = ex.ip ? `exit <span class="mono">${esc(ex.ip)}</span>${ex.age != null ? `<br>exit-IP test OK ${ex.age}s ago` : ""}` : ex.server ? `VPN server <span class="mono">${esc(ex.server)}</span>` : "";
-  const inet = act ? `<div class="inet" data-role="inet"><span class="dot ok"></span><div><b>Internet</b><div>${exline}</div></div></div>`
-    : `<div class="inet bad" data-role="inet"><span class="dot bad"></span><div><b>Internet</b><div>no VPN client is switched on</div></div></div>`;
+  const inet = act ? `<div class="inet" data-role="inet"><span class="ico">${NETICO.vpn}</span><div><b>Internet</b><div>${exline}</div></div></div>`
+    : `<div class="inet bad" data-role="inet"><span class="ico">${NETICO.off}</span><div><b>Internet</b><div>no VPN client is switched on</div></div></div>`;
   const r = g.rotation;
   const rotRow = !r ? "" : `<div class="gr"><span class="pill rot">ROTATION</span>
       <span class="muted grow">${!r.enabled ? "Off. Turn it on in Settings > VPN groups." : r.paused ? `${esc(r.summary)} · stopped` : `${esc(r.summary)} · next in <b>${r.next_in == null ? "..." : esc(fmtIn(r.next_in))}</b>${r.next_to ? ` → ${esc(r.next_to)}` : ""}`}${r.last_ts ? ` · last rotated ${esc(fmtWhen(r.last_ts))}` : ""}</span>
@@ -620,7 +625,10 @@ function drawLinks() {
     const next = () => { const x = slot; slot = Math.min(slot + 8, lim); return x; };
     if (own) {                                // devices with their own route: one line each, from the card to where the device goes
       const o = R(own), by = {}; slot = o.r + 46; lim = o.r + 74; let amberX = null;
+      const hotMacs = new Set(selected && selected.kind === "dev" ? [selected.mac] : allNets(mapData()).filter((x) => x.n.id === selNet).flatMap((x) => x.n.devices.map((d) => d.mac)));
       [...own.querySelectorAll(".orow:not(.off)")].forEach((row) => {
+        row.classList.toggle("quiet", !hotMacs.has(row.dataset.mac));          // a line is drawn only for the device (or VLAN) you picked
+        if (!hotMacs.has(row.dataset.mac)) return;
         const a = R(row);
         if (row.dataset.kind === "vpn") {
           const lc = blk.querySelector(`.lane .lc[data-tun="${CSS.escape(row.dataset.tun)}"]`);

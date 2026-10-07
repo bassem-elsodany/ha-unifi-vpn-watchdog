@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.26.3
+
+- Status page: the Internet boxes got icons (a globe with a shield for "through the VPN", a plain globe for the normal connection, a crossed-out globe when no VPN client is on).
+- Status page: the lines for "devices with their own route" are drawn only for the device or VLAN you picked, not all the time. The other rows stay listed, dimmed.
+
 ## 0.26.2
 
 - Status page on a wide desktop screen (1280 px and up): the group's header card (state, active client, stop failover, rotation) now sits in a narrow column on the right, a quarter of the page, so the VLAN map has the room. Narrower screens keep the old layout.
