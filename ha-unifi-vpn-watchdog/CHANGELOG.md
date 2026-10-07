@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.27.9
+
+- The repository moved to `homelab-ha-addons` (a home for several add-ons). The add-on is unchanged; its links now point at the new location. The old GitHub address redirects, so an install that was added with it keeps working.
+
 ## 0.27.8
 
 - Graphic status map: clicking a device with its own route now shows only the exit that device really uses. A device that goes straight to the internet shows just its path to Direct (no VPN exit); a device that goes through another VPN client shows only the path to that client, with the group's own exit dimmed.
