@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.27.1
+
+- Status page: removed the list of VPN clients that are not in the group's fallback order ("+ 15 more tunnels are not in the order" and the "Every tunnel is in the fallback order" note). They are managed in Settings, not here.
+
 ## 0.27.0
 
 - New graphic status map on wide screens (1500 px and up), in dark and light: round VLAN icons on the left (click one and its devices open under it), the fallback order as a rack of units inside dotted rings with LEDs, glowing dashed lines to an Exit IP pill and the Internet, an amber lane for traffic that goes straight to the internet, and the group's status, buttons, rotation and legend in a grey column on the right. Narrower screens keep the classic map; the phone app is unchanged.

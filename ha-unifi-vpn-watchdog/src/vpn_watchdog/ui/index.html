@@ -545,9 +545,7 @@ function laneHtml(g, can, behind) {
   });
   const more = long ? `<div class="lmore" data-lane-toggle="${esc(g.name)}" role="button" tabindex="0">${open ? "<b>Show fewer</b>" : `+ ${g.lane.length - shown.length} more in the fallback order · <b>Show all</b>`}</div>` : "";
   const empty = g.unmanaged || g.lane.some((t) => t.position != null) ? "" : '<div class="muted" style="padding:10px 4px">No fallback order yet. Press "Set the fallback order" above to build it in Settings.</div>';
-  const pool = g.pool.length ? `<details class="pool" data-g="${esc(g.name)}" ${poolOpen.has(g.name) ? "open" : ""}><summary>+ ${g.pool.length} more tunnel${g.pool.length === 1 ? " is" : "s are"} ${g.unmanaged ? "have a policy for these networks" : "not in the fallback order"}</summary>
-      <div class="pchips">${g.pool.map((p) => `<span class="pc ${selected && selected.name === p.id ? "sel" : ""}" data-g="${esc(g.name)}" data-tun="${esc(p.id)}" ><span class="dot ${tcolor(p)}"></span>${esc(p.name)}</span>`).join("")}</div></details>`
-    : g.unmanaged ? "" : `<div class="pool" data-g="${esc(g.name)}"><span class="muted" style="font-size:13px">Every tunnel is in the fallback order.</span></div>`;
+  const pool = "";      // tunnels outside the fallback order are not the Status page's business
   return `<div class="colm"><div class="band"><div class="bhead">${g.unmanaged ? '<b>VPN CLIENT IN USE</b><div class="muted">UniFi sends these networks through the first routing policy that is switched on.</div>'
       : `<b>GROUP ${esc(g.name.toUpperCase())} \u00b7 FALLBACK ORDER</b><div class="muted">#1 carries the traffic. If it fails, #2 takes over, then #3.</div>`}</div>
     <div class="lane" data-g="${esc(g.name)}">${parts.join("") + empty}</div>${more}${pool}</div></div>`;
@@ -646,8 +644,7 @@ function gxHub(g, can) {
   const long = !g.unmanaged && g.lane.length > 5, open = laneOpen.has(g.name);
   const shown = long && !open ? g.lane.filter((t) => t.active || t.standby || (t.position != null && t.position <= 3)) : g.lane;
   const more = long ? `<div class="gx-more" data-lane-toggle="${esc(g.name)}" role="button" tabindex="0">${open ? "<b>Show fewer</b>" : `fallback order · +${g.lane.length - shown.length} more · <b>Show all</b>`}</div>` : `<div class="gx-more muted">fallback order</div>`;
-  const pool = g.pool.length ? `<details class="pool gx-pool" data-g="${esc(g.name)}" ${poolOpen.has(g.name) ? "open" : ""}><summary>+ ${g.pool.length} more tunnel${g.pool.length === 1 ? " is" : "s are"} ${g.unmanaged ? "have a policy for these networks" : "not in the order"}</summary>
-      <div class="pchips">${g.pool.map((p) => `<span class="pc ${selected && selected.name === p.id ? "sel" : ""}" data-g="${esc(g.name)}" data-tun="${esc(p.id)}"><span class="dot ${tcolor(p)}"></span>${esc(p.name)}</span>`).join("")}</div></details>` : "";
+  const pool = "";
   const empty = g.unmanaged || g.lane.some((t) => t.position != null) ? "" : '<div class="muted" style="padding:10px 4px;text-align:center">No fallback order yet.</div>';
   return `<div class="gx-hubcol"><div class="gx-cap">${g.unmanaged ? "VPN CLIENT IN USE" : "GROUP " + esc(g.name.toUpperCase()) + " · FALLBACK ORDER"}</div>
     <div class="gx-hub"><i class="orb" style="left:50%;top:0"></i><i class="orb" style="left:0;top:50%"></i><i class="orb" style="left:100%;top:50%"></i><i class="orb" style="left:18%;top:90%"></i><i class="orb" style="left:82%;top:90%"></i>
