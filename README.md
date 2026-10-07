@@ -1,5 +1,7 @@
 # Homelab Home Assistant add-ons
 
+[![CI](https://github.com/bassem-elsodany/homelab-ha-addons/actions/workflows/ci.yml/badge.svg)](https://github.com/bassem-elsodany/homelab-ha-addons/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Add-ons for a Home Assistant homelab, built and run at home. Add this repository once and everything in it appears in the Add-on Store.
 The first one keeps your UniFi VLANs and devices on a working WireGuard VPN and fails over between VPN clients automatically.
 

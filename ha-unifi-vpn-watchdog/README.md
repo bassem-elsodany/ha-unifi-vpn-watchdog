@@ -1,5 +1,7 @@
 # HA UniFi VPN Watchdog
 
+[![CI](https://github.com/bassem-elsodany/homelab-ha-addons/actions/workflows/ci.yml/badge.svg)](https://github.com/bassem-elsodany/homelab-ha-addons/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../LICENSE)
+
 Keeps your UniFi VLANs and devices on a **working** WireGuard VPN: it health-checks the VPN client in use, switches to the next one in your
 fallback order when it stops carrying traffic, and shows the whole path on a live status map in Home Assistant. For homelabs with a UniFi
 gateway and a WireGuard VPN provider (NordVPN, Mullvad, Proton, your own server, ...). It runs as a Home Assistant add-on or as a plain Docker container.
