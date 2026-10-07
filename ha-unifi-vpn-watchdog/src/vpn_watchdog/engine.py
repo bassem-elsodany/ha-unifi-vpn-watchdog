@@ -247,7 +247,7 @@ class Engine:
                     if a.kind == "create":
                         self.unifi.create_own_route(routing.new_route_body(a))
                     elif a.kind == "update":
-                        self.unifi.update_own_route(a.route_id, a.tunnel_id, True, routing.device_target(a.macs) if a.macs else None)
+                        self.unifi.update_own_route(a.route_id, a.tunnel_id, True, routing.device_target(a.macs) if a.macs else None, a.description)
                     else:
                         self.unifi.delete_own_route(a.route_id)
                 except UniFiError as e:

@@ -1,6 +1,7 @@
 """A group can route devices (by MAC) as well as VLANs: one policy of its own for all its devices, always above the watchdog's VLAN policies."""
 from __future__ import annotations
 
+from vpn_watchdog.routing import key
 import pytest
 
 from conftest import run, tid
@@ -39,7 +40,7 @@ def test_one_device_policy_for_all_the_devices_of_the_group_on_the_active_client
     setup(eng, un, devices=(TV, CAM), vlans=False)
     run(eng, clock, 3)
     pol = own(un)
-    assert [r.description for r in pol] == ["vpnwd: g1 › devices"]
+    assert [key(r.description) for r in pol] == ["vpnwd: g1 › devices"]
     assert pol[0].target_macs == {TV, CAM} and pol[0].network_id == tid("Home-Primary") and pol[0].enabled
 
 
@@ -59,15 +60,15 @@ def test_a_device_policy_created_after_the_vlan_policies_gets_them_moved_below_i
     eng, un, _, _, clock = make_engine()
     setup(eng, un, devices=(), routing=True)                                   # VLAN policies only
     run(eng, clock, 3)
-    first = {r.description: r.id for r in own(un)}
+    first = {key(r.description): r.id for r in own(un)}
     assert set(first) == {"vpnwd: g1 › vlan20-iot", "vpnwd: g1 › vlan50-vpn"}
     setup(eng, un, devices=(TV,))                                              # now the TV: its policy lands at the end of UniFi's list
     n = len(un.calls)
     run(eng, clock, 4)
-    descs = [r.description for r in own(un)]
+    descs = [key(r.description) for r in own(un)]
     assert descs[0] == "vpnwd: g1 › devices"                                  # the device policy now comes first
     assert sorted(descs[1:]) == ["vpnwd: g1 › vlan20-iot", "vpnwd: g1 › vlan50-vpn"] and len(descs) == 3     # every VLAN still has exactly one policy
-    assert all(r.id not in first.values() for r in own(un) if r.description != "vpnwd: g1 › devices")        # they are new copies
+    assert all(r.id not in first.values() for r in own(un) if key(r.description) != "vpnwd: g1 › devices")        # they are new copies
     calls = [c for c in un.calls[n:] if c[0].startswith("route-")]
     for d in ("vlan20-iot", "vlan50-vpn"):                                   # for each VLAN the new copy was created before the old one was deleted
         c = next(i for i, x in enumerate(calls) if x[0] == "route-create" and d in x[1])
@@ -85,7 +86,7 @@ def test_a_device_belongs_to_one_group_the_first_one_routes_it(make_engine):
     g2 = GroupCfg(name="g2", order=[{"tunnel": "zzz-last-resort"}], devices=[DevRef(mac=TV)], manage_routing=True)
     eng.cfg = eng.cfg.model_copy(update={"groups": [g1, g2]})
     run(eng, clock, 3)
-    assert [r.description for r in own(un) if r.target_macs] == ["vpnwd: g1 › devices"]
+    assert [key(r.description) for r in own(un) if r.target_macs] == ["vpnwd: g1 › devices"]
     status = {g["name"]: g for g in eng.status()["map"]["groups"] if not g.get("unmanaged")}
     assert any("already in group g1" in x for x in status["g2"]["gaps"])
 

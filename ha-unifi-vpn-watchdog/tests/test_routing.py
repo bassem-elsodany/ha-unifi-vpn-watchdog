@@ -1,6 +1,7 @@
 """Routing management: off by default; when a group switches it on, the watchdog keeps ITS OWN policy per picked VLAN on the active client."""
 from __future__ import annotations
 
+from vpn_watchdog.routing import key
 from conftest import run, tid
 
 
@@ -27,7 +28,8 @@ def test_switched_on_it_creates_one_own_policy_per_picked_vlan_and_leaves_the_ot
     managed(eng)
     run(eng, clock, 2)
     created = [c for c in writes(un) if c[0] == "route-create"]
-    assert sorted(c[1] for c in created) == ["vpnwd: g1 › vlan20-iot", "vpnwd: g1 › vlan50-vpn"]
+    assert sorted(key(c[1]) for c in created) == ["vpnwd: g1 › vlan20-iot", "vpnwd: g1 › vlan50-vpn"]
+    assert all("VPN Watchdog add-on" in c[1] for c in created)             # a person looking at UniFi can tell who made it
     assert all(c[2] == tid("Home-Primary") for c in created)
     assert all(before[r.id] == (r.description, r.network_id, r.enabled) for r in un.routes if r.id in before)      # nobody else's policy changed
     n = len(writes(un))
@@ -53,7 +55,7 @@ def test_a_vlan_that_is_no_longer_picked_loses_its_own_policy(make_engine):
     g = eng.cfg.groups[0]
     eng.cfg = eng.cfg.model_copy(update={"groups": [g.model_copy(update={"networks": [n for n in g.networks if n.name != "vlan50-vpn"]})]})
     run(eng, clock, 2)
-    assert [r.description for r in un.routes if r.description.startswith("vpnwd:")] == ["vpnwd: g1 › vlan20-iot"]
+    assert [key(r.description) for r in un.routes if r.description.startswith("vpnwd:")] == ["vpnwd: g1 › vlan20-iot"]
 
 
 def test_a_failed_write_is_reported_and_retried_later_not_every_cycle(make_engine):
@@ -143,7 +145,7 @@ def test_a_deleted_groups_own_policies_are_removed_but_not_when_no_group_is_conf
     eng, un, _, _, clock = make_engine()
     managed(eng)
     run(eng, clock, 2)
-    own = lambda: sorted(r.description for r in un.routes if r.description.startswith("vpnwd:"))
+    own = lambda: sorted(key(r.description) for r in un.routes if r.description.startswith("vpnwd:"))
     assert own() == ["vpnwd: g1 › vlan20-iot", "vpnwd: g1 › vlan50-vpn"]
     g1 = eng.cfg.groups[0]
     eng.cfg = eng.cfg.model_copy(update={"groups": []})                    # a config that lost all its groups must not wipe the policies
@@ -156,3 +158,15 @@ def test_a_deleted_groups_own_policies_are_removed_but_not_when_no_group_is_conf
     run(eng, clock, 4)
     assert own() == []
     assert all(c[0] != "route-enabled" for c in un.calls)                  # nobody else's policy was touched
+
+
+def test_a_policy_with_the_old_short_name_is_renamed_in_place(make_engine):
+    import dataclasses
+    eng, un, _, _, clock = make_engine()
+    managed(eng)
+    run(eng, clock, 2)
+    ids = {r.id for r in un.routes if r.description.startswith("vpnwd:")}
+    un.routes = [dataclasses.replace(r, description=key(r.description)) if r.id in ids else r for r in un.routes]
+    run(eng, clock, 2)
+    own = [r for r in un.routes if r.description.startswith("vpnwd:")]
+    assert {r.id for r in own} == ids and all("VPN Watchdog add-on" in r.description for r in own)

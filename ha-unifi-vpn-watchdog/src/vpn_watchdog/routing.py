@@ -29,12 +29,20 @@ class Action:
     macs: tuple[str, ...] = field(default_factory=tuple)      # the devices of a device policy
 
 
+NOTE = " — made by the VPN Watchdog add-on (group {group}); it moves this policy to the group's working VPN client. Do not edit."
+
+
 def description(group: str, vlan: str) -> str:
-    return f"{PREFIX} {group} › {vlan}"
+    return f"{PREFIX} {group} › {vlan}" + NOTE.format(group=group)
 
 
 def device_description(group: str) -> str:
-    return f"{PREFIX} {group} › devices"
+    return description(group, "devices")
+
+
+def key(text: str) -> str:
+    """The part of a policy's name that identifies it (the explanation after the dash is for people)."""
+    return text.split(" — ", 1)[0]
 
 
 def owned(r: Route) -> bool:
@@ -66,18 +74,18 @@ def plan(group: str, vlans: list[str], devices: list[str], tunnel: Tunnel | None
             out.append(Action("create", None, n, tunnel.id, desc, f"create the policy \"{desc}\": {name} goes through {tunnel.name}"))
             continue
         seen.add(r.id)
-        if r.network_id != tunnel.id or not r.enabled:
+        if r.network_id != tunnel.id or not r.enabled or r.description != desc:
             out.append(Action("update", r.id, n, tunnel.id, desc, f"move the policy \"{r.description}\" to {tunnel.name}" + ("" if r.enabled else " and switch it on")))
     for r in mine:
         if r.id not in seen and not any(a.route_id == r.id for a in out):
             out.append(Action("delete", r.id, None, None, r.description, f"delete the policy \"{r.description}\" (it is replaced by a newer copy, or its VLAN is no longer picked)"))
     # the devices of the group: one policy for all of them
     ddesc = device_description(group)
-    dev = next((r for r in snap.routes if owned_dev(r) and r.description == ddesc), None)
+    dev = next((r for r in snap.routes if owned_dev(r) and key(r.description) == key(ddesc)), None)
     macs = tuple(sorted(devices))
     if macs and dev is None:
         out.append(Action("create", None, None, tunnel.id, ddesc, f"create the policy \"{ddesc}\": {len(macs)} device{'s' if len(macs) != 1 else ''} go through {tunnel.name}", macs))
-    elif macs and (dev.network_id != tunnel.id or not dev.enabled or set(dev.target_macs) != set(macs)):
+    elif macs and (dev.network_id != tunnel.id or not dev.enabled or set(dev.target_macs) != set(macs) or dev.description != ddesc):
         out.append(Action("update", dev.id, None, tunnel.id, ddesc, f"move the policy \"{ddesc}\" to {tunnel.name}" + ("" if set(dev.target_macs) == set(macs) else " and update its devices"), macs))
     elif not macs and dev is not None:
         out.append(Action("delete", dev.id, None, None, ddesc, f"delete the policy \"{ddesc}\" (the group has no devices any more)"))
@@ -174,4 +182,4 @@ def has_twin_below(snap: Snapshot, r: Route) -> bool:
     """Is there already a copy of this policy below the last device policy (a clone whose old copy was not deleted yet)?"""
     at = [i for i, x in enumerate(snap.routes) if owned_dev(x)]
     last = max(at) if at else -1
-    return any(x.id != r.id and x.description == r.description and i > last for i, x in enumerate(snap.routes))
+    return any(x.id != r.id and key(x.description) == key(r.description) and i > last for i, x in enumerate(snap.routes))

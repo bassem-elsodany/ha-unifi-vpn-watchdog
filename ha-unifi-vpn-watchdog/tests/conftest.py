@@ -82,13 +82,13 @@ class FakeUniFi:
         self._seq = getattr(self, "_seq", 0) + 1
         self.routes.append(Route(f"own-{self._seq}", body["description"], body["network_id"], body.get("enabled", True), False, nets, macs, dict(body)))
 
-    def update_own_route(self, route_id, network_id, enabled=True, target_devices=None):
+    def update_own_route(self, route_id, network_id, enabled=True, target_devices=None, description=None):
         import dataclasses
         i = next(k for k, r in enumerate(self.routes) if r.id == route_id)
         assert self.routes[i].description.startswith("vpnwd:")
         self.calls.append(("route-update", route_id, network_id))
         macs = self.routes[i].target_macs if target_devices is None else frozenset(t["client_mac"] for t in target_devices)
-        self.routes[i] = dataclasses.replace(self.routes[i], network_id=network_id, enabled=enabled, target_macs=macs)
+        self.routes[i] = dataclasses.replace(self.routes[i], network_id=network_id, enabled=enabled, target_macs=macs, **({"description": description} if description else {}))
 
     def set_route_enabled(self, route_id, enabled):
         import dataclasses

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.26.1
+
+- The watchdog's policies in UniFi now explain themselves: "vpnwd: IOT › vlan20-iot — made by the VPN Watchdog add-on (group IOT); it moves this policy to the group's working VPN client. Do not edit." Existing policies are renamed in place (same policy, same position), nothing is recreated.
+
 ## 0.26.0
 
 - A VPN client can now be in more than one group. A group is only a set of routing policies, so several groups may use the same tunnel. The picker lists every client (tagged "also in <group>") and the watchdog keeps a shared tunnel up while any group uses it.

@@ -194,8 +194,10 @@ class UniFiClient:
         self._request("POST", self._v2("trafficroutes"), json=body)
         log.info("routing policy created: %s", body["description"])
 
-    def update_own_route(self, route_id: str, network_id: str, enabled: bool = True, target_devices: list | None = None) -> None:
+    def update_own_route(self, route_id: str, network_id: str, enabled: bool = True, target_devices: list | None = None, description: str | None = None) -> None:
         raw = self._own_route_raw(route_id)
+        if description and description.startswith(PREFIX):
+            raw["description"] = description
         raw["network_id"], raw["enabled"] = network_id, enabled
         if target_devices is not None:
             raw["target_devices"] = target_devices
