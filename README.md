@@ -5,8 +5,6 @@
 Add-ons for a Home Assistant homelab, built and run at home. Add this repository once and everything in it appears in the Add-on Store.
 One keeps your UniFi VLANs and devices on a working WireGuard VPN and fails over between VPN clients automatically; another puts a Technitium DNS Server dashboard in your sidebar.
 
-![UniFi VPN Watchdog status map](unifi-vpn-watchdog/docs/screenshots/status-dark.png)
-
 **Topics:** home-assistant · home-assistant-addon · unifi · wireguard · vpn · failover · technitium · dns · homelab · self-hosted
 
 ## Install
