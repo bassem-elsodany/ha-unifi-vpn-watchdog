@@ -1,4 +1,4 @@
-# HA UniFi VPN Watchdog
+# UniFi VPN Watchdog
 
 [![CI](https://github.com/bassem-elsodany/homelab-ha-addons/actions/workflows/ci.yml/badge.svg)](https://github.com/bassem-elsodany/homelab-ha-addons/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../LICENSE)
 
@@ -6,7 +6,7 @@ Keeps your UniFi VLANs and devices on a **working** WireGuard VPN: it health-che
 fallback order when it stops carrying traffic, and shows the whole path on a live status map in Home Assistant. For homelabs with a UniFi
 gateway and a WireGuard VPN provider (NordVPN, Mullvad, Proton, your own server, ...). It runs as a Home Assistant add-on or as a plain Docker container.
 
-![HA UniFi VPN Watchdog status map](docs/screenshots/status-dark.png)
+![UniFi VPN Watchdog status map](docs/screenshots/status-dark.png)
 
 **Topics:** home-assistant · home-assistant-addon · unifi · wireguard · vpn · nordvpn · failover · watchdog · homelab · self-hosted
 
@@ -50,7 +50,7 @@ A VLAN that does not use a VPN shows its path straight to the internet. Click a 
 | ![Phone status](docs/screenshots/phone-status.png) | ![Phone group](docs/screenshots/phone-group.png) |
 
 ```
-            ┌────────────────────── ha-unifi-vpn-watchdog ──────────────────────┐
+            ┌────────────────────── unifi-vpn-watchdog ──────────────────────┐
  UniFi API  │  snapshot ─► health ─► decision ─► enable + test next ─► alert      │
  (read)  ──►│  clients     status     down?      wait CONNECTED       HA/ntfy    │──► UniFi API: switch a VPN client on / off
             │  policies    blackhole  order      (old one off later)  MQTT       │
@@ -88,7 +88,7 @@ Safe start: until you set a fallback order the watchdog only watches the tunnel 
 The project folder **is** the add-on (`config.yaml`, `Dockerfile`, `DOCS.md`).
 
 1. Copy the folder to `/addons/ha_unifi_vpn_watchdog` on the HA host (Samba or SSH add-on), then *Settings → Add-ons → Add-on
-   Store → ⋮ → Check for updates* and install **HA UniFi VPN Watchdog** from *Local add-ons*. (Requires HA OS or Supervised;
+   Store → ⋮ → Check for updates* and install **UniFi VPN Watchdog** from *Local add-ons*. (Requires HA OS or Supervised;
    on a Container install run the Docker image next to HA and use the MQTT + REST pieces below.)
 2. **Configuration** tab: `unifi_api_key`, optionally `notify_service` (e.g. `notify.mobile_app_myphone`).
 3. Start. A `config.yaml` is created in the add-on config folder. Open **VPN Watchdog** in the sidebar and add a group under **Settings > VPN groups**.
@@ -114,20 +114,20 @@ Run it on any Docker host that can reach your UniFi gateway, and do not run it n
 ```bash
 cp .env.example .env                               # set UNIFI_API_KEY and WATCHDOG_CONTROL_TOKEN
 cp config/config.example.yaml config/config.yaml   # set your gateway address, then add groups in the UI
-docker compose -f docker/docker-compose.yml up -d  # pulls ghcr.io/bassem-elsodany/ha-unifi-vpn-watchdog:latest
+docker compose -f docker/docker-compose.yml up -d  # pulls ghcr.io/bassem-elsodany/unifi-vpn-watchdog:latest
 open http://<host>:8080                            # enter the control token to edit, switch and start/stop
 ```
 
-**2. Build it yourself:** `docker build -f docker/Dockerfile -t ha-unifi-vpn-watchdog .` (add `buildx --platform linux/arm64,linux/amd64` for a Pi),
+**2. Build it yourself:** `docker build -f docker/Dockerfile -t unifi-vpn-watchdog .` (add `buildx --platform linux/arm64,linux/amd64` for a Pi),
 then point `image:` in `docker/docker-compose.yml` at it.
 
 **3. From source, no container:**
 
 ```bash
 pip install -e '.[dev]'
-ha-unifi-vpn-watchdog validate -c config/config.yaml --env-file .env     # config sanity
-ha-unifi-vpn-watchdog discover -c config/config.yaml --env-file .env     # tunnels, routes, resolved ladders
-ha-unifi-vpn-watchdog once     -c config/config.yaml --env-file .env     # run one cycle and print the status
+unifi-vpn-watchdog validate -c config/config.yaml --env-file .env     # config sanity
+unifi-vpn-watchdog discover -c config/config.yaml --env-file .env     # tunnels, routes, resolved ladders
+unifi-vpn-watchdog once     -c config/config.yaml --env-file .env     # run one cycle and print the status
 pytest
 ```
 

@@ -1,4 +1,4 @@
-# ha-unifi-vpn-watchdog configuration. Copy to config.yaml. ${VAR} and ${VAR:-default} are read from the environment.
+# unifi-vpn-watchdog configuration. Copy to config.yaml. ${VAR} and ${VAR:-default} are read from the environment.
 # The file is hot-reloaded: save it and the watchdog applies it within one cycle (invalid files are rejected).
 
 interval_seconds: 15

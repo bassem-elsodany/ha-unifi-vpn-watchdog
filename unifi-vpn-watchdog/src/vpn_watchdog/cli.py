@@ -21,7 +21,7 @@ def _env(args) -> dict[str, str]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(prog="ha-unifi-vpn-watchdog", description=__doc__)
+    ap = argparse.ArgumentParser(prog="unifi-vpn-watchdog", description=__doc__)
     ap.add_argument("command", choices=["run", "once", "discover", "validate", "check"])
     ap.add_argument("--config", "-c", default=os.environ.get("WATCHDOG_CONFIG", "/config/config.yaml"))
     ap.add_argument("--env-file", help="KEY=VALUE file for local runs (Docker passes the environment itself)")

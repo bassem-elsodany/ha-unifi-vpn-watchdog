@@ -21,15 +21,18 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/ha-unifi-vpn-watchdog
+          # The old image name is published too for one release, so setups that pull it keep working.
+          images: |
+            ghcr.io/${{ github.repository_owner }}/unifi-vpn-watchdog
+            ghcr.io/${{ github.repository_owner }}/ha-unifi-vpn-watchdog
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest
       - uses: docker/build-push-action@v6
         with:
-          context: ha-unifi-vpn-watchdog
-          file: ha-unifi-vpn-watchdog/docker/Dockerfile
+          context: unifi-vpn-watchdog
+          file: unifi-vpn-watchdog/docker/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}

@@ -111,7 +111,7 @@ class MqttPublisher:
             self.client.publish(topic, value, retain=True)
 
     def _announce(self, gname: str, gid: str, ladder: list[str]) -> None:
-        dev = {"identifiers": [f"vpn_watchdog_{gid}"], "name": f"VPN {gname}", "manufacturer": "ha-unifi-vpn-watchdog"}
+        dev = {"identifiers": [f"vpn_watchdog_{gid}"], "name": f"VPN {gname}", "manufacturer": "unifi-vpn-watchdog"}
         base = f"{self.cfg.base_topic}/{gid}"
         pfx = self.cfg.discovery_prefix
 

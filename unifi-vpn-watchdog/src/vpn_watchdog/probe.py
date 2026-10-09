@@ -46,7 +46,7 @@ class Prober:
         self.cfg = cfg
         if transport is None and cfg.source_address:
             transport = httpx.HTTPTransport(local_address=cfg.source_address)
-        self._http = httpx.Client(timeout=cfg.timeout_seconds, transport=transport, headers={"User-Agent": "ha-unifi-vpn-watchdog/0.1"})
+        self._http = httpx.Client(timeout=cfg.timeout_seconds, transport=transport, headers={"User-Agent": "unifi-vpn-watchdog/0.1"})
 
     def _accepted(self, expected_iso: str | None) -> set[str]:
         if not expected_iso:

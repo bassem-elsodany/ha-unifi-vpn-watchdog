@@ -3,8 +3,8 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ha-unifi-vpn-watchdog"
-version = "1.0.0"
+name = "unifi-vpn-watchdog"
+version = "1.0.1"
 description = "Keeps your VLANs on a working VPN: health-checks UniFi WireGuard VPN clients in groups, fails over to the next client in your order, and can keep the routing policies of your VLANs pointed at the active one."
 requires-python = ">=3.11"
 dependencies = [
@@ -18,7 +18,8 @@ dependencies = [
 dev = ["pytest>=8"]
 
 [project.scripts]
-ha-unifi-vpn-watchdog = "vpn_watchdog.cli:main"
+unifi-vpn-watchdog = "vpn_watchdog.cli:main"
+ha-unifi-vpn-watchdog = "vpn_watchdog.cli:main"   # old name, kept for existing setups
 vpn-watchdog = "vpn_watchdog.cli:main"      # short alias
 
 [tool.setuptools.packages.find]
