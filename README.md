@@ -21,6 +21,10 @@ One keeps your UniFi VLANs and devices on a working WireGuard VPN and fails over
 | [**HA UniFi VPN Watchdog**](ha-unifi-vpn-watchdog/README.md) | Groups your UniFi VLANs and devices with an ordered list of WireGuard VPN clients, health-checks the one in use and fails over to the next when it stops carrying traffic. Can rotate clients on a timer, keep warm standbys, and (optionally) keep routing policies pointed at the active client. Graphic status map, settings and a phone layout in a Home Assistant sidebar panel. [Add-on docs](ha-unifi-vpn-watchdog/DOCS.md) |
 | [**Resolvr**](resolvr/README.md) | A monitoring dashboard for Technitium DNS Server in a sidebar panel: live query traffic, clients, query logs, cache, zones, DHCP, and block-list status with an Update now button. Uses your Home Assistant sign-in; set the Technitium address and API token in the Configuration tab. Runs the published [Resolvr](https://github.com/bassem-elsodany/resolvr-dns-dashboard) image. [Add-on docs](resolvr/DOCS.md) |
 
+| HA UniFi VPN Watchdog | Resolvr |
+|---|---|
+| ![HA UniFi VPN Watchdog](ha-unifi-vpn-watchdog/docs/screenshots/status-dark.png) | ![Resolvr](resolvr/docs/screenshots/overview.png) |
+
 More add-ons will be added as folders next to this one, each with its own README.
 
 ## Layout
