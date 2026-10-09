@@ -1,0 +1,63 @@
+name: Update Resolvr add-on
+
+# The Resolvr add-on runs the published Resolvr image, so keeping it current
+# means changing one version number. This checks for a new Resolvr release
+# every day and opens a pull request that bumps it.
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      UPSTREAM: bassem-elsodany/resolvr-dns-dashboard
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare with the latest Resolvr release
+        id: v
+        run: |
+          latest=$(gh api "repos/$UPSTREAM/releases/latest" --jq .tag_name)
+          latest="${latest#v}"
+          current=$(sed -n 's/^version: "\(.*\)"/\1/p' resolvr/config.yaml)
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          if [ "$latest" != "$current" ] && [ "$(printf '%s\n%s\n' "$current" "$latest" | sort -V | tail -1)" = "$latest" ]; then
+            echo "newer=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check the image for that version has been published
+        if: steps.v.outputs.newer == 'true'
+        id: image
+        run: |
+          if docker buildx imagetools inspect "ghcr.io/bassem-elsodany/resolvr:${{ steps.v.outputs.latest }}" >/dev/null 2>&1; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "The image for ${{ steps.v.outputs.latest }} is not published yet; the next run will try again."
+          fi
+
+      - name: Open a pull request
+        if: steps.image.outputs.ready == 'true'
+        run: |
+          v="${{ steps.v.outputs.latest }}"
+          branch="bump-resolvr-$v"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo "$branch already exists"; exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          sed -i "s/^version: \".*\"/version: \"$v\"/" resolvr/config.yaml
+          { printf '# Changelog\n\n## %s\n\n- Resolvr %s. See the [release notes](https://github.com/%s/releases/tag/v%s).\n' "$v" "$v" "$UPSTREAM" "$v"; tail -n +2 resolvr/CHANGELOG.md; } > /tmp/changelog.md
+          mv /tmp/changelog.md resolvr/CHANGELOG.md
+          git add resolvr
+          git commit -m "Resolvr $v"
+          git push -u origin "$branch"
+          gh pr create --title "Resolvr $v" --body "Moves the Resolvr add-on to Resolvr $v ([release notes](https://github.com/$UPSTREAM/releases/tag/v$v)). The image for this version is published."

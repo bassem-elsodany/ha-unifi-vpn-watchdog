@@ -25,3 +25,14 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build the standalone Docker image (no push)
         run: docker build -f ha-unifi-vpn-watchdog/docker/Dockerfile -t ha-unifi-vpn-watchdog:ci ha-unifi-vpn-watchdog
+  resolvr:
+    name: Resolvr add-on manifest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pytest pyyaml
+      - run: pytest -q resolvr/tests
+
