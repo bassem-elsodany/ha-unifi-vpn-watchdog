@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.0
+
+- First stable release. The add-on is unchanged from 0.27.9: this version number marks it as stable.
+
 ## 0.27.9
 
 - The repository moved to `homelab-ha-addons` (a home for several add-ons). The add-on is unchanged; its links now point at the new location. The old GitHub address redirects, so an install that was added with it keeps working.
