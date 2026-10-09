@@ -1,0 +1,36 @@
+name: Release Resolvr add-on
+
+# Gives every Resolvr add-on version its own GitHub release, so the releases
+# page shows what shipped. The tag is resolvr-vX.Y.Z; it deliberately does not
+# start with "v", so it never triggers the watchdog's image build.
+on:
+  push:
+    branches: [main]
+    paths: ["resolvr/config.yaml"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create a release for the current add-on version, if it has none
+        run: |
+          v=$(sed -n 's/^version: "\(.*\)"/\1/p' resolvr/config.yaml)
+          tag="resolvr-v$v"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "$tag already has a release"; exit 0
+          fi
+          flags=""
+          case "$v" in *-*) flags="--prerelease";; *) flags="--latest=false";; esac
+          gh release create "$tag" --target "$GITHUB_SHA" --title "Resolvr add-on $v" $flags --notes "Home Assistant add-on for [Resolvr](https://github.com/bassem-elsodany/resolvr-dns-dashboard), a monitoring dashboard for Technitium DNS Server. It runs the published image \`ghcr.io/bassem-elsodany/resolvr:$v\`.
+
+          - What is in Resolvr $v: [Resolvr release notes](https://github.com/bassem-elsodany/resolvr-dns-dashboard/releases/tag/v$v)
+          - Add-on changes: [resolvr/CHANGELOG.md](https://github.com/bassem-elsodany/homelab-ha-addons/blob/$tag/resolvr/CHANGELOG.md)
+          - Install: add this repository in Home Assistant (Settings > Add-ons > Add-on Store > Repositories), then install **Resolvr**."
