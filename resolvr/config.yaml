@@ -1,5 +1,5 @@
 name: Resolvr
-version: "1.1.0"
+version: "1.1.0-rc.1"
 slug: resolvr
 description: "Monitoring dashboard for Technitium DNS Server in a Home Assistant sidebar panel: live query traffic, clients, cache, zones, DHCP, blocking and block-list updates."
 url: https://github.com/bassem-elsodany/resolvr-dns-dashboard
