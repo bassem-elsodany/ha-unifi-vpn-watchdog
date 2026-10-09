@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1
+
+- Renamed from "HA UniFi VPN Watchdog" to **UniFi VPN Watchdog**: the name Home Assistant shows, the folder, the Docker image (`ghcr.io/bassem-elsodany/unifi-vpn-watchdog`) and the command (`unifi-vpn-watchdog`).
+- Nothing else changes, so installed add-ons keep working: the add-on's internal identifier, its entities and its settings are the same. The old image name and command keep working for now; the old image is published for this release only.
+
 ## 1.0.0
 
 - First stable release. The add-on is unchanged from 0.27.9: this version number marks it as stable.

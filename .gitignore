@@ -3,7 +3,7 @@
 !/.gitignore
 !/repository.yaml
 !/README.md
-!/ha-unifi-vpn-watchdog/
+!/unifi-vpn-watchdog/
 !/resolvr/
 !/LICENSE
 !/.github/

@@ -1,4 +1,4 @@
-# HA UniFi VPN Watchdog
+# UniFi VPN Watchdog
 
 A group is a set of VLANs and/or devices plus an ordered list of your UniFi WireGuard VPN clients. The watchdog switches on the next client
 from your fallback order when the one in use stops carrying traffic, can rotate clients on a timer, can keep warm standbys connected, and
